@@ -496,11 +496,14 @@ class GoCardlessService
             
             foreach ($accounts as $accountId) {
                 try {
-                    // Salden aktualisieren
+                    // ZUERST: Account-Details speichern (falls noch nicht vorhanden)
+                    $this->storeAccountDetails($accountId);
+                    
+                    // DANN: Salden aktualisieren
                     $this->storeAccountBalances($accountId);
                     $results['balances_updated']++;
 
-                    // Transaktionen der letzten 48h aktualisieren
+                    // ZULETZT: Transaktionen aktualisieren
                     $this->updateAccountTransactions($accountId);
                     $results['transactions_updated']++;
 
