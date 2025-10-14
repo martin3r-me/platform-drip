@@ -194,7 +194,6 @@ class GoCardlessService
         Log::info('GoCardlessService: Creating requisition', [
             'institutionId' => $institutionId,
             'redirectUrl' => $redirectUrl,
-            'userId' => $this->userId,
             'teamId' => $this->teamId
         ]);
         
@@ -287,7 +286,6 @@ class GoCardlessService
     {
         Log::info('GoCardlessService: Renewing access', [
             'institutionId' => $institutionId,
-            'userId' => $this->userId,
             'teamId' => $this->teamId
         ]);
 
@@ -326,7 +324,6 @@ class GoCardlessService
     {
         Log::info('GoCardlessService: Deleting requisition', [
             'requisitionId' => $requisitionId,
-            'userId' => $this->userId,
             'teamId' => $this->teamId
         ]);
 
@@ -376,7 +373,6 @@ class GoCardlessService
     public function cleanupExpiredRequisitions(): array
     {
         Log::info('GoCardlessService: Cleaning up expired requisitions', [
-            'userId' => $this->userId,
             'teamId' => $this->teamId
         ]);
 
@@ -462,7 +458,6 @@ class GoCardlessService
     public function updateAllBankData(): array
     {
         Log::info('GoCardlessService: Updating all bank data', [
-            'userId' => $this->userId,
             'teamId' => $this->teamId
         ]);
 
