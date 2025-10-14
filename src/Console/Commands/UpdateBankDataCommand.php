@@ -163,7 +163,9 @@ class UpdateBankDataCommand extends Command
             }
             $this->showTeamBilling($team);
         } else {
-            $teams = Team::whereHas('requisitions')->get();
+            // Teams mit Requisitions finden
+        $teamIds = Requisition::distinct()->pluck('team_id');
+        $teams = Team::whereIn('id', $teamIds)->get();
             foreach ($teams as $team) {
                 $this->showTeamBilling($team);
                 $this->info('');
@@ -210,7 +212,9 @@ class UpdateBankDataCommand extends Command
             return $this->cleanupTeamRequisitions($team);
         }
 
-        $teams = Team::whereHas('requisitions')->get();
+        // Teams mit Requisitions finden
+        $teamIds = Requisition::distinct()->pluck('team_id');
+        $teams = Team::whereIn('id', $teamIds)->get();
         $totalDeleted = 0;
         $totalErrors = 0;
 
@@ -277,7 +281,9 @@ class UpdateBankDataCommand extends Command
             return $this->deleteTeamRequisitions($team);
         }
 
-        $teams = Team::whereHas('requisitions')->get();
+        // Teams mit Requisitions finden
+        $teamIds = Requisition::distinct()->pluck('team_id');
+        $teams = Team::whereIn('id', $teamIds)->get();
         $totalDeleted = 0;
         $totalErrors = 0;
 
