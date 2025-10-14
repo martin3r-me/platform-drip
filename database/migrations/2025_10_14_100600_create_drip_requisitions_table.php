@@ -22,6 +22,7 @@ return new class extends Migration
             $table->string('redirect')->nullable();
             $table->json('accounts')->nullable();
             $table->timestamp('linked_at')->nullable();
+            $table->timestamp('access_expires_at')->nullable(); // Wann läuft der Zugriff ab
 
             $table->timestamps();
             $table->softDeletes();

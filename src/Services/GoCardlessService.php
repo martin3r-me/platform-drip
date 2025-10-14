@@ -102,6 +102,45 @@ class GoCardlessService
         return $data['access'];
     }
 
+    protected function createEndUserAgreement(string $institutionId): ?string
+    {
+        Log::info('GoCardlessService: Creating end user agreement', [
+            'institutionId' => $institutionId
+        ]);
+
+        $token = $this->getAccessToken();
+        if (!$token) return null;
+
+        $response = Http::withToken($token)->post("{$this->baseUrl}/agreements/enduser/", [
+            'institution_id' => $institutionId,
+            'max_historical_days' => 365, // 1 Jahr Transaktionshistorie
+            'access_valid_for_days' => 365, // 1 Jahr Zugriff
+            'access_scope' => ['balances', 'details', 'transactions']
+        ]);
+
+        Log::info('GoCardlessService: End user agreement response', [
+            'status' => $response->status(),
+            'successful' => $response->successful(),
+            'body' => $response->body()
+        ]);
+
+        if ($response->successful()) {
+            $data = $response->json();
+            Log::info('GoCardlessService: Agreement created', [
+                'id' => $data['id'] ?? 'MISSING',
+                'max_historical_days' => $data['max_historical_days'] ?? 'MISSING',
+                'access_valid_for_days' => $data['access_valid_for_days'] ?? 'MISSING'
+            ]);
+            return $data['id'] ?? null;
+        }
+
+        Log::error('GoCardlessService: End user agreement failed', [
+            'status' => $response->status(),
+            'body' => $response->body()
+        ]);
+        return null;
+    }
+
     public function getInstitutions(string $country = 'DE'): array
     {
         $token = $this->getAccessToken();
@@ -150,6 +189,13 @@ class GoCardlessService
             return null;
         }
 
+        // Step 1: Create End User Agreement with extended terms
+        $agreementId = $this->createEndUserAgreement($institutionId);
+        if (!$agreementId) {
+            Log::error('GoCardlessService: Failed to create end user agreement');
+            return null;
+        }
+
         $reference = uniqid('ref_');
         Log::info('GoCardlessService: Generated reference', ['reference' => $reference]);
 
@@ -158,6 +204,7 @@ class GoCardlessService
             'institution_id' => $institutionId,
             'reference' => $reference,
             'user_language' => 'DE',
+            'agreement' => $agreementId, // Link to our custom agreement
         ]);
 
         if ($response->successful()) {
@@ -213,9 +260,49 @@ class GoCardlessService
             'accounts' => $data['accounts'] ?? [],
             'status' => $data['status'] ?? null,
             'linked_at' => now(),
+            'access_expires_at' => now()->addDays(365), // 1 Jahr Zugriff
         ]);
 
         return $data['accounts'] ?? [];
+    }
+
+    /**
+     * Verlängert den Zugriff auf eine abgelaufene Bankverbindung
+     */
+    public function renewAccess(string $institutionId): ?string
+    {
+        Log::info('GoCardlessService: Renewing access', [
+            'institutionId' => $institutionId,
+            'userId' => $this->userId,
+            'teamId' => $this->teamId
+        ]);
+
+        // Neue Agreement mit gleichen Parametern erstellen
+        $agreementId = $this->createEndUserAgreement($institutionId);
+        if (!$agreementId) {
+            Log::error('GoCardlessService: Failed to create renewal agreement');
+            return null;
+        }
+
+        // Neue Requisition für Verlängerung erstellen
+        $redirectUrl = route('drip.banks.callback');
+        return $this->createRequisition($institutionId, $redirectUrl);
+    }
+
+    /**
+     * Prüft ob eine Bankverbindung bald abläuft (30 Tage vorher)
+     */
+    public function getExpiringConnections(): array
+    {
+        $expiringDate = now()->addDays(30);
+        
+        return Requisition::where('team_id', $this->teamId)
+            ->where('access_expires_at', '<=', $expiringDate)
+            ->where('access_expires_at', '>', now())
+            ->whereNotNull('linked_at')
+            ->with('institution')
+            ->get()
+            ->toArray();
     }
 
     protected function storeAccountDetails(string $accountId): void
