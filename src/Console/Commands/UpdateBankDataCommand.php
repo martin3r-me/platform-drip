@@ -9,10 +9,11 @@ use Platform\Core\Models\Team;
 class UpdateBankDataCommand extends Command
 {
     protected $signature = 'drip:update-bank-data 
-                            {--team= : Specific team ID to update}
-                            {--dry-run : Show what would be updated without making changes}
-                            {--cleanup : Clean up expired requisitions for billing optimization}
-                            {--billing : Show billing overview for teams}';
+                                    {--team= : Specific team ID to update}
+                                    {--dry-run : Show what would be updated without making changes}
+                                    {--cleanup : Clean up expired requisitions for billing optimization}
+                                    {--delete-all : Delete ALL requisitions (use with caution!)}
+                                    {--billing : Show billing overview for teams}';
 
     protected $description = 'Update bank data for all teams or a specific team';
 
@@ -21,10 +22,15 @@ class UpdateBankDataCommand extends Command
         $teamId = $this->option('team');
         $dryRun = $this->option('dry-run');
         $cleanup = $this->option('cleanup');
+        $deleteAll = $this->option('delete-all');
         $billing = $this->option('billing');
 
         if ($billing) {
             return $this->showBillingOverview($teamId);
+        }
+
+        if ($deleteAll) {
+            return $this->deleteAllRequisitions($teamId);
         }
 
         if ($cleanup) {
@@ -246,6 +252,87 @@ class UpdateBankDataCommand extends Command
 
         } catch (\Exception $e) {
             $this->error("   ❌ Failed to cleanup team {$team->name}: " . $e->getMessage());
+            return 1;
+        }
+    }
+
+    protected function deleteAllRequisitions(?int $teamId): int
+    {
+        $this->warn('⚠️  WARNING: This will delete ALL requisitions!');
+        $this->warn('   This action cannot be undone!');
+        
+        if (!$this->confirm('Are you sure you want to delete ALL requisitions?')) {
+            $this->info('❌ Operation cancelled');
+            return 0;
+        }
+
+        $this->info('🗑️  Deleting ALL requisitions...');
+
+        if ($teamId) {
+            $team = Team::find($teamId);
+            if (!$team) {
+                $this->error("❌ Team with ID {$teamId} not found");
+                return 1;
+            }
+            return $this->deleteTeamRequisitions($team);
+        }
+
+        $teams = Team::whereHas('requisitions')->get();
+        $totalDeleted = 0;
+        $totalErrors = 0;
+
+        foreach ($teams as $team) {
+            $this->info("\n📊 Processing team: {$team->name}");
+            $result = $this->deleteTeamRequisitions($team);
+            if ($result === 0) {
+                $totalDeleted++;
+            } else {
+                $totalErrors++;
+            }
+        }
+
+        $this->info("\n✅ Delete All Summary:");
+        $this->info("   Teams processed: {$teams->count()}");
+        $this->info("   Successful: {$totalDeleted}");
+        $this->info("   Errors: {$totalErrors}");
+
+        return $totalErrors > 0 ? 1 : 0;
+    }
+
+    protected function deleteTeamRequisitions(Team $team): int
+    {
+        try {
+            $gc = new GoCardlessService($team->owner_id, $team->id);
+            
+            // Alle Requisitions für das Team holen
+            $requisitions = Requisition::where('team_id', $team->id)->get();
+            
+            if ($requisitions->isEmpty()) {
+                $this->info("   ℹ️  No requisitions found for team {$team->name}");
+                return 0;
+            }
+
+            $deletedCount = 0;
+            $errorCount = 0;
+
+            foreach ($requisitions as $requisition) {
+                $this->info("   🗑️  Deleting requisition: {$requisition->external_id}");
+                
+                if ($gc->deleteRequisition($requisition->external_id)) {
+                    $deletedCount++;
+                    $this->info("      ✅ Deleted successfully");
+                } else {
+                    $errorCount++;
+                    $this->error("      ❌ Failed to delete");
+                }
+            }
+
+            $this->info("   📊 Results: {$deletedCount} deleted, {$errorCount} errors");
+
+            return $errorCount > 0 ? 1 : 0;
+
+        } catch (\Exception $e) {
+            $this->error("   ❌ Failed to delete requisitions for team {$team->name}: " . $e->getMessage());
             return 1;
         }
     }

@@ -17,7 +17,7 @@ class BankAccount extends Model
     protected $table = 'drip_bank_accounts';
 
     protected $fillable = [
-        'uuid', 'team_id', 'user_id', 'institution_id', 'group_id',
+        'uuid', 'team_id', 'user_id', 'institution_id', 'group_id', 'external_id',
         'name', 'iban', 'bic', 'currency', 'initial_balance', 'opened_at', 'closed_at', 'metadata',
     ];
 

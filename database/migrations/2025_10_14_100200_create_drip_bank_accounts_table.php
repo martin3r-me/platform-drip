@@ -15,6 +15,7 @@ return new class extends Migration
             $table->unsignedBigInteger('user_id')->nullable()->index();
             $table->unsignedBigInteger('institution_id')->nullable()->index();
             $table->unsignedBigInteger('group_id')->nullable()->index();
+            $table->string('external_id')->nullable()->index();
 
             $table->string('name');
             $table->text('iban')->nullable();
