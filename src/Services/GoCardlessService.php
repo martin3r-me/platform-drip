@@ -305,6 +305,236 @@ class GoCardlessService
             ->toArray();
     }
 
+    /**
+     * Löscht eine Requisition bei GoCardless (für Billing-Optimierung)
+     */
+    public function deleteRequisition(string $requisitionId): bool
+    {
+        Log::info('GoCardlessService: Deleting requisition', [
+            'requisitionId' => $requisitionId,
+            'userId' => $this->userId,
+            'teamId' => $this->teamId
+        ]);
+
+        $token = $this->getAccessToken();
+        if (!$token) return false;
+
+        $response = Http::withToken($token)
+            ->delete("{$this->baseUrl}/requisitions/{$requisitionId}/");
+
+        Log::info('GoCardlessService: Delete response', [
+            'status' => $response->status(),
+            'successful' => $response->successful(),
+            'body' => $response->body()
+        ]);
+
+        if ($response->successful()) {
+            // Lokale Requisition als gelöscht markieren
+            Requisition::where('external_id', $requisitionId)
+                ->where('team_id', $this->teamId)
+                ->update(['deleted_at' => now()]);
+            
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Bereinigt abgelaufene Requisitions (für Billing-Optimierung)
+     */
+    public function cleanupExpiredRequisitions(): array
+    {
+        Log::info('GoCardlessService: Cleaning up expired requisitions', [
+            'userId' => $this->userId,
+            'teamId' => $this->teamId
+        ]);
+
+        $results = [
+            'deleted' => 0,
+            'errors' => []
+        ];
+
+        // Abgelaufene Requisitions finden
+        $expiredRequisitions = Requisition::where('team_id', $this->teamId)
+            ->where('access_expires_at', '<', now())
+            ->whereNotNull('linked_at')
+            ->whereNull('deleted_at')
+            ->get();
+
+        foreach ($expiredRequisitions as $requisition) {
+            try {
+                if ($this->deleteRequisition($requisition->external_id)) {
+                    $results['deleted']++;
+                    Log::info('GoCardlessService: Deleted expired requisition', [
+                        'external_id' => $requisition->external_id,
+                        'institution' => $requisition->institution->name ?? 'Unknown'
+                    ]);
+                }
+            } catch (\Exception $e) {
+                $results['errors'][] = "Requisition {$requisition->external_id}: " . $e->getMessage();
+                Log::error('GoCardlessService: Failed to delete requisition', [
+                    'external_id' => $requisition->external_id,
+                    'error' => $e->getMessage()
+                ]);
+            }
+        }
+
+        Log::info('GoCardlessService: Cleanup completed', $results);
+        return $results;
+    }
+
+    /**
+     * Gibt Billing-Übersicht für ein Team zurück
+     */
+    public function getBillingOverview(): array
+    {
+        $activeRequisitions = Requisition::where('team_id', $this->teamId)
+            ->whereNotNull('linked_at')
+            ->where('access_expires_at', '>', now())
+            ->whereNull('deleted_at')
+            ->with('institution')
+            ->get();
+
+        $expiredRequisitions = Requisition::where('team_id', $this->teamId)
+            ->whereNotNull('linked_at')
+            ->where('access_expires_at', '<', now())
+            ->whereNull('deleted_at')
+            ->with('institution')
+            ->get();
+
+        return [
+            'active_count' => $activeRequisitions->count(),
+            'expired_count' => $expiredRequisitions->count(),
+            'active_requisitions' => $activeRequisitions->map(function ($req) {
+                return [
+                    'id' => $req->external_id,
+                    'institution' => $req->institution->name ?? 'Unknown',
+                    'expires_at' => $req->access_expires_at?->format('Y-m-d H:i:s'),
+                    'accounts_count' => count($req->accounts ?? [])
+                ];
+            }),
+            'expired_requisitions' => $expiredRequisitions->map(function ($req) {
+                return [
+                    'id' => $req->external_id,
+                    'institution' => $req->institution->name ?? 'Unknown',
+                    'expired_at' => $req->access_expires_at?->format('Y-m-d H:i:s'),
+                    'accounts_count' => count($req->accounts ?? [])
+                ];
+            })
+        ];
+    }
+
+    /**
+     * Aktualisiert alle Bankdaten für ein Team
+     * Lädt alle Transaktionen der letzten 48 Stunden
+     */
+    public function updateAllBankData(): array
+    {
+        Log::info('GoCardlessService: Updating all bank data', [
+            'userId' => $this->userId,
+            'teamId' => $this->teamId
+        ]);
+
+        $results = [
+            'accounts_updated' => 0,
+            'balances_updated' => 0,
+            'transactions_updated' => 0,
+            'errors' => []
+        ];
+
+        // Alle aktiven Bankverbindungen finden
+        $requisitions = Requisition::where('team_id', $this->teamId)
+            ->whereNotNull('linked_at')
+            ->where('access_expires_at', '>', now())
+            ->get();
+
+        foreach ($requisitions as $requisition) {
+            $accounts = $requisition->accounts ?? [];
+            
+            foreach ($accounts as $accountId) {
+                try {
+                    // Salden aktualisieren
+                    $this->storeAccountBalances($accountId);
+                    $results['balances_updated']++;
+
+                    // Transaktionen der letzten 48h aktualisieren
+                    $this->updateAccountTransactions($accountId);
+                    $results['transactions_updated']++;
+
+                } catch (\Exception $e) {
+                    $results['errors'][] = "Account {$accountId}: " . $e->getMessage();
+                    Log::error('GoCardlessService: Update error', [
+                        'accountId' => $accountId,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+        }
+
+        Log::info('GoCardlessService: Update completed', $results);
+        return $results;
+    }
+
+    /**
+     * Aktualisiert Transaktionen für ein Konto (echtes Delta)
+     */
+    protected function updateAccountTransactions(string $accountId): void
+    {
+        $token = $this->getAccessToken();
+        if (!$token) return;
+
+        $account = BankAccount::where('external_id', $accountId)->first();
+        if (!$account) return;
+
+        // ECHTES DELTA: Nur seit letztem Sync
+        $requisition = Requisition::where('team_id', $this->teamId)
+            ->whereJsonContains('accounts', $accountId)
+            ->first();
+            
+        $lastSync = $requisition?->last_sync_at ?? $account->updated_at ?? now()->subDays(7);
+        $dateFrom = $lastSync->format('Y-m-d');
+        
+        Log::info('GoCardlessService: Delta update', [
+            'accountId' => $accountId,
+            'dateFrom' => $dateFrom,
+            'lastSync' => $lastSync->format('Y-m-d H:i:s')
+        ]);
+        
+        $response = Http::withToken($token)
+            ->get("{$this->baseUrl}/accounts/{$accountId}/transactions/", [
+                'date_from' => $dateFrom
+            ]);
+
+        if ($response->successful()) {
+            $account = BankAccount::where('external_id', $accountId)->first();
+            if (!$account) return;
+
+            $transactions = $response->json()['transactions']['booked'] ?? [];
+            
+            foreach ($transactions as $tx) {
+                // Deduplication durch transaction_id
+                BankTransaction::updateOrCreate(
+                    ['transaction_id' => $tx['transactionId'] ?? uniqid('tx_')],
+                    [
+                        'bank_account_id' => $account->id,
+                        'booking_date' => $tx['bookingDate'] ?? null,
+                        'booking_date_time' => $tx['bookingDateTime'] ?? null,
+                        'value_date' => $tx['valueDate'] ?? null,
+                        'value_date_time' => $tx['valueDateTime'] ?? null,
+                        'amount' => $tx['transactionAmount']['amount'] ?? '0',
+                        'currency' => $tx['transactionAmount']['currency'] ?? null,
+                        'counterparty_name' => $tx['debtorName'] ?? $tx['creditorName'] ?? null,
+                        'counterparty_iban' => $tx['debtorAccount']['iban'] ?? $tx['creditorAccount']['iban'] ?? null,
+                        'reference' => $tx['remittanceInformationUnstructured'] ?? null,
+                        'user_id' => $this->userId,
+                        'team_id' => $this->teamId,
+                    ]
+                );
+            }
+        }
+    }
+
     protected function storeAccountDetails(string $accountId): void
     {
         $token = $this->getAccessToken();
@@ -415,7 +645,12 @@ class GoCardlessService
                     'additional_information_structured' => $tx['additionalInformationStructured'] ?? null,
                 ]
             );
+                }
+            }
+            
+            // Sync-Timestamp aktualisieren
+            if ($requisition) {
+                $requisition->update(['last_sync_at' => now()]);
             }
         }
     }
-}

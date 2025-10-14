@@ -75,6 +75,9 @@ class DripServiceProvider extends ServiceProvider
         // Schritt 6: Views & Livewire
         $this->loadViewsFrom(__DIR__ . '/../resources/views', 'drip');
         $this->registerLivewireComponents();
+        
+        // Schritt 7: Commands
+        $this->registerCommands();
     }
 
     protected function registerLivewireComponents(): void
@@ -111,12 +114,21 @@ class DripServiceProvider extends ServiceProvider
 
             // Debug: Ausgabe der registrierten Komponente
             \Log::info("Registering Livewire component: {$alias} -> {$class}");
-            
+
             try {
                 Livewire::component($alias, $class);
             } catch (\Exception $e) {
                 \Log::error("Failed to register Livewire component {$alias}: " . $e->getMessage());
             }
+        }
+    }
+
+    protected function registerCommands(): void
+    {
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                \Platform\Drip\Console\Commands\UpdateBankDataCommand::class,
+            ]);
         }
     }
 }

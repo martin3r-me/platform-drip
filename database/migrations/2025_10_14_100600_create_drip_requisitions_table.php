@@ -23,6 +23,7 @@ return new class extends Migration
             $table->json('accounts')->nullable();
             $table->timestamp('linked_at')->nullable();
             $table->timestamp('access_expires_at')->nullable(); // Wann läuft der Zugriff ab
+            $table->timestamp('last_sync_at')->nullable(); // Letztes erfolgreiches Update
 
             $table->timestamps();
             $table->softDeletes();
