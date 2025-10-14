@@ -28,9 +28,23 @@ class BankAccount extends Model
         'initial_balance' => 'decimal:4',
     ];
 
-    protected array $encryptable = [
-        'iban' => 'string',
-    ];
+    protected function initializeEncryptable(): void
+    {
+        // Feldliste für Verschlüsselung setzen und Casts registrieren
+        $this->encryptable = [
+            'iban' => 'string',
+        ];
+
+        if (!property_exists($this, 'casts') || !is_array($this->casts)) {
+            $this->casts = [];
+        }
+
+        foreach ($this->encryptable as $field => $type) {
+            $this->casts[$field] = $type === 'json'
+                ? \Platform\Core\Casts\EncryptedJson::class
+                : \Platform\Core\Casts\EncryptedString::class;
+        }
+    }
 
     protected static function booted(): void
     {
