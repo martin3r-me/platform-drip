@@ -17,7 +17,8 @@ class Institution extends Model
 
     protected $fillable = [
         'uuid', 'team_id', 'user_id',
-        'external_id', 'name', 'country', 'metadata',
+        'external_id', 'name', 'country', 'bic', 'logo',
+        'transaction_total_days', 'max_access_valid_for_days', 'metadata',
     ];
 
     protected $casts = [

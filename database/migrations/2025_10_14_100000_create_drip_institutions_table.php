@@ -17,6 +17,10 @@ return new class extends Migration
             $table->string('name');
             $table->string('country', 2)->nullable();
             $table->string('external_id')->nullable();
+            $table->string('bic')->nullable();
+            $table->string('logo')->nullable();
+            $table->integer('transaction_total_days')->nullable();
+            $table->integer('max_access_valid_for_days')->nullable();
             $table->json('metadata')->nullable();
 
             $table->timestamps();
