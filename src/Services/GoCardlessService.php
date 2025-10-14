@@ -119,7 +119,7 @@ class GoCardlessService
                 'institution_id' => Institution::where('external_id', $institutionId)->first()?->id,
                 'user_id' => $this->userId,
                 'team_id' => $this->teamId,
-                'status' => $data['status']['short'] ?? null,
+                'status' => $data['status']['short'] ?? 'pending',
                 'redirect' => $data['redirect'] ?? $redirectUrl,
             ]);
 
