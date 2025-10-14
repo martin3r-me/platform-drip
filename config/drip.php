@@ -17,32 +17,6 @@ return [
         'route' => 'drip.dashboard',
         'icon'  => 'heroicon-o-cube',
         'order' => 50,
-        // Zusätzlich: strukturierte Sidebar/Main-Navigation des Moduls
-        'main' => [
-            'drip' => [
-                'title' => 'Drip',
-                'icon' => 'heroicon-o-drop',
-                'route' => 'drip.dashboard',
-            ],
-        ],
     ],
-    
-    'sidebar' => [
-        'drip' => [
-            'title' => 'Drip',
-            'icon' => 'heroicon-o-drop',
-            'items' => [
-                'dashboard' => [
-                    'title' => 'Dashboard',
-                    'route' => 'drip.dashboard',
-                    'icon' => 'heroicon-o-home',
-                ],
-                'banks' => [
-                    'title' => 'Banken',
-                    'route' => 'drip.banks',
-                    'icon' => 'heroicon-o-building-library',
-                ],
-            ],
-        ],
-    ],
+    // Sidebar wird über die Modul-eigene Sidebar-Komponente gerendert
 ];
