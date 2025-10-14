@@ -125,8 +125,10 @@
             <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 <div class="flex items-center justify-between mb-4">
                     <div>
-                        <h3 class="text-lg font-semibold text-gray-900">{{ $group->name }}</h3>
-                        <p class="text-sm text-gray-600">{{ $group->accounts->count() }} Konten</p>
+                        <a href="{{ route('drip.groups.transactions', $group) }}" class="group">
+                            <h3 class="text-lg font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">{{ $group->name }}</h3>
+                            <p class="text-sm text-gray-600">{{ $group->accounts->count() }} Konten</p>
+                        </a>
                     </div>
                     <div class="flex items-center gap-2">
                         <button type="button" wire:click="openAccountModal({{ $group->id }})" class="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
