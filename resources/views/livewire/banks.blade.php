@@ -1,27 +1,25 @@
 <div class="space-y-8">
+    {{-- Header --}}
     <div class="flex items-center justify-between">
-        <h1 class="text-xl font-semibold">Banken & Konten</h1>
-        <div class="text-sm text-gray-500">Livewire Test: {{ now() }}</div>
-        <div class="flex items-center gap-2">
-            <button type="button" wire:click="openInstitutionModal" class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                @svg('heroicon-o-plus', 'w-4 h-4 mr-2')
-                Bank hinzufügen
-            </button>
-            <button type="button" wire:click="openGroupModal" class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">Banken & Konten</h1>
+            <p class="text-sm text-gray-600 mt-1">Verwalte deine Bankverbindungen und Kontogruppen</p>
+        </div>
+        <div class="flex items-center gap-3">
+            <button type="button" wire:click="openGroupModal" class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors">
                 @svg('heroicon-o-plus', 'w-4 h-4 mr-2')
                 Gruppe hinzufügen
-            </button>
-            <button type="button" wire:click="openAccountModal" class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500">
-                @svg('heroicon-o-plus', 'w-4 h-4 mr-2')
-                Konto hinzufügen
             </button>
         </div>
     </div>
 
     {{-- GoCardless Banken --}}
-    <div class="mb-8">
-        <div class="flex items-center justify-between mb-4">
-            <h2 class="text-xl font-semibold">Banken verbinden</h2>
+    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div class="flex items-center justify-between mb-6">
+            <div>
+                <h2 class="text-lg font-semibold text-gray-900">Banken verbinden</h2>
+                <p class="text-sm text-gray-600 mt-1">Verbinde deine Bank über GoCardless</p>
+            </div>
             @if (empty($gocardlessInstitutions))
                 <button 
                     wire:click="loadGoCardlessInstitutions"
@@ -121,40 +119,67 @@
         @endif
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div class="col-span-1">
-            <h2 class="font-medium mb-2">Verbundene Banken</h2>
-            <div class="space-y-1">
-                @forelse ($institutions as $i)
-                    <div class="px-3 py-2 rounded border">{{ $i->name }} <span class="text-gray-500">({{ $i->country }})</span></div>
-                @empty
-                    <div class="text-gray-500">Keine Banken erfasst.</div>
-                @endforelse
-            </div>
-        </div>
-        <div class="col-span-1">
-            <h2 class="font-medium mb-2">Gruppen</h2>
-            <div class="space-y-1">
-                @forelse ($groups as $g)
-                    <div class="px-3 py-2 rounded border">{{ $g->name }}</div>
-                @empty
-                    <div class="text-gray-500">Keine Gruppen erfasst.</div>
-                @endforelse
-            </div>
-        </div>
-        <div class="col-span-1 md:col-span-1">
-            <h2 class="font-medium mb-2">Konten</h2>
-            <div class="space-y-1">
-                @forelse ($accounts as $a)
-                    <div class="px-3 py-2 rounded border">
-                        <div class="font-medium">{{ $a->name }} <span class="text-gray-500">({{ $a->currency }})</span></div>
-                        <div class="text-gray-500 text-sm">{{ $a->institution?->name }} · {{ $a->group?->name }}</div>
+    {{-- Kontogruppen --}}
+    <div class="space-y-6">
+        @forelse ($groups as $group)
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900">{{ $group->name }}</h3>
+                        <p class="text-sm text-gray-600">{{ $group->accounts->count() }} Konten</p>
                     </div>
-                @empty
-                    <div class="text-gray-500">Noch keine Konten.</div>
-                @endforelse
+                    <div class="flex items-center gap-2">
+                        <button type="button" wire:click="openAccountModal({{ $group->id }})" class="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                            @svg('heroicon-o-plus', 'w-4 h-4 mr-1')
+                            Konto hinzufügen
+                        </button>
+                    </div>
+                </div>
+                
+                @if ($group->accounts->count() > 0)
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        @foreach ($group->accounts as $account)
+                            <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                                <div class="flex items-start justify-between">
+                                    <div class="flex-1">
+                                        <h4 class="font-medium text-gray-900">{{ $account->name }}</h4>
+                                        <p class="text-sm text-gray-600 mt-1">{{ $account->institution?->name ?? 'Unbekannte Bank' }}</p>
+                                        <p class="text-xs text-gray-500 mt-1">{{ $account->currency }} • {{ $account->iban ? '****' . substr($account->iban, -4) : 'Keine IBAN' }}</p>
+                                    </div>
+                                    <div class="flex items-center gap-1">
+                                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                            Verbunden
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                @else
+                    <div class="text-center py-8 bg-gray-50 rounded-lg">
+                        <div class="text-gray-400 mb-2">
+                            @svg('heroicon-o-credit-card', 'w-8 h-8 mx-auto')
+                        </div>
+                        <p class="text-gray-500 text-sm">Keine Konten in dieser Gruppe</p>
+                        <button type="button" wire:click="openAccountModal({{ $group->id }})" class="mt-2 text-blue-600 hover:text-blue-700 text-sm font-medium">
+                            Erstes Konto hinzufügen
+                        </button>
+                    </div>
+                @endif
             </div>
-        </div>
+        @empty
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
+                <div class="text-gray-400 mb-4">
+                    @svg('heroicon-o-folder', 'w-16 h-16 mx-auto')
+                </div>
+                <h3 class="text-lg font-medium text-gray-900 mb-2">Keine Kontogruppen</h3>
+                <p class="text-gray-500 mb-6">Erstelle eine Kontogruppe, um deine Bankkonten zu organisieren.</p>
+                <button type="button" wire:click="openGroupModal" class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+                    @svg('heroicon-o-plus', 'w-4 h-4 mr-2')
+                    Erste Gruppe erstellen
+                </button>
+            </div>
+        @endforelse
     </div>
 
     <x-ui-modal model="showInstitutionModal">
