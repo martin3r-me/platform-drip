@@ -111,15 +111,34 @@ class GoCardlessService
         $token = $this->getAccessToken();
         if (!$token) return null;
 
+        // Bank-spezifische Limits ermitteln
+        $institution = Institution::where('external_id', $institutionId)->first();
+        $maxHistoricalDays = $institution?->transaction_total_days ?? 90; // Fallback: 90 Tage
+        $maxAccessDays = $institution?->max_access_valid_for_days ?? 90; // Fallback: 90 Tage
+
+        // Unsere gewünschten Werte mit Bank-Limits abgleichen
+        $requestedHistoricalDays = 360; // 12 Monate
+        $requestedAccessDays = 180; // 6 Monate
+
+        $historicalDays = min($requestedHistoricalDays, $maxHistoricalDays);
+        $accessDays = min($requestedAccessDays, $maxAccessDays);
+
         $agreementData = [
             'institution_id' => $institutionId,
-            'max_historical_days' => 365, // 12 Monate Transaktionshistorie
-            'access_valid_for_days' => 180, // 6 Monate Zugriff
+            'max_historical_days' => $historicalDays,
+            'access_valid_for_days' => $accessDays,
             'access_scope' => ['balances', 'details', 'transactions']
         ];
 
         Log::info('GoCardlessService: Creating end user agreement', [
             'institutionId' => $institutionId,
+            'institution' => $institution?->name ?? 'Unknown',
+            'maxHistoricalDays' => $maxHistoricalDays,
+            'maxAccessDays' => $maxAccessDays,
+            'requestedHistoricalDays' => $requestedHistoricalDays,
+            'requestedAccessDays' => $requestedAccessDays,
+            'finalHistoricalDays' => $historicalDays,
+            'finalAccessDays' => $accessDays,
             'agreementData' => $agreementData
         ]);
 
