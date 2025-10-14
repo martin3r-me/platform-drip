@@ -113,8 +113,8 @@ class GoCardlessService
 
         $response = Http::withToken($token)->post("{$this->baseUrl}/agreements/enduser/", [
             'institution_id' => $institutionId,
-            'max_historical_days' => 365, // 1 Jahr Transaktionshistorie
-            'access_valid_for_days' => 365, // 1 Jahr Zugriff
+            'max_historical_days' => 365, // 12 Monate Transaktionshistorie
+            'access_valid_for_days' => 180, // 6 Monate Zugriff
             'access_scope' => ['balances', 'details', 'transactions']
         ]);
 
@@ -260,7 +260,7 @@ class GoCardlessService
             'accounts' => $data['accounts'] ?? [],
             'status' => $data['status'] ?? null,
             'linked_at' => now(),
-            'access_expires_at' => now()->addDays(365), // 1 Jahr Zugriff
+            'access_expires_at' => now()->addDays(180), // 6 Monate Zugriff
         ]);
 
         return $data['accounts'] ?? [];
