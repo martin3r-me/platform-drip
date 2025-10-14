@@ -53,6 +53,12 @@ class BankAccountGroup extends Model
         return $this->hasMany(BankAccount::class, 'group_id');
     }
 
+    // Alias für bessere Lesbarkeit
+    public function accounts(): HasMany
+    {
+        return $this->bankAccounts();
+    }
+
     public function transactions(): HasManyThrough
     {
         return $this->hasManyThrough(
