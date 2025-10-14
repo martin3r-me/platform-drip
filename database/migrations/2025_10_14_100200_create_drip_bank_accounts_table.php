@@ -32,7 +32,6 @@ return new class extends Migration
             $table->foreign('user_id')->references('id')->on('users')->nullOnDelete();
             $table->foreign('institution_id')->references('id')->on('drip_institutions')->nullOnDelete();
             $table->foreign('group_id')->references('id')->on('drip_bank_account_groups')->nullOnDelete();
-            $table->unique(['team_id', 'iban']);
         });
     }
 
