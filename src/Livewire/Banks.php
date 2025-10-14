@@ -105,9 +105,9 @@ class Banks extends Component
 
         return view('drip::livewire.banks', [
             'institutions' => Institution::forTeam($teamId)->orderBy('name')->get(),
-            'groups' => BankAccountGroup::forTeam($teamId)->with('accounts.institution')->orderBy('name')->get(),
+            'groups' => BankAccountGroup::forTeam($teamId)->with(['accounts.institution', 'accounts.balances'])->orderBy('name')->get(),
             'accounts' => BankAccount::forTeam($teamId)
-                ->with(['institution', 'group'])
+                ->with(['institution', 'group', 'balances'])
                 ->orderBy('name')
                 ->get(),
             'filteredInstitutions' => $filteredInstitutions,

@@ -149,6 +149,29 @@
                                         <h4 class="font-medium text-gray-900">{{ $account->name }}</h4>
                                         <p class="text-sm text-gray-600 mt-1">{{ $account->institution?->name ?? 'Unbekannte Bank' }}</p>
                                         <p class="text-xs text-gray-500 mt-1">{{ $account->currency }} • {{ $account->iban ? '****' . substr($account->iban, -4) : 'Keine IBAN' }}</p>
+                                        
+                                        {{-- Balances --}}
+                                        @if($account->balances->count() > 0)
+                                            <div class="mt-3 space-y-1">
+                                                @foreach($account->balances->take(3) as $balance)
+                                                    <div class="flex items-center justify-between text-xs">
+                                                        <span class="text-gray-500">{{ ucfirst($balance->balance_type }}:</span>
+                                                        <span class="font-medium {{ $balance->amount >= 0 ? 'text-green-600' : 'text-red-600' }}">
+                                                            {{ number_format($balance->amount, 2, ',', '.') }} {{ $balance->currency ?? $account->currency }}
+                                                        </span>
+                                                    </div>
+                                                @endforeach
+                                                @if($account->balances->count() > 3)
+                                                    <div class="text-xs text-gray-400">
+                                                        +{{ $account->balances->count() - 3 }} weitere
+                                                    </div>
+                                                @endif
+                                            </div>
+                                        @else
+                                            <div class="mt-2 text-xs text-gray-400">
+                                                Keine Salden verfügbar
+                                            </div>
+                                        @endif
                                     </div>
                                     <div class="flex items-center gap-1">
                                         <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
