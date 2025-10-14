@@ -182,6 +182,41 @@
         @endforelse
     </div>
 
+    {{-- Konten ohne Gruppe --}}
+    @if ($accounts->whereNull('group_id')->count() > 0)
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900">Konten ohne Gruppe</h3>
+                    <p class="text-sm text-gray-600">{{ $accounts->whereNull('group_id')->count() }} Konten warten auf Zuordnung</p>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                @foreach ($accounts->whereNull('group_id') as $account)
+                    <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1">
+                                <h4 class="font-medium text-gray-900">{{ $account->name }}</h4>
+                                <p class="text-sm text-gray-600 mt-1">{{ $account->institution?->name ?? 'Unbekannte Bank' }}</p>
+                                <p class="text-xs text-gray-500 mt-1">{{ $account->currency }} • {{ $account->iban ? '****' . substr($account->iban, -4) : 'Keine IBAN' }}</p>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                    Ohne Gruppe
+                                </span>
+                                <button type="button" wire:click="assignAccountToGroup({{ $account->id }})" class="inline-flex items-center px-2 py-1 bg-blue-600 text-white text-xs rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                                    @svg('heroicon-o-plus', 'w-3 h-3 mr-1')
+                                    Zuordnen
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+    @endif
+
     <x-ui-modal model="showInstitutionModal">
         <x-slot:title>Bank hinzufügen</x-slot:title>
         <div class="space-y-4">

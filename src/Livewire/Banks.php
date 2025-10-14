@@ -158,6 +158,13 @@ class Banks extends Component
         $this->accountForm = ['name' => '', 'iban' => '', 'currency' => 'EUR', 'institution_id' => null, 'group_id' => null];
         $this->showAccountModal = false;
     }
+
+    public function assignAccountToGroup($accountId)
+    {
+        $this->accountForm['group_id'] = null;
+        $this->showAccountModal = true;
+        // Hier könnten wir auch ein Modal für die Gruppenauswahl öffnen
+    }
 }
 
 
