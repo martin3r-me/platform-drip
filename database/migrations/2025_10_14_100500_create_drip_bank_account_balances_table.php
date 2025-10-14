@@ -14,9 +14,14 @@ return new class extends Migration
             $table->unsignedBigInteger('team_id')->index();
             $table->unsignedBigInteger('bank_account_id')->index();
 
+            $table->string('balance_type'); // z. B. booked, available, expected
+            $table->string('amount');
+            $table->string('currency')->nullable();
+            $table->timestamp('retrieved_at'); // Zeitpunkt der Abfrage
+            
+            // Legacy fields for compatibility
             $table->date('as_of_date')->index();
             $table->decimal('balance', 16, 4);
-            $table->string('currency', 3)->default('EUR');
 
             $table->timestamps();
 

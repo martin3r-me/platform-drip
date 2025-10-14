@@ -19,15 +19,35 @@ class BankTransaction extends Model
     protected $table = 'drip_bank_transactions';
 
     protected $fillable = [
-        'uuid', 'team_id', 'user_id', 'bank_account_id', 'category_id',
-        'booked_at', 'transaction_id', 'counterparty_name', 'counterparty_iban', 'reference',
+        'uuid', 'team_id', 'user_id', 'bank_account_id', 'category_id', 'recurring_pattern_id',
+        'transaction_id', 'booking_date', 'booking_date_time', 'value_date', 'value_date_time', 'booked_at',
         'amount', 'currency', 'direction', 'status', 'metadata',
+        'remittance_information', 'remittance_information_structured', 'remittance_information_structured_array',
+        'remittance_information_unstructured', 'remittance_information_unstructured_array',
+        'debtor_name', 'creditor_name', 'debtor_account_iban', 'creditor_account_iban',
+        'debtor_agent', 'creditor_agent', 'transaction_type', 'bank_transaction_code',
+        'proprietary_bank_transaction_code', 'internal_transaction_id', 'entry_reference',
+        'end_to_end_id', 'mandate_id', 'merchant_category_code', 'check_id', 'creditor_id',
+        'purpose_code', 'ultimate_creditor', 'ultimate_debtor', 'currency_exchange',
+        'balance_after_transaction', 'additional_data_structured', 'additional_information',
+        'additional_information_structured',
+        // Legacy fields
+        'counterparty_name', 'counterparty_iban', 'reference',
     ];
 
     protected $casts = [
         'booked_at' => 'date',
+        'booking_date' => 'date',
+        'booking_date_time' => 'datetime',
+        'value_date' => 'date',
+        'value_date_time' => 'datetime',
         'metadata' => 'array',
         'amount' => 'decimal:4',
+        'currency_exchange' => 'array',
+        'balance_after_transaction' => 'array',
+        'additional_data_structured' => 'array',
+        'remittance_information_structured_array' => 'array',
+        'remittance_information_unstructured_array' => 'array',
     ];
 
 

@@ -12,12 +12,14 @@ class BankAccountBalance extends Model
 
     protected $fillable = [
         'uuid', 'team_id', 'bank_account_id',
-        'as_of_date', 'balance', 'currency',
+        'balance_type', 'amount', 'currency', 'retrieved_at',
+        'as_of_date', 'balance', // Legacy fields
     ];
 
     protected $casts = [
         'as_of_date' => 'date',
         'balance' => 'decimal:4',
+        'retrieved_at' => 'datetime',
     ];
 
     protected static function booted(): void

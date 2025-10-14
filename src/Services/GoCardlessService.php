@@ -286,11 +286,15 @@ class GoCardlessService
             $this->storeAccountTransactions($accountId, $requisition);
         }
 
+        // Institution-spezifische Zugriffsdauer ermitteln
+        $institution = Institution::where('external_id', $data['institution_id'] ?? null)->first();
+        $accessDays = $institution?->max_access_valid_for_days ?? 180; // Fallback: 180 Tage
+        
         $requisition->update([
             'accounts' => $data['accounts'] ?? [],
             'status' => $data['status'] ?? null,
             'linked_at' => now(),
-            'access_expires_at' => now()->addDays(180), // 6 Monate Zugriff
+            'access_expires_at' => now()->addDays($accessDays),
         ]);
 
         return $data['accounts'] ?? [];
@@ -650,12 +654,16 @@ class GoCardlessService
                 BankAccountBalance::updateOrCreate(
                     [
                         'bank_account_id' => $account->id,
-                        'as_of_date' => $balance['referenceDate'] ?? now()->toDateString(),
+                        'balance_type' => $balance['balanceType'] ?? 'booked',
                     ],
                     [
                         'team_id' => $this->teamId,
-                        'balance' => $balance['balanceAmount']['amount'] ?? '0',
+                        'amount' => $balance['balanceAmount']['amount'] ?? '0',
                         'currency' => $balance['balanceAmount']['currency'] ?? 'EUR',
+                        'retrieved_at' => now(),
+                        // Legacy fields
+                        'as_of_date' => $balance['referenceDate'] ?? now()->toDateString(),
+                        'balance' => $balance['balanceAmount']['amount'] ?? '0',
                     ]
                 );
             }
