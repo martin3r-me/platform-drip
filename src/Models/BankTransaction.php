@@ -30,10 +30,15 @@ class BankTransaction extends Model
         'amount' => 'decimal:4',
     ];
 
-    protected array $encryptable = [
-        'counterparty_iban' => 'string',
-        'reference' => 'string',
-    ];
+
+    public function __construct(array $attributes = [])
+    {
+        parent::__construct($attributes);
+        $this->initializeEncryptable([
+            'counterparty_iban' => 'string',
+            'reference' => 'string',
+        ]);
+    }
 
     protected static function booted(): void
     {
