@@ -12,7 +12,12 @@ return [
     
     'guard' => 'web',
     
+    // Top-Level Navigation-Eintrag (für Modul-Kachel im Dashboard)
     'navigation' => [
+        'route' => 'drip.dashboard',
+        'icon'  => 'heroicon-o-cube',
+        'order' => 50,
+        // Zusätzlich: strukturierte Sidebar/Main-Navigation des Moduls
         'main' => [
             'drip' => [
                 'title' => 'Drip',
