@@ -27,7 +27,7 @@ return new class extends Migration
 
             $table->foreign('team_id')->references('id')->on('teams')->onDelete('cascade');
             $table->foreign('bank_account_id')->references('id')->on('drip_bank_accounts')->onDelete('cascade');
-            $table->unique(['bank_account_id', 'balance_type', 'as_of_date']);
+            $table->unique(['bank_account_id', 'balance_type', 'as_of_date'], 'drip_balances_unique');
         });
     }
 
