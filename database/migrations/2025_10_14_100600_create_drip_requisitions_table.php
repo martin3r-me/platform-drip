@@ -14,19 +14,21 @@ return new class extends Migration
             $table->unsignedBigInteger('team_id')->index();
             $table->unsignedBigInteger('user_id')->nullable()->index();
 
-            $table->string('type', 32)->index(); // e.g. consent, data_sync
-            $table->string('provider', 64)->nullable()->index();
+            // GoCardless specific fields
             $table->string('external_id')->nullable()->index();
+            $table->string('reference')->nullable()->index();
+            $table->unsignedBigInteger('institution_id')->nullable()->index();
             $table->string('status', 32)->default('pending')->index();
-            $table->timestamp('expires_at')->nullable()->index();
-            $table->json('payload')->nullable();
+            $table->string('redirect')->nullable();
+            $table->json('accounts')->nullable();
+            $table->timestamp('linked_at')->nullable();
 
             $table->timestamps();
             $table->softDeletes();
 
             $table->foreign('team_id')->references('id')->on('teams')->onDelete('cascade');
             $table->foreign('user_id')->references('id')->on('users')->nullOnDelete();
-            $table->unique(['team_id', 'external_id']);
+            $table->foreign('institution_id')->references('id')->on('drip_institutions')->nullOnDelete();
         });
     }
 
