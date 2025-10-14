@@ -18,9 +18,50 @@
         </div>
     </div>
 
+    {{-- GoCardless Banken --}}
+    <div class="mb-8">
+        <h2 class="text-xl font-semibold mb-4">Banken verbinden</h2>
+        
+        @if (session('error'))
+            <div class="bg-red-100 text-red-800 p-4 rounded mb-4">
+                {{ session('error') }}
+            </div>
+        @endif
+
+        <div class="mb-4">
+            <input
+                type="text"
+                wire:model.live="search"
+                placeholder="Bank suchen..."
+                class="w-full p-2 border rounded-md shadow-sm"
+            >
+        </div>
+
+        @if (count($filteredInstitutions))
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                @foreach ($filteredInstitutions as $bank)
+                    <div class="bg-white shadow p-4 rounded-lg flex flex-col justify-between">
+                        <div class="flex items-center space-x-3 mb-4">
+                            <img src="{{ $bank['logo'] ?? '' }}" alt="{{ $bank['name'] }}" class="w-10 h-10 object-contain">
+                            <span class="font-semibold">{{ $bank['name'] }}</span>
+                        </div>
+                        <button 
+                            wire:click="connectBank('{{ $bank['id'] }}')" 
+                            class="mt-auto bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                        >
+                            Jetzt verbinden
+                        </button>
+                    </div>
+                @endforeach
+            </div>
+        @else
+            <p class="text-gray-500">Keine passenden Banken gefunden.</p>
+        @endif
+    </div>
+
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div class="col-span-1">
-            <h2 class="font-medium mb-2">Banken</h2>
+            <h2 class="font-medium mb-2">Verbundene Banken</h2>
             <div class="space-y-1">
                 @forelse ($institutions as $i)
                     <div class="px-3 py-2 rounded border">{{ $i->name }} <span class="text-gray-500">({{ $i->country }})</span></div>

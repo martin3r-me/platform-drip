@@ -8,12 +8,19 @@ use Platform\Drip\Models\Institution;
 use Platform\Drip\Models\BankAccountGroup;
 use Platform\Drip\Models\BankAccount;
 use Platform\Core\Models\User;
+use Platform\Drip\Services\GoCardlessService;
+use Illuminate\Support\Facades\Redirect;
 
 class Banks extends Component
 {
     public bool $showInstitutionModal = false;
     public bool $showGroupModal = false;
     public bool $showAccountModal = false;
+    
+    // GoCardless Integration
+    public array $gocardlessInstitutions = [];
+    public string $country = 'DE';
+    public string $search = '';
 
     public array $institutionForm = [
         'name' => '',
@@ -34,11 +41,47 @@ class Banks extends Component
         'group_id' => null,
     ];
 
+    public function mount(): void
+    {
+        $this->loadGoCardlessInstitutions();
+    }
+
+    public function loadGoCardlessInstitutions(): void
+    {
+        /** @var User $user */
+        $user = auth()->user();
+        $teamId = (int) $user?->current_team_id;
+
+        $gc = new GoCardlessService($user->id, $teamId);
+        $this->gocardlessInstitutions = $gc->getInstitutions($this->country);
+    }
+
+    public function connectBank(string $institutionId): void
+    {
+        /** @var User $user */
+        $user = auth()->user();
+        $teamId = (int) $user?->current_team_id;
+
+        $gc = new GoCardlessService($user->id, $teamId);
+        $redirectUrl = route('drip.banks.callback');
+        $link = $gc->createRequisition($institutionId, $redirectUrl);
+
+        if ($link) {
+            $this->redirect($link);
+        } else {
+            session()->flash('error', 'Fehler beim Erstellen der Bankverbindung.');
+        }
+    }
+
     public function render()
     {
         /** @var User $user */
         $user = auth()->user();
         $teamId = (int) $user?->current_team_id;
+
+        $filteredInstitutions = array_filter($this->gocardlessInstitutions, function($bank) {
+            return str_contains(strtolower($bank['name']), strtolower($this->search));
+        });
 
         return view('drip::livewire.banks', [
             'institutions' => Institution::forTeam($teamId)->orderBy('name')->get(),
@@ -47,6 +90,7 @@ class Banks extends Component
                 ->with(['institution', 'group'])
                 ->orderBy('name')
                 ->get(),
+            'filteredInstitutions' => $filteredInstitutions,
         ])->layout('platform::layouts.app');
     }
 

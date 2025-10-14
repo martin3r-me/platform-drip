@@ -66,7 +66,11 @@ class DripServiceProvider extends ServiceProvider
         // Schritt 5: Config veröffentlichen
         $this->publishes([
             __DIR__.'/../config/drip.php' => config_path('drip.php'),
+            __DIR__.'/../config/services.php' => config_path('services.php'),
         ], 'config');
+        
+        // Services config mergen
+        $this->mergeConfigFrom(__DIR__.'/../config/services.php', 'services');
 
         // Schritt 6: Views & Livewire
         $this->loadViewsFrom(__DIR__ . '/../resources/views', 'drip');
