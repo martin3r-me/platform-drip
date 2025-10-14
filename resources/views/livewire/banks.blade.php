@@ -155,7 +155,7 @@
                                             <div class="mt-3 space-y-1">
                                                 @foreach($account->balances->take(3) as $balance)
                                                     <div class="flex items-center justify-between text-xs">
-                                                        <span class="text-gray-500">{{ ucfirst($balance->balance_type }}:</span>
+                                                        <span class="text-gray-500">{{ ucfirst($balance->balance_type) }}:</span>
                                                         <span class="font-medium {{ $balance->amount >= 0 ? 'text-green-600' : 'text-red-600' }}">
                                                             {{ number_format($balance->amount, 2, ',', '.') }} {{ $balance->currency ?? $account->currency }}
                                                         </span>
