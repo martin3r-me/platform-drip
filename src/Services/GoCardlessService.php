@@ -625,20 +625,13 @@ class GoCardlessService
                 'body' => $response->body()
             ]);
             
-            // Bei Rate Limit: Account mit minimalen Daten erstellen
+            // Bei Rate Limit: Abbrechen - nichts machen
             if ($response->status() === 429) {
-                Log::warning('GoCardlessService: Rate limit hit, creating minimal account', [
-                    'accountId' => $accountId
+                Log::warning('GoCardlessService: Rate limit hit, aborting account creation', [
+                    'accountId' => $accountId,
+                    'retry_after' => '82794 seconds (23+ hours)'
                 ]);
-                
-                BankAccount::updateOrCreate(
-                    ['external_id' => $accountId],
-                    [
-                        'team_id' => $this->teamId,
-                        'name' => 'Konto (Rate Limit)',
-                        'currency' => 'EUR',
-                    ]
-                );
+                return; // Abbrechen - nichts machen
             }
         }
     }
@@ -701,6 +694,7 @@ class GoCardlessService
                 ],
                 [
                     'bank_account_id' => $account->id,
+                    'booked_at' => $tx['bookingDate'] ?? now()->toDateString(),
                     'booking_date' => $tx['bookingDate'] ?? null,
                     'booking_date_time' => $tx['bookingDateTime'] ?? null,
                     'value_date' => $tx['valueDate'] ?? null,
