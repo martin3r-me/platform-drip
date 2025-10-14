@@ -17,6 +17,7 @@ return new class extends Migration
             $table->unsignedBigInteger('category_id')->nullable()->index();
 
             $table->date('booked_at')->index();
+            $table->string('transaction_id')->nullable()->index(); // GoCardless transaction ID
             $table->string('counterparty_name')->nullable();
             $table->text('counterparty_iban')->nullable();
             $table->char('counterparty_iban_hash', 64)->nullable()->index();

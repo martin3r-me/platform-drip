@@ -20,7 +20,7 @@ class BankTransaction extends Model
 
     protected $fillable = [
         'uuid', 'team_id', 'user_id', 'bank_account_id', 'category_id',
-        'booked_at', 'counterparty_name', 'counterparty_iban', 'reference',
+        'booked_at', 'transaction_id', 'counterparty_name', 'counterparty_iban', 'reference',
         'amount', 'currency', 'direction', 'status', 'metadata',
     ];
 
