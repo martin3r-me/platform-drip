@@ -25,10 +25,14 @@ class GoCardlessToken extends Model
         'metadata' => 'array',
     ];
 
-    protected array $encryptable = [
-        'access_token' => 'string',
-        'refresh_token' => 'string',
-    ];
+    public function __construct(array $attributes = [])
+    {
+        parent::__construct($attributes);
+        $this->initializeEncryptable([
+            'access_token' => 'string',
+            'refresh_token' => 'string',
+        ]);
+    }
 
     protected static function booted(): void
     {
