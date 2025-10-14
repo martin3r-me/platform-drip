@@ -624,6 +624,22 @@ class GoCardlessService
                 'status' => $response->status(),
                 'body' => $response->body()
             ]);
+            
+            // Bei Rate Limit: Account mit minimalen Daten erstellen
+            if ($response->status() === 429) {
+                Log::warning('GoCardlessService: Rate limit hit, creating minimal account', [
+                    'accountId' => $accountId
+                ]);
+                
+                BankAccount::updateOrCreate(
+                    ['external_id' => $accountId],
+                    [
+                        'team_id' => $this->teamId,
+                        'name' => 'Konto (Rate Limit)',
+                        'currency' => 'EUR',
+                    ]
+                );
+            }
         }
     }
 
