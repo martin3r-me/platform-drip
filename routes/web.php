@@ -15,7 +15,7 @@ Route::get('/banks/callback', function () {
     }
 
     $user = auth()->user();
-    $gc = new GoCardlessService($user->id, $user->current_team_id);
+    $gc = new GoCardlessService($user->current_team_id);
     
     try {
         $accounts = $gc->getAccountsFromRequisitionByRef($reference);
