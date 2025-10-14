@@ -22,35 +22,74 @@ class GoCardlessService
         $this->clientSecret = config('services.gocardless.client_secret');
         $this->userId = $userId;
         $this->teamId = $teamId;
+        
+        // Debug: Log constructor values
+        Log::info('GoCardlessService Constructor', [
+            'userId' => $this->userId,
+            'teamId' => $this->teamId,
+            'clientId' => $this->clientId ? 'SET' : 'MISSING',
+            'clientSecret' => $this->clientSecret ? 'SET' : 'MISSING',
+            'baseUrl' => $this->baseUrl
+        ]);
     }
 
     public function getAccessToken(): ?string
     {
+        Log::info('GoCardlessService: Getting access token', [
+            'userId' => $this->userId,
+            'teamId' => $this->teamId
+        ]);
+        
         $token = GoCardlessToken::where('user_id', $this->userId)
             ->where('team_id', $this->teamId)
             ->orderByDesc('created_at')
             ->first();
 
         if ($token && Carbon::now()->lt($token->expires_at)) {
+            Log::info('GoCardlessService: Using existing token', [
+                'expires_at' => $token->expires_at,
+                'is_expired' => Carbon::now()->gte($token->expires_at)
+            ]);
             return $token->access_token;
         }
 
+        Log::info('GoCardlessService: Requesting new token');
         return $this->requestNewToken();
     }
 
     protected function requestNewToken(): ?string
     {
+        Log::info('GoCardlessService: Requesting new token', [
+            'url' => "{$this->baseUrl}/token/new/",
+            'clientId' => $this->clientId ? 'SET' : 'MISSING',
+            'clientSecret' => $this->clientSecret ? 'SET' : 'MISSING'
+        ]);
+        
         $response = Http::post("{$this->baseUrl}/token/new/", [
             'secret_id' => $this->clientId,
             'secret_key' => $this->clientSecret,
         ]);
 
+        Log::info('GoCardlessService: Token response', [
+            'status' => $response->status(),
+            'successful' => $response->successful(),
+            'body' => $response->body()
+        ]);
+
         if (!$response->successful()) {
-            Log::error('Fehler beim Abrufen des Tokens von GoCardless', ['body' => $response->body()]);
+            Log::error('GoCardlessService: Token request failed', [
+                'status' => $response->status(),
+                'body' => $response->body()
+            ]);
             return null;
         }
 
         $data = $response->json();
+        Log::info('GoCardlessService: Token data', [
+            'access' => $data['access'] ?? 'MISSING',
+            'refresh' => $data['refresh'] ?? 'MISSING',
+            'access_expires' => $data['access_expires'] ?? 'MISSING'
+        ]);
 
         GoCardlessToken::create([
             'user_id' => $this->userId,
@@ -98,10 +137,21 @@ class GoCardlessService
 
     public function createRequisition(string $institutionId, string $redirectUrl): ?string
     {
+        Log::info('GoCardlessService: Creating requisition', [
+            'institutionId' => $institutionId,
+            'redirectUrl' => $redirectUrl,
+            'userId' => $this->userId,
+            'teamId' => $this->teamId
+        ]);
+        
         $token = $this->getAccessToken();
-        if (!$token) return null;
+        if (!$token) {
+            Log::error('GoCardlessService: No access token available');
+            return null;
+        }
 
         $reference = uniqid('ref_');
+        Log::info('GoCardlessService: Generated reference', ['reference' => $reference]);
 
         $response = Http::withToken($token)->post("{$this->baseUrl}/requisitions/", [
             'redirect' => $redirectUrl,
@@ -112,6 +162,13 @@ class GoCardlessService
 
         if ($response->successful()) {
             $data = $response->json();
+            
+            // Debug: Log the response to see what we get
+            Log::info('GoCardless Requisition Response', [
+                'data' => $data,
+                'status' => $data['status'] ?? 'no status',
+                'status_short' => $data['status']['short'] ?? 'no status.short'
+            ]);
 
             Requisition::create([
                 'external_id' => $data['id'],
