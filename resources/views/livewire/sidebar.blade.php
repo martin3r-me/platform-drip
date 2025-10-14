@@ -1,40 +1,31 @@
 {{-- resources/views/vendor/drip/livewire/sidebar-content.blade.php --}}
 <div>
     {{-- Modul Header --}}
-    <x-sidebar-module-header module-name="Drip" />
+    <div x-show="!collapsed" class="p-3 text-sm italic text-[var(--ui-secondary)] uppercase border-b border-[var(--ui-border)] mb-2">
+        Drip
+    </div>
     
-    {{-- Gruppe: Allgemein (wie in planner/okr) --}}
-    <div>
-        <h4 x-show="!collapsed" class="p-3 text-sm italic text-secondary uppercase">Allgemein</h4>
+    {{-- Abschnitt: Allgemein (über UI-Komponenten) --}}
+    <x-ui-sidebar-list label="Allgemein">
+        <x-ui-sidebar-item :href="route('drip.dashboard')">
+            @svg('heroicon-o-home', 'w-4 h-4 text-[var(--ui-secondary)]')
+            <span class="ml-2 text-sm">Dashboard</span>
+        </x-ui-sidebar-item>
+        <x-ui-sidebar-item :href="route('drip.banks')">
+            @svg('heroicon-o-building-library', 'w-4 h-4 text-[var(--ui-secondary)]')
+            <span class="ml-2 text-sm">Banken</span>
+        </x-ui-sidebar-item>
+    </x-ui-sidebar-list>
 
-        {{-- Link: Dashboard --}}
-        <a href="{{ route('drip.dashboard') }}"
-           class="relative d-flex items-center p-2 my-1 rounded-md font-medium transition"
-           :class="[
-               (window.location.pathname === '/' ||
-                window.location.pathname === '/drip' ||
-                window.location.pathname === '/drip/')
-                   ? 'bg-primary text-on-primary shadow-md'
-                   : 'text-black hover:bg-primary-10 hover:text-primary hover:shadow-md',
-               collapsed ? 'justify-center' : 'gap-3'
-           ]"
-           wire:navigate>
-            <x-heroicon-o-home class="w-6 h-6 flex-shrink-0"/>
-            <span x-show="!collapsed" class="truncate">Dashboard</span>
-        </a>
-
-        {{-- Link: Banken --}}
-        <a href="{{ route('drip.banks') }}"
-           class="relative d-flex items-center p-2 my-1 rounded-md font-medium transition"
-           :class="[
-               (window.location.pathname.startsWith('/drip/banks'))
-                   ? 'bg-primary text-on-primary shadow-md'
-                   : 'text-black hover:bg-primary-10 hover:text-primary hover:shadow-md',
-               collapsed ? 'justify-center' : 'gap-3'
-           ]"
-           wire:navigate>
-            <x-heroicon-o-building-library class="w-6 h-6 flex-shrink-0"/>
-            <span x-show="!collapsed" class="truncate">Banken</span>
-        </a>
+    {{-- Collapsed: Icons-only für Allgemein --}}
+    <div x-show="collapsed" class="px-2 py-2 border-b border-[var(--ui-border)]">
+        <div class="flex flex-col gap-2">
+            <a href="{{ route('drip.dashboard') }}" wire:navigate class="flex items-center justify-center p-2 rounded-md text-[var(--ui-secondary)] hover:bg-[var(--ui-muted-5)]">
+                @svg('heroicon-o-home', 'w-5 h-5')
+            </a>
+            <a href="{{ route('drip.banks') }}" wire:navigate class="flex items-center justify-center p-2 rounded-md text-[var(--ui-secondary)] hover:bg-[var(--ui-muted-5)]">
+                @svg('heroicon-o-building-library', 'w-5 h-5')
+            </a>
+        </div>
     </div>
 </div>

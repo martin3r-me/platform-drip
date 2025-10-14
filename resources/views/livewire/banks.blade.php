@@ -47,9 +47,9 @@
     <x-ui-modal wire:model="showInstitutionModal">
         <x-slot:title>Bank hinzufügen</x-slot:title>
         <div class="space-y-4">
-            <x-ui-input-text label="Name" wire:model.defer="institutionForm.name" />
-            <x-ui-input-text label="Land (ISO-2)" wire:model.defer="institutionForm.country" />
-            <x-ui-input-text label="Externe ID" wire:model.defer="institutionForm.external_id" />
+            <x-ui-input-text name="institution_name" label="Name" wire:model.defer="institutionForm.name" />
+            <x-ui-input-text name="institution_country" label="Land (ISO-2)" wire:model.defer="institutionForm.country" />
+            <x-ui-input-text name="institution_external_id" label="Externe ID" wire:model.defer="institutionForm.external_id" />
         </div>
         <x-slot:footer>
             @button(['wire:click' => 'saveInstitution']) Speichern @endbutton
@@ -59,8 +59,8 @@
     <x-ui-modal wire:model="showGroupModal">
         <x-slot:title>Gruppe hinzufügen</x-slot:title>
         <div class="space-y-4">
-            <x-ui-input-text label="Name" wire:model.defer="groupForm.name" />
-            <x-ui-input-text label="Farbe" wire:model.defer="groupForm.color" />
+            <x-ui-input-text name="group_name" label="Name" wire:model.defer="groupForm.name" />
+            <x-ui-input-text name="group_color" label="Farbe" wire:model.defer="groupForm.color" />
         </div>
         <x-slot:footer>
             @button(['wire:click' => 'saveGroup']) Speichern @endbutton
@@ -70,16 +70,16 @@
     <x-ui-modal wire:model="showAccountModal">
         <x-slot:title>Konto hinzufügen</x-slot:title>
         <div class="space-y-4">
-            <x-ui-input-text label="Name" wire:model.defer="accountForm.name" />
-            <x-ui-input-text label="IBAN" wire:model.defer="accountForm.iban" />
-            <x-ui-input-text label="Währung" wire:model.defer="accountForm.currency" />
-            <x-ui-input-select label="Bank" wire:model.defer="accountForm.institution_id">
+            <x-ui-input-text name="account_name" label="Name" wire:model.defer="accountForm.name" />
+            <x-ui-input-text name="account_iban" label="IBAN" wire:model.defer="accountForm.iban" />
+            <x-ui-input-text name="account_currency" label="Währung" wire:model.defer="accountForm.currency" />
+            <x-ui-input-select name="account_institution_id" label="Bank" wire:model.defer="accountForm.institution_id">
                 <option value="">—</option>
                 @foreach ($institutions as $i)
                     <option value="{{ $i->id }}">{{ $i->name }}</option>
                 @endforeach
             </x-ui-input-select>
-            <x-ui-input-select label="Gruppe" wire:model.defer="accountForm.group_id">
+            <x-ui-input-select name="account_group_id" label="Gruppe" wire:model.defer="accountForm.group_id">
                 <option value="">—</option>
                 @foreach ($groups as $g)
                     <option value="{{ $g->id }}">{{ $g->name }}</option>
