@@ -100,14 +100,19 @@ class DripServiceProvider extends ServiceProvider
                 continue;
             }
 
-            // drip.dashboard aus drip + dashboard.php
-            $aliasPath = str_replace(['\\', '/'], '.', Str::kebab(str_replace('.php', '', $relativePath)));
+            // drip.dashboard aus drip + Dashboard.php -> dashboard
+            $fileName = str_replace('.php', '', $relativePath);
+            $aliasPath = Str::kebab($fileName);
             $alias = $prefix . '.' . $aliasPath;
 
             // Debug: Ausgabe der registrierten Komponente
             \Log::info("Registering Livewire component: {$alias} -> {$class}");
-
-            Livewire::component($alias, $class);
+            
+            try {
+                Livewire::component($alias, $class);
+            } catch (\Exception $e) {
+                \Log::error("Failed to register Livewire component {$alias}: " . $e->getMessage());
+            }
         }
     }
 }

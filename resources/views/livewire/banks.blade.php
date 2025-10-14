@@ -1,6 +1,7 @@
 <div class="space-y-8">
     <div class="flex items-center justify-between">
         <h1 class="text-xl font-semibold">Banken & Konten</h1>
+        <div class="text-sm text-gray-500">Livewire Test: {{ now() }}</div>
         <div class="flex items-center gap-2">
             @button(['wire:click' => 'openInstitutionModal']) @svg('heroicon-o-plus', 'w-4 h-4') <span>Bank hinzufügen</span> @endbutton
             @button(['wire:click' => 'openGroupModal']) @svg('heroicon-o-plus', 'w-4 h-4') <span>Gruppe hinzufügen</span> @endbutton
