@@ -54,7 +54,7 @@
         </div>
     </div>
 
-    <x-ui-modal wire:model.live="showInstitutionModal">
+    <x-ui-modal model="showInstitutionModal">
         <x-slot:title>Bank hinzufügen</x-slot:title>
         <div class="space-y-4">
             <x-ui-input-text name="institution_name" label="Name" wire:model.defer="institutionForm.name" />
@@ -68,7 +68,7 @@
         </x-slot:footer>
     </x-ui-modal>
 
-    <x-ui-modal wire:model.live="showGroupModal">
+    <x-ui-modal model="showGroupModal">
         <x-slot:title>Gruppe hinzufügen</x-slot:title>
         <div class="space-y-4">
             <x-ui-input-text name="group_name" label="Name" wire:model.defer="groupForm.name" />
@@ -81,7 +81,7 @@
         </x-slot:footer>
     </x-ui-modal>
 
-    <x-ui-modal wire:model.live="showAccountModal">
+    <x-ui-modal model="showAccountModal">
         <x-slot:title>Konto hinzufügen</x-slot:title>
         <div class="space-y-4">
             <x-ui-input-text name="account_name" label="Name" wire:model.defer="accountForm.name" />
