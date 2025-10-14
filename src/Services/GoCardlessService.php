@@ -13,19 +13,16 @@ class GoCardlessService
     protected string $clientSecret;
     protected string $baseUrl = 'https://bankaccountdata.gocardless.com/api/v2';
 
-    protected int $userId;
     protected int $teamId;
 
-    public function __construct(int $userId, int $teamId)
+    public function __construct(int $teamId)
     {
         $this->clientId = config('services.gocardless.client_id');
         $this->clientSecret = config('services.gocardless.client_secret');
-        $this->userId = $userId;
         $this->teamId = $teamId;
         
         // Debug: Log constructor values
         Log::info('GoCardlessService Constructor', [
-            'userId' => $this->userId,
             'teamId' => $this->teamId,
             'clientId' => $this->clientId ? 'SET' : 'MISSING',
             'clientSecret' => $this->clientSecret ? 'SET' : 'MISSING',
@@ -36,12 +33,10 @@ class GoCardlessService
     public function getAccessToken(): ?string
     {
         Log::info('GoCardlessService: Getting access token', [
-            'userId' => $this->userId,
             'teamId' => $this->teamId
         ]);
         
-        $token = GoCardlessToken::where('user_id', $this->userId)
-            ->where('team_id', $this->teamId)
+        $token = GoCardlessToken::where('team_id', $this->teamId)
             ->orderByDesc('created_at')
             ->first();
 
@@ -92,7 +87,6 @@ class GoCardlessService
         ]);
 
         GoCardlessToken::create([
-            'user_id' => $this->userId,
             'team_id' => $this->teamId,
             'access_token' => $data['access'],
             'refresh_token' => $data['refresh'] ?? null,
@@ -242,7 +236,6 @@ class GoCardlessService
                 'external_id' => $data['id'],
                 'reference' => $reference,
                 'institution_id' => Institution::where('external_id', $institutionId)->first()?->id,
-                'user_id' => $this->userId,
                 'team_id' => $this->teamId,
                 'status' => $data['status']['short'] ?? 'pending',
                 'redirect' => $data['redirect'] ?? $redirectUrl,
@@ -564,7 +557,6 @@ class GoCardlessService
                         'counterparty_name' => $tx['debtorName'] ?? $tx['creditorName'] ?? null,
                         'counterparty_iban' => $tx['debtorAccount']['iban'] ?? $tx['creditorAccount']['iban'] ?? null,
                         'reference' => $tx['remittanceInformationUnstructured'] ?? null,
-                        'user_id' => $this->userId,
                         'team_id' => $this->teamId,
                     ]
                 );
@@ -585,7 +577,6 @@ class GoCardlessService
             BankAccount::updateOrCreate(
                 ['external_id' => $accountId],
                 [
-                    'user_id' => $this->userId,
                     'team_id' => $this->teamId,
                     'iban' => $account['iban'] ?? null,
                     'bban' => $account['bban'] ?? null,

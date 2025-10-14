@@ -111,7 +111,7 @@ class UpdateBankDataCommand extends Command
     protected function processTeam(Team $team): bool
     {
         try {
-            $gc = new GoCardlessService($team->owner_id, $team->id);
+                    $gc = new GoCardlessService($team->id);
             $results = $gc->updateAllBankData();
 
             $this->info("   💰 Balances updated: {$results['balances_updated']}");
@@ -178,7 +178,7 @@ class UpdateBankDataCommand extends Command
 
     protected function showTeamBilling(Team $team): void
     {
-        $gc = new GoCardlessService($team->owner_id, $team->id);
+                    $gc = new GoCardlessService($team->id);
         $billing = $gc->getBillingOverview();
 
         $this->info("📊 Team: {$team->name}");
@@ -240,7 +240,7 @@ class UpdateBankDataCommand extends Command
     protected function cleanupTeamRequisitions(Team $team): int
     {
         try {
-            $gc = new GoCardlessService($team->owner_id, $team->id);
+                    $gc = new GoCardlessService($team->id);
             $results = $gc->cleanupExpiredRequisitions();
 
             $this->info("   🗑️  Deleted: {$results['deleted']} expired requisitions");
@@ -309,7 +309,7 @@ class UpdateBankDataCommand extends Command
     protected function deleteTeamRequisitions(Team $team): int
     {
         try {
-            $gc = new GoCardlessService($team->owner_id, $team->id);
+            $gc = new GoCardlessService($team->id);
             
             // Alle Requisitions für das Team holen
             $requisitions = Requisition::where('team_id', $team->id)->get();
