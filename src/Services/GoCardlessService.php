@@ -568,6 +568,13 @@ class GoCardlessService
 
         if ($response->successful()) {
             $account = $response->json()['account'] ?? [];
+            
+            Log::info('GoCardlessService: Account details from API', [
+                'accountId' => $accountId,
+                'account' => $account,
+                'name' => $account['name'] ?? 'MISSING',
+                'iban' => $account['iban'] ?? 'MISSING'
+            ]);
 
             BankAccount::updateOrCreate(
                 ['external_id' => $accountId],
@@ -576,10 +583,16 @@ class GoCardlessService
                     'iban' => $account['iban'] ?? null,
                     'bban' => $account['bban'] ?? null,
                     'currency' => $account['currency'] ?? null,
-                    'name' => $account['name'] ?? null,
+                    'name' => $account['name'] ?? 'Unbekanntes Konto', // Fallback
                     'product' => $account['product'] ?? null,
                 ]
             );
+        } else {
+            Log::error('GoCardlessService: Failed to get account details', [
+                'accountId' => $accountId,
+                'status' => $response->status(),
+                'body' => $response->body()
+            ]);
         }
     }
 

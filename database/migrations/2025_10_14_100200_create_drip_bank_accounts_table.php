@@ -20,7 +20,9 @@ return new class extends Migration
             $table->string('name');
             $table->text('iban')->nullable();
             $table->char('iban_hash', 64)->nullable()->index();
+            $table->string('bban')->nullable();
             $table->string('bic')->nullable();
+            $table->string('product')->nullable();
             $table->string('currency', 3)->default('EUR');
             $table->decimal('initial_balance', 16, 4)->default(0);
             $table->date('opened_at')->nullable();

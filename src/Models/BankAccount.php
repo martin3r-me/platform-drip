@@ -18,7 +18,7 @@ class BankAccount extends Model
 
     protected $fillable = [
         'uuid', 'team_id', 'user_id', 'institution_id', 'group_id', 'external_id',
-        'name', 'iban', 'bic', 'currency', 'initial_balance', 'opened_at', 'closed_at', 'metadata',
+        'name', 'iban', 'bban', 'bic', 'product', 'currency', 'initial_balance', 'opened_at', 'closed_at', 'metadata',
     ];
 
     protected $casts = [
