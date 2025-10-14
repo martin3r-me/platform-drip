@@ -18,8 +18,10 @@ return new class extends Migration
 
             $table->date('booked_at')->index();
             $table->string('counterparty_name')->nullable();
-            $table->string('counterparty_iban')->nullable();
-            $table->string('reference')->nullable();
+            $table->text('counterparty_iban')->nullable();
+            $table->char('counterparty_iban_hash', 64)->nullable()->index();
+            $table->longText('reference')->nullable();
+            $table->char('reference_hash', 64)->nullable()->index();
             $table->decimal('amount', 16, 4);
             $table->string('currency', 3)->default('EUR');
             $table->string('direction', 8)->index(); // credit|debit

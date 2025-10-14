@@ -14,8 +14,10 @@ return new class extends Migration
             $table->unsignedBigInteger('team_id')->index();
             $table->unsignedBigInteger('user_id')->nullable()->index();
 
-            $table->string('access_token');
-            $table->string('refresh_token')->nullable();
+            $table->text('access_token');
+            $table->char('access_token_hash', 64)->nullable()->index();
+            $table->text('refresh_token')->nullable();
+            $table->char('refresh_token_hash', 64)->nullable()->index();
             $table->timestamp('expires_at')->nullable()->index();
             $table->json('scopes')->nullable();
             $table->json('metadata')->nullable();

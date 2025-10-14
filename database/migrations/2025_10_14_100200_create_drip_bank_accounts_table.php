@@ -17,7 +17,8 @@ return new class extends Migration
             $table->unsignedBigInteger('group_id')->nullable()->index();
 
             $table->string('name');
-            $table->string('iban')->nullable();
+            $table->text('iban')->nullable();
+            $table->char('iban_hash', 64)->nullable()->index();
             $table->string('bic')->nullable();
             $table->string('currency', 3)->default('EUR');
             $table->decimal('initial_balance', 16, 4)->default(0);
