@@ -269,6 +269,39 @@
             </button>
         </x-slot:footer>
     </x-ui-modal>
+
+    {{-- Gruppenauswahl Modal --}}
+    <x-ui-modal model="showGroupSelectionModal">
+        <x-slot:title>Konto einer Gruppe zuordnen</x-slot:title>
+        <div class="space-y-4">
+            <p class="text-sm text-gray-600">Wähle eine Gruppe für das Konto aus:</p>
+            <div class="grid grid-cols-1 gap-3">
+                @foreach ($groups as $group)
+                    <button 
+                        type="button" 
+                        wire:click="assignToGroup({{ $group->id }})"
+                        class="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-colors"
+                    >
+                        <div class="flex items-center">
+                            <div class="w-3 h-3 rounded-full mr-3" style="background-color: {{ $group->color ?? '#6B7280' }}"></div>
+                            <div>
+                                <h4 class="font-medium text-gray-900">{{ $group->name }}</h4>
+                                <p class="text-sm text-gray-600">{{ $group->accounts->count() }} Konten</p>
+                            </div>
+                        </div>
+                        <div class="text-gray-400">
+                            @svg('heroicon-o-arrow-right', 'w-5 h-5')
+                        </div>
+                    </button>
+                @endforeach
+            </div>
+        </div>
+        <x-slot:footer>
+            <button type="button" wire:click="$set('showGroupSelectionModal', false)" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
+                Abbrechen
+            </button>
+        </x-slot:footer>
+    </x-ui-modal>
 </div>
 
 

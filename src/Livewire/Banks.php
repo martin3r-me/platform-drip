@@ -16,6 +16,8 @@ class Banks extends Component
     public bool $showInstitutionModal = false;
     public bool $showGroupModal = false;
     public bool $showAccountModal = false;
+    public bool $showGroupSelectionModal = false;
+    public ?int $selectedAccountId = null;
     
     // GoCardless Integration
     public array $gocardlessInstitutions = [];
@@ -161,9 +163,19 @@ class Banks extends Component
 
     public function assignAccountToGroup($accountId)
     {
-        $this->accountForm['group_id'] = null;
-        $this->showAccountModal = true;
-        // Hier könnten wir auch ein Modal für die Gruppenauswahl öffnen
+        $this->selectedAccountId = $accountId;
+        $this->showGroupSelectionModal = true;
+    }
+
+    public function assignToGroup($groupId)
+    {
+        if ($this->selectedAccountId) {
+            BankAccount::where('id', $this->selectedAccountId)
+                ->update(['group_id' => $groupId]);
+        }
+        
+        $this->showGroupSelectionModal = false;
+        $this->selectedAccountId = null;
     }
 }
 
