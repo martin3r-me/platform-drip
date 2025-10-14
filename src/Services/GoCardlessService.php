@@ -601,7 +601,7 @@ class GoCardlessService
                 'iban' => $account['iban'] ?? 'MISSING'
             ]);
 
-            BankAccount::updateOrCreate(
+            $bankAccount = BankAccount::updateOrCreate(
                 ['external_id' => $accountId],
                 [
                     'team_id' => $this->teamId,
@@ -612,6 +612,12 @@ class GoCardlessService
                     'product' => $account['product'] ?? null,
                 ]
             );
+            
+            Log::info('GoCardlessService: Account created/updated', [
+                'accountId' => $accountId,
+                'bankAccountId' => $bankAccount->id,
+                'name' => $bankAccount->name
+            ]);
         } else {
             Log::error('GoCardlessService: Failed to get account details', [
                 'accountId' => $accountId,
@@ -657,6 +663,20 @@ class GoCardlessService
 
         if ($response->successful()) {
             $account = BankAccount::where('external_id', $accountId)->first();
+            
+            Log::info('GoCardlessService: Looking for account', [
+                'accountId' => $accountId,
+                'found' => $account ? 'YES' : 'NO',
+                'accountId_found' => $account?->id ?? 'NULL'
+            ]);
+            
+            if (!$account) {
+                Log::error('GoCardlessService: Account not found for transactions', [
+                    'accountId' => $accountId,
+                    'all_accounts' => BankAccount::where('team_id', $this->teamId)->pluck('external_id', 'id')->toArray()
+                ]);
+                return;
+            }
 
             foreach ($response->json()['transactions']['booked'] ?? [] as $tx) {
                 BankTransaction::updateOrCreate(
