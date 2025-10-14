@@ -47,7 +47,7 @@ class Banks extends Component
                 ->with(['institution', 'group'])
                 ->orderBy('name')
                 ->get(),
-        ]);
+        ])->layout('platform::layouts.app');
     }
 
     public function openInstitutionModal(): void { $this->resetValidation(); $this->showInstitutionModal = true; }
