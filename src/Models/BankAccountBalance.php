@@ -20,6 +20,18 @@ class BankAccountBalance extends Model
         'balance' => 'decimal:4',
     ];
 
+    protected static function booted(): void
+    {
+        static::creating(function (self $model) {
+            do {
+                $uuid = UuidV7::generate();
+            } while (self::where('uuid', $uuid)->exists());
+
+            $model->uuid = $model->uuid ?: $uuid;
+            $model->team_id ??= $model->account?->team_id;
+        });
+    }
+
     public function account(): BelongsTo
     {
         return $this->belongsTo(BankAccount::class, 'bank_account_id');

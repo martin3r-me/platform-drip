@@ -609,10 +609,10 @@ class GoCardlessService
             foreach ($response->json()['balances'] ?? [] as $balance) {
                 BankAccountBalance::create([
                     'bank_account_id' => $account->id,
-                    'balance_type' => $balance['balanceType'] ?? 'unknown',
-                    'amount' => $balance['balanceAmount']['amount'] ?? '0',
-                    'currency' => $balance['balanceAmount']['currency'] ?? null,
-                    'retrieved_at' => now(),
+                    'team_id' => $this->teamId,
+                    'as_of_date' => $balance['referenceDate'] ?? now()->toDateString(),
+                    'balance' => $balance['balanceAmount']['amount'] ?? '0',
+                    'currency' => $balance['balanceAmount']['currency'] ?? 'EUR',
                 ]);
             }
         }
