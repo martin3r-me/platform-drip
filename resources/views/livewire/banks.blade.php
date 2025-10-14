@@ -2,9 +2,9 @@
     <div class="flex items-center justify-between">
         <h1 class="text-xl font-semibold">Banken & Konten</h1>
         <div class="flex items-center gap-2">
-            @button(['wire:click' => 'openInstitutionModal']) @svg('heroicons.plus') <span>Bank hinzufügen</span> @endbutton
-            @button(['wire:click' => 'openGroupModal']) @svg('heroicons.plus') <span>Gruppe hinzufügen</span> @endbutton
-            @button(['wire:click' => 'openAccountModal']) @svg('heroicons.plus') <span>Konto hinzufügen</span> @endbutton
+            @button(['wire:click' => 'openInstitutionModal']) @svg('heroicon-o-plus', 'w-4 h-4') <span>Bank hinzufügen</span> @endbutton
+            @button(['wire:click' => 'openGroupModal']) @svg('heroicon-o-plus', 'w-4 h-4') <span>Gruppe hinzufügen</span> @endbutton
+            @button(['wire:click' => 'openAccountModal']) @svg('heroicon-o-plus', 'w-4 h-4') <span>Konto hinzufügen</span> @endbutton
         </div>
     </div>
 
