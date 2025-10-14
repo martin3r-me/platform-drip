@@ -5,6 +5,7 @@ namespace Platform\Drip\Console\Commands;
 use Illuminate\Console\Command;
 use Platform\Drip\Services\GoCardlessService;
 use Platform\Core\Models\Team;
+use Platform\Drip\Models\Requisition;
 
 class UpdateBankDataCommand extends Command
 {
