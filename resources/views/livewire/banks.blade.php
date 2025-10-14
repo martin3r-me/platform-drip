@@ -3,9 +3,18 @@
         <h1 class="text-xl font-semibold">Banken & Konten</h1>
         <div class="text-sm text-gray-500">Livewire Test: {{ now() }}</div>
         <div class="flex items-center gap-2">
-            @button(['wire:click' => 'openInstitutionModal']) @svg('heroicon-o-plus', 'w-4 h-4') <span>Bank hinzufügen</span> @endbutton
-            @button(['wire:click' => 'openGroupModal']) @svg('heroicon-o-plus', 'w-4 h-4') <span>Gruppe hinzufügen</span> @endbutton
-            @button(['wire:click' => 'openAccountModal']) @svg('heroicon-o-plus', 'w-4 h-4') <span>Konto hinzufügen</span> @endbutton
+            <button type="button" wire:click="openInstitutionModal" class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                @svg('heroicon-o-plus', 'w-4 h-4 mr-2')
+                Bank hinzufügen
+            </button>
+            <button type="button" wire:click="openGroupModal" class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                @svg('heroicon-o-plus', 'w-4 h-4 mr-2')
+                Gruppe hinzufügen
+            </button>
+            <button type="button" wire:click="openAccountModal" class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500">
+                @svg('heroicon-o-plus', 'w-4 h-4 mr-2')
+                Konto hinzufügen
+            </button>
         </div>
     </div>
 
@@ -53,7 +62,9 @@
             <x-ui-input-text name="institution_external_id" label="Externe ID" wire:model.defer="institutionForm.external_id" />
         </div>
         <x-slot:footer>
-            @button(['wire:click' => 'saveInstitution']) Speichern @endbutton
+            <button type="button" wire:click="saveInstitution" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                Speichern
+            </button>
         </x-slot:footer>
     </x-ui-modal>
 
@@ -64,7 +75,9 @@
             <x-ui-input-text name="group_color" label="Farbe" wire:model.defer="groupForm.color" />
         </div>
         <x-slot:footer>
-            @button(['wire:click' => 'saveGroup']) Speichern @endbutton
+            <button type="button" wire:click="saveGroup" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                Speichern
+            </button>
         </x-slot:footer>
     </x-ui-modal>
 
@@ -88,7 +101,9 @@
             </x-ui-input-select>
         </div>
         <x-slot:footer>
-            @button(['wire:click' => 'saveAccount']) Speichern @endbutton
+            <button type="button" wire:click="saveAccount" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500">
+                Speichern
+            </button>
         </x-slot:footer>
     </x-ui-modal>
 </div>
