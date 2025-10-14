@@ -21,6 +21,8 @@ class Banks extends Component
     public array $gocardlessInstitutions = [];
     public string $country = 'DE';
     public string $search = '';
+    public bool $loadingInstitutions = false;
+    public bool $connectingBank = false;
 
     public array $institutionForm = [
         'name' => '',
@@ -43,33 +45,49 @@ class Banks extends Component
 
     public function mount(): void
     {
-        $this->loadGoCardlessInstitutions();
+        // Lazy loading - nur laden wenn User explizit danach sucht
     }
 
     public function loadGoCardlessInstitutions(): void
     {
-        /** @var User $user */
-        $user = auth()->user();
-        $teamId = (int) $user?->current_team_id;
+        if ($this->loadingInstitutions) return;
+        
+        $this->loadingInstitutions = true;
+        
+        try {
+            /** @var User $user */
+            $user = auth()->user();
+            $teamId = (int) $user?->current_team_id;
 
-        $gc = new GoCardlessService($user->id, $teamId);
-        $this->gocardlessInstitutions = $gc->getInstitutions($this->country);
+            $gc = new GoCardlessService($user->id, $teamId);
+            $this->gocardlessInstitutions = $gc->getInstitutions($this->country);
+        } finally {
+            $this->loadingInstitutions = false;
+        }
     }
 
     public function connectBank(string $institutionId): void
     {
-        /** @var User $user */
-        $user = auth()->user();
-        $teamId = (int) $user?->current_team_id;
+        if ($this->connectingBank) return;
+        
+        $this->connectingBank = true;
+        
+        try {
+            /** @var User $user */
+            $user = auth()->user();
+            $teamId = (int) $user?->current_team_id;
 
-        $gc = new GoCardlessService($user->id, $teamId);
-        $redirectUrl = route('drip.banks.callback');
-        $link = $gc->createRequisition($institutionId, $redirectUrl);
+            $gc = new GoCardlessService($user->id, $teamId);
+            $redirectUrl = route('drip.banks.callback');
+            $link = $gc->createRequisition($institutionId, $redirectUrl);
 
-        if ($link) {
-            $this->redirect($link);
-        } else {
-            session()->flash('error', 'Fehler beim Erstellen der Bankverbindung.');
+            if ($link) {
+                $this->redirect($link);
+            } else {
+                session()->flash('error', 'Fehler beim Erstellen der Bankverbindung.');
+            }
+        } finally {
+            $this->connectingBank = false;
         }
     }
 

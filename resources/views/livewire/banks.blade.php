@@ -20,7 +20,25 @@
 
     {{-- GoCardless Banken --}}
     <div class="mb-8">
-        <h2 class="text-xl font-semibold mb-4">Banken verbinden</h2>
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-xl font-semibold">Banken verbinden</h2>
+            @if (empty($gocardlessInstitutions))
+                <button 
+                    wire:click="loadGoCardlessInstitutions"
+                    :disabled="$wire.loadingInstitutions"
+                    class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    <span wire:loading.remove wire:target="loadGoCardlessInstitutions">Banken laden</span>
+                    <span wire:loading wire:target="loadGoCardlessInstitutions" class="flex items-center">
+                        <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Lade Banken...
+                    </span>
+                </button>
+            @endif
+        </div>
         
         @if (session('error'))
             <div class="bg-red-100 text-red-800 p-4 rounded mb-4">
@@ -28,34 +46,78 @@
             </div>
         @endif
 
-        <div class="mb-4">
-            <input
-                type="text"
-                wire:model.live="search"
-                placeholder="Bank suchen..."
-                class="w-full p-2 border rounded-md shadow-sm"
-            >
-        </div>
-
-        @if (count($filteredInstitutions))
-            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                @foreach ($filteredInstitutions as $bank)
-                    <div class="bg-white shadow p-4 rounded-lg flex flex-col justify-between">
-                        <div class="flex items-center space-x-3 mb-4">
-                            <img src="{{ $bank['logo'] ?? '' }}" alt="{{ $bank['name'] }}" class="w-10 h-10 object-contain">
-                            <span class="font-semibold">{{ $bank['name'] }}</span>
-                        </div>
-                        <button 
-                            wire:click="connectBank('{{ $bank['id'] }}')" 
-                            class="mt-auto bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-                        >
-                            Jetzt verbinden
-                        </button>
-                    </div>
-                @endforeach
+        @if (session('success'))
+            <div class="bg-green-100 text-green-800 p-4 rounded mb-4">
+                {{ session('success') }}
             </div>
+        @endif
+
+        @if (!empty($gocardlessInstitutions))
+            <div class="mb-4">
+                <input
+                    type="text"
+                    wire:model.live="search"
+                    placeholder="Bank suchen..."
+                    class="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+            </div>
+
+            @if (count($filteredInstitutions))
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    @foreach ($filteredInstitutions as $bank)
+                        <div class="bg-white shadow-lg rounded-lg p-4 hover:shadow-xl transition-shadow duration-200">
+                            <div class="flex items-center space-x-3 mb-4">
+                                <div class="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
+                                    @if($bank['logo'])
+                                        <img src="{{ $bank['logo'] }}" alt="{{ $bank['name'] }}" class="w-10 h-10 object-contain">
+                                    @else
+                                        <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                                            <span class="text-white font-bold text-sm">{{ substr($bank['name'], 0, 1) }}</span>
+                                        </div>
+                                    @endif
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <h3 class="font-semibold text-gray-900 truncate">{{ $bank['name'] }}</h3>
+                                    <p class="text-sm text-gray-500">{{ $bank['countries'][0] ?? 'DE' }}</p>
+                                </div>
+                            </div>
+                            <button 
+                                wire:click="connectBank('{{ $bank['id'] }}')"
+                                :disabled="$wire.connectingBank"
+                                class="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                            >
+                                <span wire:loading.remove wire:target="connectBank">Jetzt verbinden</span>
+                                <span wire:loading wire:target="connectBank" class="flex items-center justify-center">
+                                    <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    Verbinde...
+                                </span>
+                            </button>
+                        </div>
+                    @endforeach
+                </div>
+            @else
+                <div class="text-center py-8">
+                    <div class="text-gray-400 mb-2">
+                        <svg class="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </div>
+                    <p class="text-gray-500">Keine passenden Banken gefunden.</p>
+                </div>
+            @endif
         @else
-            <p class="text-gray-500">Keine passenden Banken gefunden.</p>
+            <div class="text-center py-12 bg-gray-50 rounded-lg">
+                <div class="text-gray-400 mb-4">
+                    <svg class="mx-auto h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                </div>
+                <h3 class="text-lg font-medium text-gray-900 mb-2">Banken verbinden</h3>
+                <p class="text-gray-500 mb-4">Lade verfügbare Banken, um deine Konten zu verbinden.</p>
+            </div>
         @endif
     </div>
 
