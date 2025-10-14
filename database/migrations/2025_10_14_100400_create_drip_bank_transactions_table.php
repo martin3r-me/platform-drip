@@ -25,7 +25,7 @@ return new class extends Migration
             $table->char('reference_hash', 64)->nullable()->index();
             $table->decimal('amount', 16, 4);
             $table->string('currency', 3)->default('EUR');
-            $table->string('direction', 8)->index(); // credit|debit
+            $table->string('direction', 8)->default('credit')->index(); // credit|debit
             $table->string('status', 16)->default('booked')->index(); // booked|pending
             $table->json('metadata')->nullable();
 

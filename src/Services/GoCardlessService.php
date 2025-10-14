@@ -701,6 +701,7 @@ class GoCardlessService
                     'value_date_time' => $tx['valueDateTime'] ?? null,
                     'amount' => $tx['transactionAmount']['amount'] ?? '0',
                     'currency' => $tx['transactionAmount']['currency'] ?? null,
+                    'direction' => (float)($tx['transactionAmount']['amount'] ?? '0') >= 0 ? 'credit' : 'debit',
 
                     // Verwendungszweck und Infos
                     'remittance_information' => $tx['remittanceInformationUnstructured'] ?? null,
