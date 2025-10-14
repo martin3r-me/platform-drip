@@ -283,7 +283,7 @@ class GoCardlessService
         foreach ($data['accounts'] ?? [] as $accountId) {
             $this->storeAccountDetails($accountId);
             $this->storeAccountBalances($accountId);
-            $this->storeAccountTransactions($accountId);
+            $this->storeAccountTransactions($accountId, $requisition);
         }
 
         $requisition->update([
@@ -662,7 +662,7 @@ class GoCardlessService
         }
     }
 
-    public function storeAccountTransactions(string $accountId): void
+    public function storeAccountTransactions(string $accountId, ?Requisition $requisition = null): void
     {
         $token = $this->getAccessToken();
         if (!$token) return;
