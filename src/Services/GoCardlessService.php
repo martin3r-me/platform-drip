@@ -196,6 +196,22 @@ class GoCardlessService
             'redirectUrl' => $redirectUrl,
             'teamId' => $this->teamId
         ]);
+
+        // Prüfen ob bereits eine aktive Requisition für diese Institution existiert
+        $existingRequisition = Requisition::where('team_id', $this->teamId)
+            ->where('institution_id', Institution::where('external_id', $institutionId)->first()?->id)
+            ->where('status', 'CR') // Created/Ready
+            ->whereNull('linked_at') // Noch nicht verknüpft
+            ->where('created_at', '>', now()->subDays(7)) // Nicht älter als 7 Tage
+            ->first();
+
+        if ($existingRequisition) {
+            Log::info('GoCardlessService: Using existing requisition', [
+                'requisitionId' => $existingRequisition->external_id,
+                'reference' => $existingRequisition->reference
+            ]);
+            return $existingRequisition->redirect;
+        }
         
         $token = $this->getAccessToken();
         if (!$token) {
@@ -267,6 +283,7 @@ class GoCardlessService
         foreach ($data['accounts'] ?? [] as $accountId) {
             $this->storeAccountDetails($accountId);
             $this->storeAccountBalances($accountId);
+            $this->storeAccountTransactions($accountId);
         }
 
         $requisition->update([
@@ -512,18 +529,23 @@ class GoCardlessService
         $account = BankAccount::where('external_id', $accountId)->first();
         if (!$account) return;
 
-        // ECHTES DELTA: Nur seit letztem Sync
+        // Intelligente Datums-Logik
         $requisition = Requisition::where('team_id', $this->teamId)
             ->whereJsonContains('accounts', $accountId)
             ->first();
             
-        $lastSync = $requisition?->last_sync_at ?? $account->updated_at ?? now()->subDays(7);
-        $dateFrom = $lastSync->format('Y-m-d');
+        // Erste Synchronisation: 90 Tage zurück
+        // Delta Updates: Nur seit letztem Sync
+        $isFirstSync = !$requisition?->last_sync_at;
+        $dateFrom = $isFirstSync 
+            ? now()->subDays(90)->format('Y-m-d')  // Erste Sync: 90 Tage
+            : ($requisition->last_sync_at ?? now()->subDays(7))->format('Y-m-d');  // Delta: seit letztem Sync
         
-        Log::info('GoCardlessService: Delta update', [
+        Log::info('GoCardlessService: Transaction sync', [
             'accountId' => $accountId,
             'dateFrom' => $dateFrom,
-            'lastSync' => $lastSync->format('Y-m-d H:i:s')
+            'isFirstSync' => $isFirstSync,
+            'lastSync' => $requisition?->last_sync_at?->format('Y-m-d H:i:s') ?? 'Never'
         ]);
         
         $response = Http::withToken($token)
@@ -583,7 +605,7 @@ class GoCardlessService
                     'iban' => $account['iban'] ?? null,
                     'bban' => $account['bban'] ?? null,
                     'currency' => $account['currency'] ?? null,
-                    'name' => $account['name'] ?? 'Unbekanntes Konto', // Fallback
+                    'name' => $account['name'] ?? ($account['iban'] ? 'Konto ' . substr($account['iban'], -4) : 'Unbekanntes Konto'), // Intelligenter Fallback
                     'product' => $account['product'] ?? null,
                 ]
             );
@@ -607,13 +629,17 @@ class GoCardlessService
             $account = BankAccount::where('external_id', $accountId)->first();
 
             foreach ($response->json()['balances'] ?? [] as $balance) {
-                BankAccountBalance::create([
-                    'bank_account_id' => $account->id,
-                    'team_id' => $this->teamId,
-                    'as_of_date' => $balance['referenceDate'] ?? now()->toDateString(),
-                    'balance' => $balance['balanceAmount']['amount'] ?? '0',
-                    'currency' => $balance['balanceAmount']['currency'] ?? 'EUR',
-                ]);
+                BankAccountBalance::updateOrCreate(
+                    [
+                        'bank_account_id' => $account->id,
+                        'as_of_date' => $balance['referenceDate'] ?? now()->toDateString(),
+                    ],
+                    [
+                        'team_id' => $this->teamId,
+                        'balance' => $balance['balanceAmount']['amount'] ?? '0',
+                        'currency' => $balance['balanceAmount']['currency'] ?? 'EUR',
+                    ]
+                );
             }
         }
     }
