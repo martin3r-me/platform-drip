@@ -5,7 +5,7 @@ use Platform\Drip\Services\GoCardlessService;
 
 Route::get('/', Platform\Drip\Livewire\Dashboard::class)->name('drip.dashboard');
 Route::get('/banks', Platform\Drip\Livewire\Banks::class)->name('drip.banks');
-Route::get('/groups/{group}', Platform\Drip\Livewire\GroupTransactions::class)->name('drip.groups.transactions');
+Route::get('/groups/{group}', Platform\Drip\Livewire\GroupTransactions::class)->name('drip.groups.show');
 
 // GoCardless Callback
 Route::get('/banks/callback', function () {

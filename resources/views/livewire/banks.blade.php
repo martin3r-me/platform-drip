@@ -124,13 +124,15 @@
         @forelse ($groups as $group)
             <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 <div class="flex items-center justify-between mb-4">
-                    <div>
-                        <a href="{{ route('drip.groups.transactions', $group) }}" class="group">
-                            <h3 class="text-lg font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">{{ $group->name }}</h3>
-                            <p class="text-sm text-gray-600">{{ $group->accounts->count() }} Konten</p>
-                        </a>
+                    <div class="flex-1">
+                        <h3 class="text-lg font-semibold text-gray-900">{{ $group->name }}</h3>
+                        <p class="text-sm text-gray-600">{{ $group->accounts->count() }} Konten</p>
                     </div>
                     <div class="flex items-center gap-2">
+                        <a href="{{ route('drip.groups.show', $group) }}" class="inline-flex items-center px-3 py-1.5 bg-green-600 text-white text-sm rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+                            @svg('heroicon-o-banknotes', 'w-4 h-4 mr-1')
+                            Transaktionen
+                        </a>
                         <button type="button" wire:click="openAccountModal({{ $group->id }})" class="inline-flex items-center px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
                             @svg('heroicon-o-plus', 'w-4 h-4 mr-1')
                             Konto hinzufügen
