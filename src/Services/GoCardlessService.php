@@ -327,7 +327,7 @@ class GoCardlessService
     }
 
     /**
-     * Löscht eine Requisition bei GoCardless (für Billing-Optimierung)
+     * Löscht eine Requisition bei GoCardless und lokal
      */
     public function deleteRequisition(string $requisitionId): bool
     {
@@ -338,8 +338,12 @@ class GoCardlessService
         ]);
 
         $token = $this->getAccessToken();
-        if (!$token) return false;
+        if (!$token) {
+            Log::error('GoCardlessService: No access token available');
+            return false;
+        }
 
+        // DELETE /api/v2/requisitions/{id}/
         $response = Http::withToken($token)
             ->delete("{$this->baseUrl}/requisitions/{$requisitionId}/");
 
@@ -351,12 +355,24 @@ class GoCardlessService
 
         if ($response->successful()) {
             // Lokale Requisition als gelöscht markieren
-            Requisition::where('external_id', $requisitionId)
+            $updated = Requisition::where('external_id', $requisitionId)
                 ->where('team_id', $this->teamId)
                 ->update(['deleted_at' => now()]);
             
+            Log::info('GoCardlessService: Requisition deleted successfully', [
+                'requisitionId' => $requisitionId,
+                'updated' => $updated,
+                'teamId' => $this->teamId
+            ]);
+            
             return true;
         }
+
+        Log::error('GoCardlessService: Failed to delete requisition', [
+            'requisitionId' => $requisitionId,
+            'status' => $response->status(),
+            'body' => $response->body()
+        ]);
 
         return false;
     }

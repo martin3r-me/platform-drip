@@ -318,7 +318,10 @@ class UpdateBankDataCommand extends Command
             foreach ($requisitions as $requisition) {
                 $this->info("   🗑️  Deleting requisition: {$requisition->external_id}");
                 
-                if ($gc->deleteRequisition($requisition->external_id)) {
+                // Löschung über GoCardless API + lokal
+                $success = $gc->deleteRequisition($requisition->external_id);
+                
+                if ($success) {
                     $deletedCount++;
                     $this->info("      ✅ Deleted successfully");
                 } else {
