@@ -111,12 +111,19 @@ class GoCardlessService
         $token = $this->getAccessToken();
         if (!$token) return null;
 
-        $response = Http::withToken($token)->post("{$this->baseUrl}/agreements/enduser/", [
+        $agreementData = [
             'institution_id' => $institutionId,
             'max_historical_days' => 365, // 12 Monate Transaktionshistorie
             'access_valid_for_days' => 180, // 6 Monate Zugriff
             'access_scope' => ['balances', 'details', 'transactions']
+        ];
+
+        Log::info('GoCardlessService: Creating end user agreement', [
+            'institutionId' => $institutionId,
+            'agreementData' => $agreementData
         ]);
+
+        $response = Http::withToken($token)->post("{$this->baseUrl}/agreements/enduser/", $agreementData);
 
         Log::info('GoCardlessService: End user agreement response', [
             'status' => $response->status(),
