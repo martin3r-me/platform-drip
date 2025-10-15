@@ -76,9 +76,9 @@ class TransactionService
 
                     // 1) Gruppe vom Konto auf die Transaktion spiegeln (falls Feld existiert)
                     $account = $accountsById->get($tx->bank_account_id);
-                    if ($account && property_exists($tx, 'group_id')) {
-                        if ($tx->group_id !== $account->group_id) {
-                            $tx->group_id = $account->group_id; // kann null sein
+                    if ($account) {
+                        if ($tx->getAttribute('group_id') !== $account->group_id) {
+                            $tx->setAttribute('group_id', $account->group_id); // kann null sein
                             $changed = true;
                         }
                     }
@@ -139,14 +139,14 @@ class TransactionService
                     //    Heuristik: Wenn debtor/creditor IBAN eine Team-IBAN ist → Flag und Gegenbuchungspartner merken
                     $counterpartyIban = $tx->creditor_account_iban ?? $tx->debtor_account_iban ?? null;
                     if ($counterpartyIban && isset($ibanToAccountId[$counterpartyIban])) {
-                        if (property_exists($tx, 'is_internal_transfer') && !$tx->is_internal_transfer) {
-                            $tx->is_internal_transfer = true;
+                        if (!$tx->getAttribute('is_internal_transfer')) {
+                            $tx->setAttribute('is_internal_transfer', true);
                             $changed = true;
                         }
 
                         // Optional: Gegenbuchung referenzieren (gleicher Betrag gegensätzlich, nahe am Datum)
                         // Leichtgewichtige Heuristik, nur wenn Feld existiert
-                        if (property_exists($tx, 'internal_transaction_id') && empty($tx->internal_transaction_id)) {
+                        if (empty($tx->getAttribute('internal_transaction_id'))) {
                             $match = BankTransaction::query()
                                 ->where('team_id', $tx->team_id)
                                 ->where('bank_account_id', $ibanToAccountId[$counterpartyIban])
@@ -164,25 +164,23 @@ class TransactionService
                                 ->first();
 
                             if ($match) {
-                                $tx->internal_transaction_id = $match->id;
+                                $tx->setAttribute('internal_transaction_id', $match->id);
                                 $changed = true;
                             }
                         }
                     }
 
                     // 6) Grobtyp aus Codes/Heuristik ableiten (income/expense/transfer)
-                    if (property_exists($tx, 'transaction_type_simple')) {
-                        $type = $tx->transaction_type_simple ?? null;
-                        if (!$type) {
-                            $type = $this->inferSimpleType(
-                                direction: $tx->direction ?? null,
-                                isInternal: (bool) (property_exists($tx, 'is_internal_transfer') ? $tx->is_internal_transfer : false),
-                                bankCode: $tx->bank_transaction_code ?? null,
-                            );
-                            if ($type) {
-                                $tx->transaction_type_simple = $type;
-                                $changed = true;
-                            }
+                    $type = $tx->getAttribute('transaction_type_simple');
+                    if (!$type) {
+                        $type = $this->inferSimpleType(
+                            direction: $tx->direction ?? null,
+                            isInternal: (bool) $tx->getAttribute('is_internal_transfer'),
+                            bankCode: $tx->bank_transaction_code ?? null,
+                        );
+                        if ($type) {
+                            $tx->setAttribute('transaction_type_simple', $type);
+                            $changed = true;
                         }
                     }
 
