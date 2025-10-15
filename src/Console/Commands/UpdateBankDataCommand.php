@@ -14,7 +14,8 @@ class UpdateBankDataCommand extends Command
                                     {--dry-run : Show what would be updated without making changes}
                                     {--cleanup : Clean up expired requisitions for billing optimization}
                                     {--delete-all : Delete ALL requisitions (use with caution!)}
-                                    {--billing : Show billing overview for teams}';
+                                    {--billing : Show billing overview for teams}
+                                    {--skip-details : Skip account details update (only transactions/balances)}';
 
     protected $description = 'Update bank data for all teams or a specific team';
 
@@ -25,6 +26,7 @@ class UpdateBankDataCommand extends Command
         $cleanup = $this->option('cleanup');
         $deleteAll = $this->option('delete-all');
         $billing = $this->option('billing');
+        $skipDetails = $this->option('skip-details');
 
         if ($billing) {
             return $this->showBillingOverview($teamId);
@@ -112,7 +114,7 @@ class UpdateBankDataCommand extends Command
     {
         try {
                     $gc = new GoCardlessService($team->id);
-            $results = $gc->updateAllBankData();
+            $results = $gc->updateAllBankData($skipDetails);
 
             $this->info("   💰 Balances updated: {$results['balances_updated']}");
             $this->info("   📝 Transactions updated: {$results['transactions_updated']}");

@@ -280,10 +280,30 @@ class GoCardlessService
 
         $data = $response->json();
 
+        $rateLimitHit = false;
         foreach ($data['accounts'] ?? [] as $accountId) {
-            $this->storeAccountDetails($accountId);
-            $this->storeAccountBalances($accountId);
-            $this->storeAccountTransactions($accountId, $requisition);
+            if ($rateLimitHit) {
+                // Wenn Rate Limit erreicht, nur noch minimale Accounts erstellen
+                $this->createMinimalAccount($accountId, $data['institution_id'] ?? null);
+                continue;
+            }
+            
+            try {
+                $this->storeAccountDetails($accountId);
+                $this->storeAccountBalances($accountId);
+                $this->storeAccountTransactions($accountId, $requisition);
+            } catch (\Exception $e) {
+                if (str_contains($e->getMessage(), '429') || str_contains($e->getMessage(), 'Rate limit')) {
+                    Log::warning('GoCardlessService: Rate limit hit during account processing', [
+                        'accountId' => $accountId,
+                        'error' => $e->getMessage()
+                    ]);
+                    $rateLimitHit = true;
+                    $this->createMinimalAccount($accountId, $data['institution_id'] ?? null);
+                } else {
+                    throw $e;
+                }
+            }
         }
 
         // Institution-spezifische Zugriffsdauer ermitteln
@@ -476,10 +496,11 @@ class GoCardlessService
      * Aktualisiert alle Bankdaten für ein Team
      * Lädt alle Transaktionen der letzten 48 Stunden
      */
-    public function updateAllBankData(): array
+    public function updateAllBankData(bool $skipDetails = false): array
     {
         Log::info('GoCardlessService: Updating all bank data', [
-            'teamId' => $this->teamId
+            'teamId' => $this->teamId,
+            'skipDetails' => $skipDetails
         ]);
 
         $results = [
@@ -500,14 +521,17 @@ class GoCardlessService
             
             foreach ($accounts as $accountId) {
                 try {
-                    // ZUERST: Account-Details speichern (falls noch nicht vorhanden)
-                    $this->storeAccountDetails($accountId);
+                    // Account-Details nur wenn nicht übersprungen
+                    if (!$skipDetails) {
+                        $this->storeAccountDetails($accountId);
+                        $results['accounts_updated']++;
+                    }
                     
-                    // DANN: Salden aktualisieren
+                    // Salden aktualisieren
                     $this->storeAccountBalances($accountId);
                     $results['balances_updated']++;
 
-                    // ZULETZT: Transaktionen aktualisieren
+                    // Transaktionen aktualisieren
                     $this->updateAccountTransactions($accountId);
                     $results['transactions_updated']++;
 
@@ -590,6 +614,16 @@ class GoCardlessService
 
     protected function storeAccountDetails(string $accountId): void
     {
+        // Prüfen ob Account-Details bereits importiert wurden (einmalig)
+        $account = BankAccount::where('external_id', $accountId)->first();
+        if ($account && $account->last_details_synced_at) {
+            Log::info('GoCardlessService: Skipping account details (already imported)', [
+                'accountId' => $accountId,
+                'lastSynced' => $account->last_details_synced_at
+            ]);
+            return;
+        }
+
         $token = $this->getAccessToken();
         if (!$token) return;
 
@@ -614,6 +648,7 @@ class GoCardlessService
                     'currency' => $account['currency'] ?? null,
                     'name' => $account['name'] ?? ($account['iban'] ? 'Konto ' . substr($account['iban'], -4) : 'Unbekanntes Konto'), // Intelligenter Fallback
                     'product' => $account['product'] ?? null,
+                    'last_details_synced_at' => now(),
                 ]
             );
             
@@ -629,15 +664,35 @@ class GoCardlessService
                 'body' => $response->body()
             ]);
             
-            // Bei Rate Limit: Abbrechen - nichts machen
+            // Bei Rate Limit: Exception werfen für bessere Behandlung
             if ($response->status() === 429) {
-                Log::warning('GoCardlessService: Rate limit hit, aborting account creation', [
+                Log::warning('GoCardlessService: Rate limit hit in storeAccountDetails', [
                     'accountId' => $accountId,
                     'retry_after' => '82794 seconds (23+ hours)'
                 ]);
-                return; // Abbrechen - nichts machen
+                
+                throw new \Exception('Rate limit exceeded (429)');
             }
         }
+    }
+
+    protected function createMinimalAccount(string $accountId, ?string $institutionId): void
+    {
+        Log::info('GoCardlessService: Creating minimal account due to rate limit', [
+            'accountId' => $accountId,
+            'institutionId' => $institutionId
+        ]);
+        
+        BankAccount::updateOrCreate(
+            ['external_id' => $accountId],
+            [
+                'team_id' => $this->teamId,
+                'user_id' => auth()->id(),
+                'institution_id' => Institution::where('external_id', $institutionId)->first()?->id,
+                'name' => 'Konto (Rate Limit)',
+                'currency' => 'EUR',
+            ]
+        );
     }
 
     protected function storeAccountBalances(string $accountId): void
@@ -672,11 +727,31 @@ class GoCardlessService
 
     public function storeAccountTransactions(string $accountId, ?Requisition $requisition = null): void
     {
+        // Prüfen ob Transaktionen in den letzten 24h bereits abgerufen wurden
+        $account = BankAccount::where('external_id', $accountId)->first();
+        if ($account && $account->last_transactions_synced_at && $account->last_transactions_synced_at->isAfter(now()->subDay())) {
+            Log::info('GoCardlessService: Skipping transactions (synced recently)', [
+                'accountId' => $accountId,
+                'lastSynced' => $account->last_transactions_synced_at
+            ]);
+            return;
+        }
+
         $token = $this->getAccessToken();
         if (!$token) return;
 
-        $response = Http::withToken($token)
-            ->get("{$this->baseUrl}/accounts/{$accountId}/transactions/");
+        // Delta-Update: Nur Transaktionen seit letztem Sync + 1 Tag Puffer
+        $dateFrom = null;
+        if ($account && $account->last_transactions_synced_at) {
+            $dateFrom = $account->last_transactions_synced_at->subDay()->format('Y-m-d');
+        }
+
+        $url = "{$this->baseUrl}/accounts/{$accountId}/transactions/";
+        if ($dateFrom) {
+            $url .= "?date_from={$dateFrom}";
+        }
+
+        $response = Http::withToken($token)->get($url);
 
         if ($response->successful()) {
             $account = BankAccount::where('external_id', $accountId)->first();
@@ -752,7 +827,12 @@ class GoCardlessService
                 }
             }
             
-            // Sync-Timestamp aktualisieren
+            // Sync-Timestamp für Account aktualisieren
+            if ($account) {
+                $account->update(['last_transactions_synced_at' => now()]);
+            }
+            
+            // Sync-Timestamp für Requisition aktualisieren
             if ($requisition) {
                 $requisition->update(['last_sync_at' => now()]);
             }

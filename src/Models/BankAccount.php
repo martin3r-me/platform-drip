@@ -18,7 +18,8 @@ class BankAccount extends Model
 
     protected $fillable = [
         'uuid', 'team_id', 'user_id', 'institution_id', 'group_id', 'external_id',
-        'name', 'iban', 'bban', 'bic', 'product', 'currency', 'initial_balance', 'opened_at', 'closed_at', 'metadata',
+        'name', 'iban', 'bban', 'bic', 'product', 'currency', 'initial_balance', 'opened_at', 'closed_at', 
+        'last_details_synced_at', 'last_transactions_synced_at', 'metadata',
     ];
 
     protected $casts = [
@@ -26,6 +27,8 @@ class BankAccount extends Model
         'opened_at' => 'date',
         'closed_at' => 'date',
         'initial_balance' => 'decimal:4',
+        'last_details_synced_at' => 'datetime',
+        'last_transactions_synced_at' => 'datetime',
     ];
 
     protected function initializeEncryptable(): void
