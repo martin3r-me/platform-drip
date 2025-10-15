@@ -67,7 +67,7 @@
 
     <x-slot name="sidebar">
         {{-- Linke Sidebar --}}
-        <x-ui-page-sidebar title="Schnellzugriff" width="w-80" side="left" :defaultOpen="true">
+        <x-ui-page-sidebar title="Schnellzugriff" width="w-80" side="left" :defaultOpen="true" storeKey="sidebarOpen">
             <div class="p-6 space-y-6">
                 <div>
                     <h3 class="text-xs font-semibold uppercase tracking-wide text-[var(--ui-muted)] mb-3">Aktionen</h3>
@@ -85,7 +85,7 @@
 
     <x-slot name="activity">
         {{-- Rechte Sidebar --}}
-        <x-ui-page-sidebar title="Information" width="w-80" side="right" :defaultOpen="true">
+        <x-ui-page-sidebar title="Information" width="w-80" side="right" :defaultOpen="true" storeKey="activityOpen">
             <div class="p-6 space-y-6">
                 <div>
                     <h3 class="text-xs font-semibold uppercase tracking-wide text-[var(--ui-muted)] mb-3">Statistiken</h3>
