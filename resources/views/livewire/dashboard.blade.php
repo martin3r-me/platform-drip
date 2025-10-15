@@ -5,10 +5,18 @@
     </x-slot>
 
     <x-ui-detail-stats-grid class="mb-8">
-        <x-ui-detail-stat label="Kontogruppen" value="{{ $groupsCount ?? 0 }}" icon="heroicon-o-folder" variant="primary" />
-        <x-ui-detail-stat label="Konten" value="{{ $accountsCount ?? 0 }}" icon="heroicon-o-credit-card" variant="secondary" />
-        <x-ui-detail-stat label="Transaktionen (30T)" value="{{ $transactions30d ?? 0 }}" icon="heroicon-o-banknotes" variant="success" />
-        <x-ui-detail-stat label="Letzter Sync" value="{{ $lastSyncAt ?? '—' }}" icon="heroicon-o-arrow-path" variant="warning" />
+        <x-slot:left>
+            <x-ui-form-grid :cols="2" :gap="3">
+                <x-ui-dashboard-tile title="Kontogruppen" :count="$groupsCount ?? 0" icon="folder" variant="primary" size="sm" />
+                <x-ui-dashboard-tile title="Konten" :count="$accountsCount ?? 0" icon="credit-card" variant="secondary" size="sm" />
+            </x-ui-form-grid>
+        </x-slot:left>
+        <x-slot:right>
+            <x-ui-form-grid :cols="2" :gap="3">
+                <x-ui-dashboard-tile title="Transaktionen (30T)" :count="$transactions30d ?? 0" icon="banknotes" variant="success" size="sm" />
+                <x-ui-dashboard-tile title="Letzter Sync" :count="($lastSyncAt ?? '—')" icon="arrow-path" variant="warning" size="sm" />
+            </x-ui-form-grid>
+        </x-slot:right>
     </x-ui-detail-stats-grid>
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
