@@ -81,6 +81,9 @@
             </div>
         </x-ui-page-sidebar>
 
+    </x-slot>
+
+    <x-slot name="activity">
         {{-- Rechte Sidebar --}}
         <x-ui-page-sidebar title="Information" width="w-80" side="right" :defaultOpen="true">
             <div class="p-6 space-y-6">
