@@ -10,6 +10,7 @@ use Platform\Drip\Models\BankAccount;
 use Platform\Core\Models\User;
 use Platform\Drip\Services\GoCardlessService;
 use Illuminate\Support\Facades\Redirect;
+use Platform\Drip\Services\TransactionService;
 
 class Banks extends Component
 {
@@ -170,8 +171,12 @@ class Banks extends Component
     public function assignToGroup($groupId)
     {
         if ($this->selectedAccountId) {
-            BankAccount::where('id', $this->selectedAccountId)
-                ->update(['group_id' => $groupId]);
+            $account = BankAccount::find($this->selectedAccountId);
+            if ($account) {
+                $account->update(['group_id' => $groupId]);
+                // Normalisierung nach Gruppenwechsel anstoßen
+                app(TransactionService::class)->normalizeAccounts((int) $account->team_id, [$account->id], null);
+            }
         }
         
         $this->showGroupSelectionModal = false;

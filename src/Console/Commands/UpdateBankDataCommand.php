@@ -4,6 +4,8 @@ namespace Platform\Drip\Console\Commands;
 
 use Illuminate\Console\Command;
 use Platform\Drip\Services\GoCardlessService;
+use Platform\Drip\Services\TransactionService;
+use Platform\Drip\Services\GroupMetricsService;
 use Platform\Core\Models\Team;
 use Platform\Drip\Models\Requisition;
 
@@ -119,7 +121,7 @@ class UpdateBankDataCommand extends Command
     protected function processTeam(Team $team): bool
     {
         try {
-                    $gc = new GoCardlessService($team->id);
+            $gc = new GoCardlessService($team->id);
             $results = $gc->updateAllBankData($skipDetails);
 
             $this->info("   💰 Balances updated: {$results['balances_updated']}");
@@ -132,6 +134,32 @@ class UpdateBankDataCommand extends Command
                 }
                 return false;
             }
+
+            // Nach erfolgreichem Import: dynamische Normalisierung pro betroff. Konto
+            $svc = app(TransactionService::class);
+            $normalizedTotal = 0;
+            $recentAccounts = \Platform\Drip\Models\BankAccount::query()
+                ->where('team_id', $team->id)
+                ->whereNotNull('last_transactions_synced_at')
+                ->where('last_transactions_synced_at', '>=', now()->subDay())
+                ->get(['id', 'team_id', 'last_transactions_synced_at']);
+
+            if ($recentAccounts->isEmpty()) {
+                $this->info("   ℹ️ No recently updated accounts found – skipping targeted normalization");
+            } else {
+                foreach ($recentAccounts as $acc) {
+                    $since = $acc->last_transactions_synced_at
+                        ? $acc->last_transactions_synced_at->copy()->subDay()
+                        : now()->subDays(90);
+                    $normalizedTotal += $svc->normalizeAccounts((int) $team->id, [$acc->id], $since);
+                }
+                $this->info("   🔧 Normalized transactions (targeted): {$normalizedTotal}");
+            }
+
+            // Danach KPIs je Gruppe aktualisieren (Zeitraum: letzter Monat bis heute)
+            $gm = app(GroupMetricsService::class);
+            $rows = $gm->buildForTeam((int) $team->id, now()->startOfMonth()->subMonth(), now());
+            $this->info("   📈 Group KPIs updated rows: {$rows}");
 
             return true;
 

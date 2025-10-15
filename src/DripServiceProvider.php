@@ -13,6 +13,7 @@ use Platform\Drip\Models\BankAccount;
 use Platform\Drip\Models\BankTransaction;
 use Platform\Drip\Policies\BankAccountPolicy;
 use Platform\Drip\Policies\BankTransactionPolicy;
+use Platform\Drip\Observers\BankAccountObserver;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 
@@ -75,6 +76,8 @@ class DripServiceProvider extends ServiceProvider
         // Schritt 6: Views & Livewire
         $this->loadViewsFrom(__DIR__ . '/../resources/views', 'drip');
         $this->registerLivewireComponents();
+        // Observer
+        BankAccount::observe(BankAccountObserver::class);
         
         // Schritt 7: Commands
         $this->registerCommands();
@@ -128,6 +131,8 @@ class DripServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 \Platform\Drip\Console\Commands\UpdateBankDataCommand::class,
+                \Platform\Drip\Console\Commands\NormalizeTransactionsCommand::class,
+                \Platform\Drip\Console\Commands\BuildGroupMetricsCommand::class,
             ]);
         }
     }
