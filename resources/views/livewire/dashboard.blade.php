@@ -62,6 +62,8 @@
             </div>
         </x-ui-panel>
     </div>
+    
+    </x-ui-page-container>
 
     <x-slot name="sidebar">
         <x-ui-page-sidebar title="Schnellzugriff" width="w-80" :defaultOpen="true">
