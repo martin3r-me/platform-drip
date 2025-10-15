@@ -1,12 +1,18 @@
 <x-ui-page-container>
     <x-slot name="navbar">
         <x-ui-page-navbar title="{{ $group->name }}" subtitle="{{ $transactions->total() }} Transaktionen">
-            <x-slot name="breadcrumbs">
-                <x-ui-breadcrumbs>
-                    <x-ui-breadcrumb :href="route('drip.banks')" label="Banken" />
-                    <x-ui-breadcrumb label="{{ $group->name }}" />
-                </x-ui-breadcrumbs>
-            </x-slot>
+            {{-- Simple Breadcrumbs (wie im Planner) --}}
+            <div class="flex items-center space-x-2 text-sm">
+                <a href="{{ route('drip.banks') }}" class="text-[var(--ui-secondary)] hover:text-[var(--ui-primary)] flex items-center gap-1">
+                    @svg('heroicon-o-building-library', 'w-4 h-4')
+                    Banken
+                </a>
+                <span class="text-[var(--ui-muted)]">›</span>
+                <span class="text-[var(--ui-muted)] flex items-center gap-1">
+                    @svg('heroicon-o-banknotes', 'w-4 h-4')
+                    {{ $group->name }}
+                </span>
+            </div>
             <x-slot name="actions">
                 <x-ui-input-text name="search" placeholder="Transaktionen durchsuchen..." wire:model.live.debounce.300ms="search" />
             </x-slot>
