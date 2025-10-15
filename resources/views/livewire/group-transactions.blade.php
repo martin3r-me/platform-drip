@@ -123,7 +123,7 @@
     </x-ui-page-container>
 
     <x-slot name="sidebar">
-        <x-ui-page-sidebar title="Navigation" width="w-80" side="left" :defaultOpen="true">
+        <x-ui-page-sidebar title="Navigation" width="w-80" side="left" :defaultOpen="true" storeKey="sidebarOpen">
             <div class="p-6 space-y-4">
                 <x-ui-button variant="secondary-outline" size="sm" :href="route('drip.banks')" wire:navigate class="w-full">
                     @svg('heroicon-o-building-library', 'w-4 h-4')
@@ -134,7 +134,7 @@
     </x-slot>
 
     <x-slot name="activity">
-        <x-ui-page-sidebar title="Filter" width="w-80" side="right" :defaultOpen="true">
+        <x-ui-page-sidebar title="Filter" width="w-80" side="right" :defaultOpen="true" storeKey="activityOpen">
             <div class="p-6 space-y-4">
                 <x-ui-input-text name="searchRight" label="Suche" placeholder="Transaktionen durchsuchen" wire:model.live.debounce.300ms="search" />
             </div>
