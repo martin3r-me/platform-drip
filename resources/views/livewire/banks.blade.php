@@ -326,6 +326,41 @@
         </x-ui-page-sidebar>
     </x-slot>
 
+    {{-- Rechte Sidebar --}}
+    <x-slot name="sidebar">
+        <x-ui-page-sidebar title="Information" width="w-80" side="right" :defaultOpen="true">
+            <div class="p-6 space-y-6">
+                <div>
+                    <h3 class="text-xs font-semibold uppercase tracking-wide text-[var(--ui-muted)] mb-3">Übersicht</h3>
+                    <div class="space-y-2 text-sm text-[var(--ui-secondary)]">
+                        <div class="flex items-center justify-between">
+                            <span>Gruppen</span>
+                            <span class="font-semibold">{{ $groups->count() }}</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span>Konten</span>
+                            <span class="font-semibold">{{ $accounts->count() }}</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span>Ohne Gruppe</span>
+                            <span class="font-semibold">{{ $accounts->whereNull('group_id')->count() }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-xs font-semibold uppercase tracking-wide text-[var(--ui-muted)] mb-3">Aktionen</h3>
+                    <div class="space-y-2">
+                        <x-ui-button variant="secondary-outline" size="sm" wire:click="updateAll" class="w-full">
+                            @svg('heroicon-o-arrow-path', 'w-4 h-4')
+                            <span class="ml-2">Bankdaten aktualisieren</span>
+                        </x-ui-button>
+                    </div>
+                </div>
+            </div>
+        </x-ui-page-sidebar>
+    </x-slot>
+
 </x-ui-page>
 
 

@@ -1,8 +1,10 @@
-<x-ui-page-container>
+<x-ui-page>
     <x-slot name="navbar">
         <x-ui-page-navbar title="Drip Dashboard" subtitle="Überblick über Bankdaten und Gruppen">
         </x-ui-page-navbar>
     </x-slot>
+
+    <x-ui-page-container>
 
     <x-ui-detail-stats-grid class="mb-8">
         <x-slot:left>
@@ -61,4 +63,20 @@
         </x-ui-panel>
     </div>
 
-</x-ui-page-container>
+    <x-slot name="sidebar">
+        <x-ui-page-sidebar title="Schnellzugriff" width="w-80" :defaultOpen="true">
+            <div class="p-6 space-y-6">
+                <div>
+                    <h3 class="text-xs font-semibold uppercase tracking-wide text-[var(--ui-muted)] mb-3">Aktionen</h3>
+                    <div class="space-y-2">
+                        <x-ui-button variant="secondary" size="sm" :href="route('drip.banks')" wire:navigate class="w-full justify-start">
+                            @svg('heroicon-o-building-library', 'w-4 h-4')
+                            <span class="ml-2">Zu Banken</span>
+                        </x-ui-button>
+                    </div>
+                </div>
+            </div>
+        </x-ui-page-sidebar>
+    </x-slot>
+
+</x-ui-page>
