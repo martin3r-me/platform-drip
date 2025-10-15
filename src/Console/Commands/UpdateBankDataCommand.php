@@ -15,7 +15,8 @@ class UpdateBankDataCommand extends Command
                                     {--cleanup : Clean up expired requisitions for billing optimization}
                                     {--delete-all : Delete ALL requisitions (use with caution!)}
                                     {--billing : Show billing overview for teams}
-                                    {--skip-details : Skip account details update (only transactions/balances)}';
+                                    {--skip-details : Skip account details update (only transactions/balances)}
+                                    {--delete= : Delete a single requisition by LOCAL ID}';
 
     protected $description = 'Update bank data for all teams or a specific team';
 
@@ -27,9 +28,14 @@ class UpdateBankDataCommand extends Command
         $deleteAll = $this->option('delete-all');
         $billing = $this->option('billing');
         $skipDetails = $this->option('skip-details');
+        $deleteSingle = $this->option('delete');
 
         if ($billing) {
             return $this->showBillingOverview($teamId);
+        }
+
+        if ($deleteSingle) {
+            return $this->deleteSingleRequisitionById((int) $deleteSingle);
         }
 
         if ($deleteAll) {
@@ -345,6 +351,35 @@ class UpdateBankDataCommand extends Command
 
         } catch (\Exception $e) {
             $this->error("   ❌ Failed to delete requisitions for team {$team->name}: " . $e->getMessage());
+            return 1;
+        }
+    }
+
+    protected function deleteSingleRequisitionById(int $id): int
+    {
+        $requisition = Requisition::find($id);
+        if (!$requisition) {
+            $this->error("❌ Requisition with ID {$id} not found");
+            return 1;
+        }
+
+        $this->info("🗑️  Deleting requisition ID {$id} (external: {$requisition->external_id}) for team {$requisition->team_id}");
+
+        try {
+            $gc = new GoCardlessService($requisition->team_id);
+            $success = $gc->deleteRequisition($requisition->external_id);
+
+            if ($success) {
+                $this->info('✅ Requisition deleted successfully');
+                return 0;
+            }
+
+            $this->warn('⚠️ Remote delete failed, attempting local soft delete');
+            $requisition->delete();
+            $this->info('✅ Locally soft-deleted');
+            return 0;
+        } catch (\Exception $e) {
+            $this->error('❌ Delete failed: ' . $e->getMessage());
             return 1;
         }
     }
