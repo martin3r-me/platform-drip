@@ -30,13 +30,13 @@
         </div>
         
         @if (session('error'))
-            <div class="bg-red-100 text-red-800 p-4 rounded mb-4">
+            <div class="p-3 rounded mb-4 bg-[var(--ui-danger-soft)] text-[var(--ui-danger)] border border-[var(--ui-border)]/40">
                 {{ session('error') }}
             </div>
         @endif
 
         @if (session('success'))
-            <div class="bg-green-100 text-green-800 p-4 rounded mb-4">
+            <div class="p-3 rounded mb-4 bg-[var(--ui-success-soft)] text-[var(--ui-success)] border border-[var(--ui-border)]/40">
                 {{ session('success') }}
             </div>
         @endif
@@ -47,22 +47,22 @@
             </div>
 
             @if (count($filteredInstitutions))
-                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                <x-ui-form-grid :cols="4" :gap="4">
                     @foreach ($filteredInstitutions as $bank)
                         <div class="bg-white border border-[var(--ui-border)] rounded-lg p-4 hover:shadow-sm transition-shadow duration-200">
                             <div class="flex items-center space-x-3 mb-4">
-                                <div class="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
+                                <div class="w-12 h-12 bg-[var(--ui-muted-5)] rounded-lg flex items-center justify-center overflow-hidden">
                                     @if($bank['logo'])
                                         <img src="{{ $bank['logo'] }}" alt="{{ $bank['name'] }}" class="w-10 h-10 object-contain">
                                     @else
-                                        <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                                        <div class="w-8 h-8 bg-[var(--ui-primary)] rounded-full flex items-center justify-center">
                                             <span class="text-white font-bold text-sm">{{ substr($bank['name'], 0, 1) }}</span>
                                         </div>
                                     @endif
                                 </div>
                                 <div class="flex-1 min-w-0">
-                                    <h3 class="font-semibold text-gray-900 truncate">{{ $bank['name'] }}</h3>
-                                    <p class="text-sm text-gray-500">{{ $bank['countries'][0] ?? 'DE' }}</p>
+                                    <h3 class="font-semibold text-[var(--ui-secondary)] truncate">{{ $bank['name'] }}</h3>
+                                    <p class="text-sm text-[var(--ui-muted)]">{{ $bank['countries'][0] ?? 'DE' }}</p>
                                 </div>
                             </div>
                             <x-ui-button class="w-full justify-center" size="sm" variant="primary" wire:click="connectBank('{{ $bank['id'] }}')" wire:loading.attr="disabled" wire:target="connectBank">
@@ -77,26 +77,26 @@
                             </x-ui-button>
                         </div>
                     @endforeach
-                </div>
+                </x-ui-form-grid>
             @else
                 <div class="text-center py-8">
-                    <div class="text-gray-400 mb-2">
+                    <div class="text-[var(--ui-muted)] mb-2">
                         <svg class="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
                     </div>
-                    <p class="text-gray-500">Keine passenden Banken gefunden.</p>
+                    <p class="text-[var(--ui-muted)]">Keine passenden Banken gefunden.</p>
                 </div>
             @endif
         @else
-            <div class="text-center py-12 bg-gray-50 rounded-lg">
-                <div class="text-gray-400 mb-4">
+            <div class="text-center py-12 bg-[var(--ui-muted-5)] rounded-lg border border-[var(--ui-border)]/40">
+                <div class="text-[var(--ui-muted)] mb-4">
                     <svg class="mx-auto h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                     </svg>
                 </div>
-                <h3 class="text-lg font-medium text-gray-900 mb-2">Banken verbinden</h3>
-                <p class="text-gray-500 mb-4">Lade verfügbare Banken, um deine Konten zu verbinden.</p>
+                <h3 class="text-lg font-semibold text-[var(--ui-secondary)] mb-2">Banken verbinden</h3>
+                <p class="text-[var(--ui-muted)] mb-4">Lade verfügbare Banken, um deine Konten zu verbinden.</p>
             </div>
         @endif
     </x-ui-panel>
@@ -107,8 +107,8 @@
             <x-ui-panel class="p-6">
                 <div class="flex items-center justify-between mb-4">
                     <div class="flex-1">
-                        <h3 class="text-lg font-semibold text-gray-900">{{ $group->name }}</h3>
-                        <p class="text-sm text-gray-600">{{ $group->accounts->count() }} Konten</p>
+                        <h3 class="text-lg font-semibold text-[var(--ui-secondary)]">{{ $group->name }}</h3>
+                        <p class="text-sm text-[var(--ui-muted)]">{{ $group->accounts->count() }} Konten</p>
                     </div>
                     <div class="flex items-center gap-2">
                         <x-ui-button :href="route('drip.groups.show', $group)" wire:navigate size="sm" variant="success">
@@ -125,38 +125,38 @@
                 @if ($group->accounts->count() > 0)
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         @foreach ($group->accounts as $account)
-                            <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                            <div class="border border-[var(--ui-border)]/60 rounded-lg p-4 hover:shadow-sm transition-shadow bg-white">
                                 <div class="flex items-start justify-between">
                                     <div class="flex-1">
-                                        <h4 class="font-medium text-gray-900">{{ $account->name }}</h4>
-                                        <p class="text-sm text-gray-600 mt-1">{{ $account->institution?->name ?? 'Unbekannte Bank' }}</p>
-                                        <p class="text-xs text-gray-500 mt-1">{{ $account->currency }} • {{ $account->iban ? '****' . substr($account->iban, -4) : 'Keine IBAN' }}</p>
+                                        <h4 class="font-medium text-[var(--ui-secondary)]">{{ $account->name }}</h4>
+                                        <p class="text-sm text-[var(--ui-muted)] mt-1">{{ $account->institution?->name ?? 'Unbekannte Bank' }}</p>
+                                        <p class="text-xs text-[var(--ui-muted)] mt-1">{{ $account->currency }} • {{ $account->iban ? '****' . substr($account->iban, -4) : 'Keine IBAN' }}</p>
                                         
                                         {{-- Balances --}}
                                         @if($account->balances->count() > 0)
                                             <div class="mt-3 space-y-1">
                                                 @foreach($account->balances->take(3) as $balance)
                                                     <div class="flex items-center justify-between text-xs">
-                                                        <span class="text-gray-500">{{ ucfirst($balance->balance_type) }}:</span>
+                                                        <span class="text-[var(--ui-muted)]">{{ ucfirst($balance->balance_type) }}:</span>
                                                         <span class="font-medium {{ $balance->amount >= 0 ? 'text-green-600' : 'text-red-600' }}">
                                                             {{ number_format($balance->amount, 2, ',', '.') }} {{ $balance->currency ?? $account->currency }}
                                                         </span>
                                                     </div>
                                                 @endforeach
                                                 @if($account->balances->count() > 3)
-                                                    <div class="text-xs text-gray-400">
+                                                    <div class="text-xs text-[var(--ui-muted)]">
                                                         +{{ $account->balances->count() - 3 }} weitere
                                                     </div>
                                                 @endif
                                             </div>
                                         @else
-                                            <div class="mt-2 text-xs text-gray-400">
+                                            <div class="mt-2 text-xs text-[var(--ui-muted)]">
                                                 Keine Salden verfügbar
                                             </div>
                                         @endif
                                     </div>
                                     <div class="flex items-center gap-1">
-                                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-[var(--ui-success-soft)] text-[var(--ui-success)]">
                                             Verbunden
                                         </span>
                                     </div>
@@ -165,11 +165,11 @@
                         @endforeach
                     </div>
                 @else
-                    <div class="text-center py-8 bg-gray-50 rounded-lg">
-                        <div class="text-gray-400 mb-2">
+                    <div class="text-center py-8 bg-[var(--ui-muted-5)] rounded-lg border border-[var(--ui-border)]/40">
+                        <div class="text-[var(--ui-muted)] mb-2">
                             @svg('heroicon-o-credit-card', 'w-8 h-8 mx-auto')
                         </div>
-                        <p class="text-gray-500 text-sm">Keine Konten in dieser Gruppe</p>
+                        <p class="text-[var(--ui-muted)] text-sm">Keine Konten in dieser Gruppe</p>
                         <x-ui-button size="xs" variant="primary-link" wire:click="openAccountModal({{ $group->id }})">
                             Erstes Konto hinzufügen
                         </x-ui-button>
@@ -178,11 +178,11 @@
             </x-ui-panel>
         @empty
             <x-ui-panel class="p-12 text-center">
-                <div class="text-gray-400 mb-4">
+                <div class="text-[var(--ui-muted)] mb-4">
                     @svg('heroicon-o-folder', 'w-16 h-16 mx-auto')
                 </div>
-                <h3 class="text-lg font-medium text-gray-900 mb-2">Keine Kontogruppen</h3>
-                <p class="text-gray-500 mb-6">Erstelle eine Kontogruppe, um deine Bankkonten zu organisieren.</p>
+                <h3 class="text-lg font-semibold text-[var(--ui-secondary)] mb-2">Keine Kontogruppen</h3>
+                <p class="text-[var(--ui-muted)] mb-6">Erstelle eine Kontogruppe, um deine Bankkonten zu organisieren.</p>
                 <x-ui-button variant="success" wire:click="openGroupModal">
                     @svg('heroicon-o-plus', 'w-4 h-4')
                     <span class="ml-2">Erste Gruppe erstellen</span>
@@ -203,12 +203,12 @@
             
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 @foreach ($accounts->whereNull('group_id') as $account)
-                    <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                    <div class="border border-[var(--ui-border)]/60 rounded-lg p-4 hover:shadow-sm transition-shadow bg-white">
                         <div class="flex items-start justify-between">
                             <div class="flex-1">
-                                <h4 class="font-medium text-gray-900">{{ $account->name }}</h4>
-                                <p class="text-sm text-gray-600 mt-1">{{ $account->institution?->name ?? 'Unbekannte Bank' }}</p>
-                                <p class="text-xs text-gray-500 mt-1">{{ $account->currency }} • {{ $account->iban ? '****' . substr($account->iban, -4) : 'Keine IBAN' }}</p>
+                                <h4 class="font-medium text-[var(--ui-secondary)]">{{ $account->name }}</h4>
+                                <p class="text-sm text-[var(--ui-muted)] mt-1">{{ $account->institution?->name ?? 'Unbekannte Bank' }}</p>
+                                <p class="text-xs text-[var(--ui-muted)] mt-1">{{ $account->currency }} • {{ $account->iban ? '****' . substr($account->iban, -4) : 'Keine IBAN' }}</p>
                             </div>
                             <div class="flex items-center gap-2">
                                 <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
