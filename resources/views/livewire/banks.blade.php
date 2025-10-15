@@ -307,6 +307,7 @@
     </x-ui-page-container>
 
     <x-slot name="sidebar">
+        {{-- Linke Sidebar --}}
         <x-ui-page-sidebar title="Schnellzugriff" width="w-80" :defaultOpen="true">
             <div class="p-6 space-y-6">
                 <div>
@@ -324,10 +325,8 @@
                 </div>
             </div>
         </x-ui-page-sidebar>
-    </x-slot>
 
-    {{-- Rechte Sidebar --}}
-    <x-slot name="sidebar">
+        {{-- Rechte Sidebar --}}
         <x-ui-page-sidebar title="Information" width="w-80" side="right" :defaultOpen="true">
             <div class="p-6 space-y-6">
                 <div>

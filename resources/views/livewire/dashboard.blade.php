@@ -66,6 +66,7 @@
     </x-ui-page-container>
 
     <x-slot name="sidebar">
+        {{-- Linke Sidebar --}}
         <x-ui-page-sidebar title="Schnellzugriff" width="w-80" :defaultOpen="true">
             <div class="p-6 space-y-6">
                 <div>
@@ -75,6 +76,29 @@
                             @svg('heroicon-o-building-library', 'w-4 h-4')
                             <span class="ml-2">Zu Banken</span>
                         </x-ui-button>
+                    </div>
+                </div>
+            </div>
+        </x-ui-page-sidebar>
+
+        {{-- Rechte Sidebar --}}
+        <x-ui-page-sidebar title="Information" width="w-80" side="right" :defaultOpen="true">
+            <div class="p-6 space-y-6">
+                <div>
+                    <h3 class="text-xs font-semibold uppercase tracking-wide text-[var(--ui-muted)] mb-3">Statistiken</h3>
+                    <div class="space-y-2 text-sm text-[var(--ui-secondary)]">
+                        <div class="flex items-center justify-between">
+                            <span>Gruppen</span>
+                            <span class="font-semibold">{{ $groupsCount }}</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span>Konten</span>
+                            <span class="font-semibold">{{ $accountsCount }}</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span>Transaktionen (30T)</span>
+                            <span class="font-semibold">{{ $transactions30d }}</span>
+                        </div>
                     </div>
                 </div>
             </div>
