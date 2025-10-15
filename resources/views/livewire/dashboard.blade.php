@@ -12,9 +12,8 @@
             </x-ui-form-grid>
         </x-slot:left>
         <x-slot:right>
-            <x-ui-form-grid :cols="2" :gap="3">
+            <x-ui-form-grid :cols="1" :gap="3">
                 <x-ui-dashboard-tile title="Transaktionen (30T)" :count="$transactions30d ?? 0" icon="banknotes" variant="success" size="sm" />
-                <x-ui-dashboard-tile title="Letzter Sync" :count="($lastSyncAt ?? '—')" icon="arrow-path" variant="warning" size="sm" />
             </x-ui-form-grid>
         </x-slot:right>
     </x-ui-detail-stats-grid>

@@ -1,4 +1,4 @@
-<x-ui-page-container>
+<x-ui-page>
     <x-slot name="navbar">
         <x-ui-page-navbar title="Banken & Konten" subtitle="Verwalte Bankverbindungen, Gruppen und Konten">
             <x-slot name="actions">
@@ -9,6 +9,7 @@
             </x-slot>
         </x-ui-page-navbar>
     </x-slot>
+    <x-ui-page-container>
 
     {{-- GoCardless Banken --}}
     <x-ui-panel title="Banken verbinden" subtitle="Verbinde deine Bank über GoCardless" class="mb-8">
@@ -302,7 +303,27 @@
             <x-ui-button variant="secondary-outline" wire:click="$set('showGroupSelectionModal', false)">Abbrechen</x-ui-button>
         </x-slot:footer>
     </x-ui-modal>
-    
-</x-ui-page-container>
+
+    <x-slot name="sidebar">
+        <x-ui-page-sidebar title="Schnellzugriff" width="w-80" :defaultOpen="true">
+            <div class="p-6 space-y-6">
+                <div>
+                    <h3 class="text-xs font-semibold uppercase tracking-wide text-[var(--ui-muted)] mb-3">Aktionen</h3>
+                    <div class="space-y-2">
+                        <x-ui-button variant="secondary" size="sm" wire:click="openGroupModal" class="w-full justify-start">
+                            @svg('heroicon-o-plus', 'w-4 h-4')
+                            <span class="ml-2">Neue Gruppe</span>
+                        </x-ui-button>
+                        <x-ui-button variant="secondary" size="sm" wire:click="loadGoCardlessInstitutions" class="w-full justify-start">
+                            @svg('heroicon-o-building-library', 'w-4 h-4')
+                            <span class="ml-2">Banken laden</span>
+                        </x-ui-button>
+                    </div>
+                </div>
+            </div>
+        </x-ui-page-sidebar>
+    </x-slot>
+
+</x-ui-page>
 
 
