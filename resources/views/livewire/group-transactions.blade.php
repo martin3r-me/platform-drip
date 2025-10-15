@@ -1,35 +1,20 @@
-<div class="space-y-6">
-    {{-- Header --}}
-    <div class="flex items-center justify-between">
-        <div>
-            <div class="flex items-center gap-3 mb-2">
-                <a href="{{ route('drip.banks') }}" class="text-gray-500 hover:text-gray-700">
-                    @svg('heroicon-o-arrow-left', 'w-5 h-5')
-                </a>
-                <div class="flex items-center gap-2">
-                    <div class="w-3 h-3 rounded-full" style="background-color: {{ $group->color ?? '#6B7280' }}"></div>
-                    <h1 class="text-2xl font-bold text-gray-900">{{ $group->name }}</h1>
-                </div>
-            </div>
-            <p class="text-sm text-gray-600">{{ $transactions->total() }} Transaktionen</p>
-        </div>
-        <div class="flex items-center gap-3">
-            <div class="relative">
-                <input 
-                    type="text" 
-                    wire:model.live.debounce.300ms="search"
-                    placeholder="Transaktionen durchsuchen..."
-                    class="w-64 pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    @svg('heroicon-o-magnifying-glass', 'w-4 h-4 text-gray-400')
-                </div>
-            </div>
-        </div>
-    </div>
+<x-ui-page-container>
+    <x-slot name="navbar">
+        <x-ui-page-navbar title="{{ $group->name }}" subtitle="{{ $transactions->total() }} Transaktionen">
+            <x-slot name="breadcrumbs">
+                <x-ui-breadcrumbs>
+                    <x-ui-breadcrumb :href="route('drip.banks')" label="Banken" />
+                    <x-ui-breadcrumb label="{{ $group->name }}" />
+                </x-ui-breadcrumbs>
+            </x-slot>
+            <x-slot name="actions">
+                <x-ui-input-text name="search" placeholder="Transaktionen durchsuchen..." wire:model.live.debounce.300ms="search" />
+            </x-slot>
+        </x-ui-page-navbar>
+    </x-slot>
 
     {{-- Transaktionen Liste --}}
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+    <x-ui-panel>
         @if ($transactions->count() > 0)
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200">
@@ -125,5 +110,6 @@
                 </p>
             </div>
         @endif
-    </div>
-</div>
+    </x-ui-panel>
+
+</x-ui-page-container>
