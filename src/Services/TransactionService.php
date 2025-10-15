@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Platform\Drip\Models\BankAccount;
 use Platform\Drip\Models\BankTransaction;
+use Platform\Drip\Models\InternalTransfer;
 
 class TransactionService
 {
@@ -166,6 +167,37 @@ class TransactionService
                             if ($match) {
                                 $tx->setAttribute('internal_transaction_id', $match->id);
                                 $changed = true;
+
+                                // Materialisierte Übersicht schreiben (idempotent)
+                                $fromAccountId = null;
+                                $toAccountId = null;
+                                $amountAbs = abs((float) $tx->amount);
+
+                                if (($tx->direction ?? null) === 'debit') {
+                                    $fromAccountId = (int) $tx->bank_account_id;
+                                    $toAccountId = (int) $match->bank_account_id;
+                                } else {
+                                    $fromAccountId = (int) $match->bank_account_id;
+                                    $toAccountId = (int) $tx->bank_account_id;
+                                }
+
+                                $transferredAt = $tx->booked_at ? Carbon::parse($tx->booked_at)->toDateString() : Carbon::now()->toDateString();
+
+                                InternalTransfer::firstOrCreate(
+                                    [
+                                        'team_id' => (int) $tx->team_id,
+                                        'source_transaction_id' => (int) $tx->id,
+                                        'target_transaction_id' => (int) $match->id,
+                                    ],
+                                    [
+                                        'from_account_id' => $fromAccountId,
+                                        'to_account_id' => $toAccountId,
+                                        'transferred_at' => $transferredAt,
+                                        'amount' => $amountAbs,
+                                        'currency' => $tx->currency ?? 'EUR',
+                                        'reference' => $tx->reference ?? $tx->remittance_information ?? null,
+                                    ]
+                                );
                             }
                         }
                     }

@@ -4,11 +4,14 @@ namespace Platform\Drip\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Auth;
 use Symfony\Component\Uid\UuidV7;
 
 class InternalTransfer extends Model
 {
+    use SoftDeletes;
+
     protected $table = 'drip_internal_transfers';
 
     protected $fillable = [
