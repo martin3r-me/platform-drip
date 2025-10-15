@@ -304,6 +304,8 @@
         </x-slot:footer>
     </x-ui-modal>
 
+    </x-ui-page-container>
+
     <x-slot name="sidebar">
         <x-ui-page-sidebar title="Schnellzugriff" width="w-80" :defaultOpen="true">
             <div class="p-6 space-y-6">
