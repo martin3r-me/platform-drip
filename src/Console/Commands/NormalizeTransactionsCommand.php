@@ -24,6 +24,8 @@ class NormalizeTransactionsCommand extends Command
         }
 
         $svc = new TransactionService();
+        $this->info('🔧 Normalization started');
+        $this->line('   Params: team=' . ($teamId ?: 'ALL') . ', since=' . ($since?->toDateTimeString() ?? '—') . ', dry=' . ($dry ? 'yes' : 'no'));
 
         if ($teamId) {
             $team = Team::find($teamId);
@@ -36,7 +38,11 @@ class NormalizeTransactionsCommand extends Command
                 return 0;
             }
             $updated = $svc->normalizeTeam((int) $teamId, $since);
-            $this->info("Aktualisiert: {$updated}");
+            $internal = \Platform\Drip\Models\BankTransaction::query()
+                ->where('team_id', (int) $teamId)
+                ->where(function ($q) { $q->where('is_internal_transfer', true); })
+                ->count();
+            $this->info("✅ Aktualisiert: {$updated} | Interne Umbuchungen: {$internal}");
             return 0;
         }
 
@@ -55,7 +61,11 @@ class NormalizeTransactionsCommand extends Command
                 continue;
             }
             $updated = $svc->normalizeTeam((int) $tid, $since);
-            $this->info("Team {$tid}: aktualisiert {$updated}");
+            $internal = \Platform\Drip\Models\BankTransaction::query()
+                ->where('team_id', (int) $tid)
+                ->where(function ($q) { $q->where('is_internal_transfer', true); })
+                ->count();
+            $this->info("Team {$tid}: aktualisiert {$updated} | Interne Umbuchungen: {$internal}");
         }
 
         return 0;
