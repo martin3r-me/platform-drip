@@ -15,7 +15,7 @@
         <div class="flex items-center justify-between mb-4">
             <div></div>
             @if (empty($gocardlessInstitutions))
-                <x-ui-button variant="success" size="sm" wire:click="loadGoCardlessInstitutions" :disabled="$wire.loadingInstitutions">
+                <x-ui-button variant="success" size="sm" wire:click="loadGoCardlessInstitutions" wire:loading.attr="disabled" wire:target="loadGoCardlessInstitutions">
                     <span wire:loading.remove wire:target="loadGoCardlessInstitutions">Banken laden</span>
                     <span wire:loading wire:target="loadGoCardlessInstitutions" class="flex items-center">
                         <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -64,7 +64,7 @@
                                     <p class="text-sm text-gray-500">{{ $bank['countries'][0] ?? 'DE' }}</p>
                                 </div>
                             </div>
-                            <x-ui-button class="w-full justify-center" size="sm" variant="primary" wire:click="connectBank('{{ $bank['id'] }}')" :disabled="$wire.connectingBank">
+                            <x-ui-button class="w-full justify-center" size="sm" variant="primary" wire:click="connectBank('{{ $bank['id'] }}')" wire:loading.attr="disabled" wire:target="connectBank">
                                 <span wire:loading.remove wire:target="connectBank">Jetzt verbinden</span>
                                 <span wire:loading wire:target="connectBank" class="flex items-center justify-center">
                                     <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
