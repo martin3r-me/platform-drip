@@ -6,6 +6,7 @@ use Illuminate\Console\Command;
 use Platform\Drip\Services\GoCardlessService;
 use Platform\Drip\Services\TransactionService;
 use Platform\Drip\Services\GroupMetricsService;
+use Platform\Drip\Services\FinanceMetricsService;
 use Platform\Core\Models\Team;
 use Platform\Drip\Models\Requisition;
 
@@ -160,6 +161,11 @@ class UpdateBankDataCommand extends Command
             $gm = app(GroupMetricsService::class);
             $rows = $gm->buildForTeam((int) $team->id, now()->startOfMonth()->subMonth(), now());
             $this->info("   📈 Group KPIs updated rows: {$rows}");
+
+            // Team-Finance-Metrics aus Group-Metrics materialisieren
+            $fm = app(FinanceMetricsService::class);
+            $frows = $fm->buildFromGroupMetrics((int) $team->id, now()->startOfMonth()->subMonth(), now());
+            $this->info("   📊 Team Finance Metrics rows: {$frows}");
 
             return true;
 
