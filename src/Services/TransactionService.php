@@ -165,6 +165,7 @@ class TransactionService
                                 ->first();
 
                             if ($match) {
+                                $this->info("   🔍 Match gefunden: TX {$tx->id} (Account {$tx->bank_account_id}) <-> TX {$match->id} (Account {$match->bank_account_id}) | Betrag: {$tx->amount} {$tx->currency}");
                                 $tx->setAttribute('internal_transaction_id', $match->id);
                                 $changed = true;
 
@@ -183,7 +184,7 @@ class TransactionService
 
                                 $transferredAt = $tx->booked_at ? Carbon::parse($tx->booked_at)->toDateString() : Carbon::now()->toDateString();
 
-                                InternalTransfer::firstOrCreate(
+                                $created = InternalTransfer::firstOrCreate(
                                     [
                                         'team_id' => (int) $tx->team_id,
                                         'source_transaction_id' => (int) $tx->id,
@@ -198,6 +199,10 @@ class TransactionService
                                         'reference' => $tx->reference ?? $tx->remittance_information ?? null,
                                     ]
                                 );
+                                $this->info("   ✅ InternalTransfer erstellt: ID {$created->id} | Von Account {$fromAccountId} -> {$toAccountId} | Betrag: {$amountAbs} | Datum: {$transferredAt}");
+                            }
+                            else {
+                                $this->info("   ❌ Kein Gegenstück gefunden für TX {$tx->id} | Account {$tx->bank_account_id} | Betrag: {$tx->amount} {$tx->currency} | Datum: {$tx->booked_at}");
                             }
                         }
                     }

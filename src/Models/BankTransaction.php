@@ -42,9 +42,7 @@ class BankTransaction extends Model
         'value_date' => 'date',
         'value_date_time' => 'datetime',
         'metadata' => 'array',
-        'amount' => 'decimal:4',
         'currency_exchange' => 'array',
-        'balance_after_transaction' => 'array',
         'additional_data_structured' => 'array',
         'remittance_information_structured_array' => 'array',
         'remittance_information_unstructured_array' => 'array',
@@ -55,8 +53,31 @@ class BankTransaction extends Model
     {
         parent::__construct($attributes);
         $this->initializeEncryptable([
+            // Beträge und Salden
+            'amount' => 'decimal:4',
+            'balance_after_transaction' => 'json', // Array mit verschlüsselten Werten
+            
+            // IBANs
             'counterparty_iban' => 'string',
+            'debtor_account_iban' => 'string',
+            'creditor_account_iban' => 'string',
+            
+            // Namen (personenbezogen)
+            'counterparty_name' => 'string',
+            'debtor_name' => 'string',
+            'creditor_name' => 'string',
+            'ultimate_creditor' => 'string',
+            'ultimate_debtor' => 'string',
+            
+            // Verwendungszweck (kann persönlich sein)
             'reference' => 'string',
+            'remittance_information' => 'string',
+            'remittance_information_structured' => 'string',
+            'remittance_information_unstructured' => 'string',
+            
+            // Zusätzliche Informationen
+            'additional_information' => 'string',
+            'additional_information_structured' => 'string',
         ]);
     }
 

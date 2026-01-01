@@ -5,9 +5,12 @@ namespace Platform\Drip\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Symfony\Component\Uid\UuidV7;
+use Platform\Core\Traits\Encryptable;
 
 class BankAccountBalance extends Model
 {
+    use Encryptable;
+
     protected $table = 'drip_bank_account_balances';
 
     protected $fillable = [
@@ -18,9 +21,17 @@ class BankAccountBalance extends Model
 
     protected $casts = [
         'as_of_date' => 'date',
-        'balance' => 'decimal:4',
         'retrieved_at' => 'datetime',
     ];
+
+    public function __construct(array $attributes = [])
+    {
+        parent::__construct($attributes);
+        $this->initializeEncryptable([
+            'balance' => 'decimal:4',
+            'amount' => 'decimal:4',
+        ]);
+    }
 
     protected static function booted(): void
     {

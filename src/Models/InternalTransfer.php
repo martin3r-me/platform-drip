@@ -7,10 +7,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Auth;
 use Symfony\Component\Uid\UuidV7;
+use Platform\Core\Traits\Encryptable;
 
 class InternalTransfer extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, Encryptable;
 
     protected $table = 'drip_internal_transfers';
 
@@ -22,8 +23,16 @@ class InternalTransfer extends Model
 
     protected $casts = [
         'transferred_at' => 'date',
-        'amount' => 'decimal:4',
     ];
+
+    public function __construct(array $attributes = [])
+    {
+        parent::__construct($attributes);
+        $this->initializeEncryptable([
+            'amount' => 'decimal:4',
+            'reference' => 'string',
+        ]);
+    }
 
     protected static function booted(): void
     {
