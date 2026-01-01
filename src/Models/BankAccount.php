@@ -30,31 +30,13 @@ class BankAccount extends Model
         'last_transactions_synced_at' => 'datetime',
     ];
 
-    protected function initializeEncryptable(): void
+    public function __construct(array $attributes = [])
     {
-        // Feldliste für Verschlüsselung setzen und Casts registrieren
-        $this->encryptable = [
+        parent::__construct($attributes);
+        $this->initializeEncryptable([
             'iban' => 'string',
             'initial_balance' => 'decimal:4',
-        ];
-
-        if (!property_exists($this, 'casts') || !is_array($this->casts)) {
-            $this->casts = [];
-        }
-
-        foreach ($this->encryptable as $field => $type) {
-            if ($type === 'json') {
-                $this->casts[$field] = \Platform\Core\Casts\EncryptedJson::class;
-            } elseif ($type === 'decimal' || str_starts_with($type, 'decimal:')) {
-                $decimals = 2;
-                if (str_contains($type, ':')) {
-                    $decimals = (int) explode(':', $type)[1];
-                }
-                $this->casts[$field] = new \Platform\Core\Casts\EncryptedDecimal($decimals);
-            } else {
-                $this->casts[$field] = \Platform\Core\Casts\EncryptedString::class;
-            }
-        }
+        ]);
     }
 
     protected static function booted(): void
