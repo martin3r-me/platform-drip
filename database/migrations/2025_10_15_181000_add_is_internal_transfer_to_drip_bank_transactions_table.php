@@ -40,29 +40,27 @@ return new class extends Migration
 
     public function down(): void
     {
+        // Drop composite index first (it references group_id which we'll drop below)
+        if (Schema::hasColumn('drip_bank_transactions', 'group_id')) {
+            try {
+                Schema::table('drip_bank_transactions', function (Blueprint $table) {
+                    $table->dropIndex('drip_tx_team_group_booked_idx');
+                });
+            } catch (\Throwable) {
+                // Index may not exist
+            }
+        }
+
+        // Drop columns (MySQL auto-drops single-column indexes when the column is dropped)
         Schema::table('drip_bank_transactions', function (Blueprint $table) {
-            if (Schema::hasColumn('drip_bank_transactions', 'is_internal_transfer')) {
-                $table->dropColumn('is_internal_transfer');
-            }
-            if (Schema::hasColumn('drip_bank_transactions', 'transaction_type_simple')) {
-                $table->dropIndex(['transaction_type_simple']);
-                $table->dropColumn('transaction_type_simple');
-            }
-            if (Schema::hasColumn('drip_bank_transactions', 'counterparty_name')) {
-                $table->dropIndex(['counterparty_name']);
-                $table->dropColumn('counterparty_name');
-            }
-            if (Schema::hasColumn('drip_bank_transactions', 'group_id')) {
-                $table->dropIndex(['group_id']);
-                $table->dropColumn('group_id');
+            $columns = ['is_internal_transfer', 'transaction_type_simple', 'counterparty_name', 'group_id'];
+
+            foreach ($columns as $column) {
+                if (Schema::hasColumn('drip_bank_transactions', $column)) {
+                    $table->dropColumn($column);
+                }
             }
         });
-
-        if (Schema::hasTable('drip_bank_transactions')) {
-            Schema::table('drip_bank_transactions', function (Blueprint $table) {
-                $table->dropIndex('drip_tx_team_group_booked_idx');
-            });
-        }
     }
 };
 
