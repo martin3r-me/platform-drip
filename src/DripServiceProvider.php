@@ -43,6 +43,7 @@ class DripServiceProvider extends ServiceProvider
             PlatformCore::registerModule([
                 'key'        => 'drip',
                 'title'      => 'Drip',
+                'group'      => 'finance',
                 'routing'    => config('drip.routing'),
                 'guard'      => config('drip.guard'),
                 'navigation' => config('drip.navigation'),
