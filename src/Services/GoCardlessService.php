@@ -4,6 +4,7 @@ namespace Platform\Drip\Services;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Platform\Core\Support\FieldHasher;
 use Platform\Drip\Models\{GoCardlessToken, Institution, BankAccount, BankAccountBalance, BankTransaction, Requisition};
 use Carbon\Carbon;
 
@@ -265,7 +266,8 @@ class GoCardlessService
 
     public function getAccountsFromRequisitionByRef(string $reference): array
     {
-        $requisition = Requisition::where('reference', $reference)->firstOrFail();
+        $hash = FieldHasher::hmacSha256($reference, (string) $this->teamId);
+        $requisition = Requisition::where('reference_hash', $hash)->firstOrFail();
 
         $token = $this->getAccessToken();
         if (!$token) return [];
@@ -560,10 +562,11 @@ class GoCardlessService
         $account = BankAccount::where('external_id', $accountId)->first();
         if (!$account) return;
 
-        // Intelligente Datums-Logik
+        // Intelligente Datums-Logik (accounts ist verschlüsselt, daher In-Memory-Filter)
         $requisition = Requisition::where('team_id', $this->teamId)
-            ->whereJsonContains('accounts', $accountId)
-            ->first();
+            ->whereNotNull('linked_at')
+            ->get()
+            ->first(fn ($r) => in_array($accountId, $r->accounts ?? []));
             
         // Erste Synchronisation: 90 Tage zurück
         // Delta Updates: Nur seit letztem Sync

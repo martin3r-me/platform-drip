@@ -4,24 +4,28 @@ namespace Platform\Drip\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Auth;
 use Symfony\Component\Uid\UuidV7;
 use Platform\Core\Traits\Encryptable;
 
 class Requisition extends Model
 {
-    use Encryptable;
+    use SoftDeletes, Encryptable;
 
     protected $table = 'drip_requisitions';
 
     protected $fillable = [
         'uuid', 'team_id', 'user_id',
-        'external_id', 'reference', 'institution_id', 'status', 'redirect', 'accounts', 'linked_at',
+        'external_id', 'reference', 'institution_id', 'status', 'redirect', 'accounts',
+        'linked_at', 'access_expires_at', 'last_sync_at',
     ];
 
     protected $casts = [
         // accounts wird via Encryptable als EncryptedJson gecastet
         'linked_at' => 'datetime',
+        'access_expires_at' => 'datetime',
+        'last_sync_at' => 'datetime',
     ];
 
     protected array $encryptable = [
