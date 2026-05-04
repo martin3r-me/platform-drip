@@ -654,6 +654,16 @@ class GoCardlessService
                     }
                 }
 
+                // Fix: Manche Banken liefern die Gegenpartei-IBAN im falschen Feld
+                if ($direction === 'debit' && !$creditorIban && $debtorIban) {
+                    $creditorIban = $debtorIban;
+                    $debtorIban = null;
+                }
+                if ($direction === 'credit' && !$debtorIban && $creditorIban) {
+                    $debtorIban = $creditorIban;
+                    $creditorIban = null;
+                }
+
                 $counterpartyName = $direction === 'debit'
                     ? ($creditorName ?? $parsed['name'] ?? $debtorName)
                     : ($debtorName ?? $parsed['name'] ?? $creditorName);
@@ -886,6 +896,17 @@ class GoCardlessService
                     } else {
                         $debtorIban = $parsed['iban'];
                     }
+                }
+
+                // Fix: Manche Banken liefern die Gegenpartei-IBAN im falschen Feld
+                // Bei debit ohne creditorIban aber mit debtorIban → IBAN gehört zum Empfänger
+                if ($direction === 'debit' && !$creditorIban && $debtorIban) {
+                    $creditorIban = $debtorIban;
+                    $debtorIban = null;
+                }
+                if ($direction === 'credit' && !$debtorIban && $creditorIban) {
+                    $debtorIban = $creditorIban;
+                    $creditorIban = null;
                 }
 
                 // Counterparty ableiten (bei debit = creditor, bei credit = debtor)
