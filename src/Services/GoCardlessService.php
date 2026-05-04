@@ -267,6 +267,17 @@ class GoCardlessService
     public function getAccountsFromRequisitionByRef(string $reference): array
     {
         $hash = FieldHasher::hmacSha256($reference, (string) $this->teamId);
+
+        Log::info('GoCardlessService: Looking up requisition by reference', [
+            'reference' => $reference,
+            'teamId' => $this->teamId,
+            'computed_hash' => $hash,
+            'all_requisitions' => Requisition::where('team_id', $this->teamId)
+                ->select('id', 'reference_hash', 'status', 'created_at')
+                ->get()
+                ->toArray(),
+        ]);
+
         $requisition = Requisition::where('reference_hash', $hash)->firstOrFail();
 
         $token = $this->getAccessToken();
