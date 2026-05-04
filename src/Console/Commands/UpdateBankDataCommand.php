@@ -81,10 +81,12 @@ class UpdateBankDataCommand extends Command
 
     protected function updateAllTeams(bool $dryRun): int
     {
-        $teams = Team::whereHas('requisitions', function ($query) {
-            $query->whereNotNull('linked_at')
-                  ->where('access_expires_at', '>', now());
-        })->get();
+        $teamIds = \Platform\Drip\Models\Requisition::whereNotNull('linked_at')
+            ->where('access_expires_at', '>', now())
+            ->distinct()
+            ->pluck('team_id');
+
+        $teams = Team::whereIn('id', $teamIds)->get();
 
         if ($teams->isEmpty()) {
             $this->info('ℹ️  No teams with active bank connections found');
