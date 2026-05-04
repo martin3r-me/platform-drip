@@ -19,7 +19,8 @@ class UpdateBankDataCommand extends Command
                                     {--delete-all : Delete ALL requisitions (use with caution!)}
                                     {--billing : Show billing overview for teams}
                                     {--skip-details : Skip account details update (only transactions/balances)}
-                                    {--delete= : Delete a single requisition by LOCAL ID}';
+                                    {--delete= : Delete a single requisition by LOCAL ID}
+                                    {--force : Skip confirmation prompts}';
 
     protected $description = 'Update bank data for all teams or a specific team';
 
@@ -308,7 +309,7 @@ class UpdateBankDataCommand extends Command
         $this->warn('⚠️  WARNING: This will delete ALL requisitions!');
         $this->warn('   This action cannot be undone!');
         
-        if (!$this->confirm('Are you sure you want to delete ALL requisitions?')) {
+        if (!$this->option('force') && !$this->confirm('Are you sure you want to delete ALL requisitions?')) {
             $this->info('❌ Operation cancelled');
             return 0;
         }
