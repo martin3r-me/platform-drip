@@ -958,13 +958,12 @@ class GoCardlessService
                 ]
             );
                 }
-            }
-            
+
             // Sync-Timestamp für Account aktualisieren
             if ($account) {
                 $account->update(['last_transactions_synced_at' => now()]);
             }
-            
+
             // Sync-Timestamp für Requisition aktualisieren
             if ($requisition) {
                 $requisition->update(['last_sync_at' => now()]);
@@ -1016,3 +1015,4 @@ class GoCardlessService
 
         return $result;
     }
+}
