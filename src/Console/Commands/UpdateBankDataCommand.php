@@ -12,9 +12,10 @@ use Platform\Drip\Models\Requisition;
 
 class UpdateBankDataCommand extends Command
 {
-    protected $signature = 'drip:update-bank-data 
+    protected $signature = 'drip:update-bank-data
                                     {--team= : Specific team ID to update}
                                     {--dry-run : Show what would be updated without making changes}
+                                    {--full : Force full re-sync (90 days) by resetting last_sync_at}
                                     {--cleanup : Clean up expired requisitions for billing optimization}
                                     {--delete-all : Delete ALL requisitions (use with caution!)}
                                     {--billing : Show billing overview for teams}
@@ -125,6 +126,13 @@ class UpdateBankDataCommand extends Command
     protected function processTeam(Team $team): bool
     {
         try {
+            if ($this->option('full')) {
+                $reset = Requisition::where('team_id', $team->id)
+                    ->whereNotNull('last_sync_at')
+                    ->update(['last_sync_at' => null]);
+                $this->info("   🔄 Full re-sync: reset last_sync_at on {$reset} requisition(s)");
+            }
+
             $gc = new GoCardlessService($team->id);
             $results = $gc->updateAllBankData($this->option('skip-details'));
 
