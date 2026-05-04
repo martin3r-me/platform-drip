@@ -3,6 +3,7 @@
 namespace Platform\Drip\Console\Commands;
 
 use Illuminate\Console\Command;
+use Illuminate\Console\ConfirmableTrait;
 use Platform\Drip\Models\BankAccount;
 use Platform\Drip\Models\BankTransaction;
 use Platform\Drip\Models\Requisition;
@@ -10,11 +11,17 @@ use Platform\Drip\Models\Institution;
 
 class DebugRequisitionCreateCommand extends Command
 {
-    protected $signature = 'drip:debug-create {team_id}';
+    use ConfirmableTrait;
+
+    protected $signature = 'drip:debug-create {team_id} {--force : Bestätigung in Production überspringen}';
     protected $description = 'Debug: Testet Requisition, BankAccount und BankTransaction create() ohne GoCardless';
 
     public function handle(): int
     {
+        if (! $this->confirmToProceed()) {
+            return 1;
+        }
+
         $teamId = (int) $this->argument('team_id');
         $errors = 0;
 
