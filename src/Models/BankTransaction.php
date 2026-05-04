@@ -48,38 +48,37 @@ class BankTransaction extends Model
         'remittance_information_unstructured_array' => 'array',
     ];
 
+    protected array $encryptable = [
+        // Beträge und Salden
+        'amount' => 'decimal:4',
+        'balance_after_transaction' => 'json',
 
-    public function __construct(array $attributes = [])
-    {
-        parent::__construct($attributes);
-        $this->initializeEncryptable([
-            // Beträge und Salden
-            'amount' => 'decimal:4',
-            'balance_after_transaction' => 'json', // Array mit verschlüsselten Werten
-            
-            // IBANs
-            'counterparty_iban' => 'string',
-            'debtor_account_iban' => 'string',
-            'creditor_account_iban' => 'string',
-            
-            // Namen (personenbezogen)
-            'counterparty_name' => 'string',
-            'debtor_name' => 'string',
-            'creditor_name' => 'string',
-            'ultimate_creditor' => 'string',
-            'ultimate_debtor' => 'string',
-            
-            // Verwendungszweck (kann persönlich sein)
-            'reference' => 'string',
-            'remittance_information' => 'string',
-            'remittance_information_structured' => 'string',
-            'remittance_information_unstructured' => 'string',
-            
-            // Zusätzliche Informationen
-            'additional_information' => 'string',
-            'additional_information_structured' => 'string',
-        ]);
-    }
+        // IBANs
+        'counterparty_iban' => 'string',
+        'debtor_account_iban' => 'string',
+        'creditor_account_iban' => 'string',
+
+        // Namen (personenbezogen)
+        'counterparty_name' => 'string',
+        'debtor_name' => 'string',
+        'creditor_name' => 'string',
+        'ultimate_creditor' => 'string',
+        'ultimate_debtor' => 'string',
+
+        // Bank-Routing (BICs)
+        'debtor_agent' => 'string',
+        'creditor_agent' => 'string',
+
+        // Verwendungszweck (kann persönlich sein)
+        'reference' => 'string',
+        'remittance_information' => 'string',
+        'remittance_information_structured' => 'string',
+        'remittance_information_unstructured' => 'string',
+
+        // Zusätzliche Informationen
+        'additional_information' => 'string',
+        'additional_information_structured' => 'string',
+    ];
 
     protected static function booted(): void
     {

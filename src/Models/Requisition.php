@@ -6,9 +6,12 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Auth;
 use Symfony\Component\Uid\UuidV7;
+use Platform\Core\Traits\Encryptable;
 
 class Requisition extends Model
 {
+    use Encryptable;
+
     protected $table = 'drip_requisitions';
 
     protected $fillable = [
@@ -17,8 +20,13 @@ class Requisition extends Model
     ];
 
     protected $casts = [
-        'accounts' => 'array',
+        // accounts wird via Encryptable als EncryptedJson gecastet
         'linked_at' => 'datetime',
+    ];
+
+    protected array $encryptable = [
+        'reference' => 'string',
+        'accounts' => 'json',
     ];
 
     protected static function booted(): void

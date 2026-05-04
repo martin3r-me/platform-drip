@@ -21,12 +21,12 @@ class RecurringPattern extends Model
     use Encryptable;
 
     protected $casts = [
-        'matchers' => 'array',
-        'defaults' => 'array',
+        // matchers und defaults werden via Encryptable als EncryptedJson gecastet
     ];
 
     protected array $encryptable = [
-        // falls sensible Vergleichswerte enthalten sind (z. B. IBAN in matchers/defaults), lieber gesondert halten
+        'matchers' => 'json',
+        'defaults' => 'json',
     ];
 
     protected static function booted(): void

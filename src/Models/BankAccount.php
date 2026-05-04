@@ -30,14 +30,12 @@ class BankAccount extends Model
         'last_transactions_synced_at' => 'datetime',
     ];
 
-    public function __construct(array $attributes = [])
-    {
-        parent::__construct($attributes);
-        $this->initializeEncryptable([
-            'iban' => 'string',
-            'initial_balance' => 'decimal:4',
-        ]);
-    }
+    protected array $encryptable = [
+        'iban' => 'string',
+        'bban' => 'string',
+        'bic' => 'string',
+        'initial_balance' => 'decimal:4',
+    ];
 
     protected static function booted(): void
     {
