@@ -62,7 +62,7 @@ class Banks extends Component
             $user = auth()->user();
             $teamId = (int) $user?->current_team_id;
 
-            $gc = new GoCardlessService($user->id, $teamId);
+            $gc = new GoCardlessService($teamId);
             $this->gocardlessInstitutions = $gc->getInstitutions($this->country);
         } finally {
             $this->loadingInstitutions = false;
@@ -80,7 +80,7 @@ class Banks extends Component
             $user = auth()->user();
             $teamId = (int) $user?->current_team_id;
 
-            $gc = new GoCardlessService($user->id, $teamId);
+            $gc = new GoCardlessService($teamId);
             $redirectUrl = route('drip.banks.callback');
             $link = $gc->createRequisition($institutionId, $redirectUrl);
 
