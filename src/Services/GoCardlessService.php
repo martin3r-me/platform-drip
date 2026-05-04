@@ -268,17 +268,22 @@ class GoCardlessService
     {
         $hash = FieldHasher::hmacSha256($reference, (string) $this->teamId);
 
-        Log::info('GoCardlessService: Looking up requisition by reference', [
-            'reference' => $reference,
-            'teamId' => $this->teamId,
-            'computed_hash' => $hash,
-            'all_requisitions' => Requisition::where('team_id', $this->teamId)
-                ->select('id', 'reference_hash', 'status', 'created_at')
-                ->get()
-                ->toArray(),
-        ]);
+        $allReqs = Requisition::where('team_id', $this->teamId)
+            ->select('id', 'reference_hash', 'status', 'created_at')
+            ->get();
 
-        $requisition = Requisition::where('reference_hash', $hash)->firstOrFail();
+        $requisition = Requisition::where('reference_hash', $hash)->first();
+
+        if (!$requisition) {
+            throw new \Exception(
+                "Requisition nicht gefunden.\n" .
+                "Reference: {$reference}\n" .
+                "Team: {$this->teamId}\n" .
+                "Berechneter Hash: {$hash}\n" .
+                "Requisitions im Team: {$allReqs->count()}\n" .
+                "Gespeicherte Hashes: " . $allReqs->pluck('reference_hash')->implode(', ')
+            );
+        }
 
         $token = $this->getAccessToken();
         if (!$token) return [];
