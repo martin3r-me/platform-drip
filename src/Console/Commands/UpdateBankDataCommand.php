@@ -126,7 +126,7 @@ class UpdateBankDataCommand extends Command
     {
         try {
             $gc = new GoCardlessService($team->id);
-            $results = $gc->updateAllBankData($skipDetails);
+            $results = $gc->updateAllBankData($this->option('skip-details'));
 
             $this->info("   💰 Balances updated: {$results['balances_updated']}");
             $this->info("   📝 Transactions updated: {$results['transactions_updated']}");
