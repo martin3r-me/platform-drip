@@ -178,7 +178,7 @@ class UpdateBankDataCommand extends Command
 
     protected function showTeamInfo(Team $team): void
     {
-        $requisitions = $team->requisitions()
+        $requisitions = \Platform\Drip\Models\Requisition::where('team_id', $team->id)
             ->whereNotNull('linked_at')
             ->where('access_expires_at', '>', now())
             ->with('institution')
