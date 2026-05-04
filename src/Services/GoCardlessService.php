@@ -623,22 +623,73 @@ class GoCardlessService
             if (!$account) return;
 
             $transactions = $response->json()['transactions']['booked'] ?? [];
-            
+
             foreach ($transactions as $tx) {
-                // Deduplication durch transaction_id
+                $amount = (float)($tx['transactionAmount']['amount'] ?? '0');
+                $direction = $amount >= 0 ? 'credit' : 'debit';
+
+                $debtorName = $tx['debtorName'] ?? null;
+                $creditorName = $tx['creditorName'] ?? null;
+                $debtorIban = $tx['debtorAccount']['iban'] ?? null;
+                $creditorIban = $tx['creditorAccount']['iban'] ?? null;
+                $debtorAgent = $tx['debtorAgent'] ?? null;
+                $creditorAgent = $tx['creditorAgent'] ?? null;
+                $remittance = $tx['remittanceInformationUnstructured'] ?? null;
+                $additionalInfo = $tx['additionalInformation'] ?? null;
+
+                $parsed = $this->parseAdditionalInformation($additionalInfo);
+
+                if (!$debtorAgent && !$creditorAgent && $parsed['bic']) {
+                    if ($direction === 'debit') {
+                        $creditorAgent = $parsed['bic'];
+                    } else {
+                        $debtorAgent = $parsed['bic'];
+                    }
+                }
+                if (!$creditorIban && !$debtorIban && $parsed['iban']) {
+                    if ($direction === 'debit') {
+                        $creditorIban = $parsed['iban'];
+                    } else {
+                        $debtorIban = $parsed['iban'];
+                    }
+                }
+
+                $counterpartyName = $direction === 'debit'
+                    ? ($creditorName ?? $parsed['name'] ?? $debtorName)
+                    : ($debtorName ?? $parsed['name'] ?? $creditorName);
+                $counterpartyIban = $direction === 'debit'
+                    ? ($creditorIban ?? $debtorIban)
+                    : ($debtorIban ?? $creditorIban);
+
                 BankTransaction::updateOrCreate(
                     ['transaction_id' => $tx['transactionId'] ?? uniqid('tx_')],
                     [
                         'bank_account_id' => $account->id,
+                        'booked_at' => $tx['bookingDate'] ?? now()->toDateString(),
                         'booking_date' => $tx['bookingDate'] ?? null,
                         'booking_date_time' => $tx['bookingDateTime'] ?? null,
                         'value_date' => $tx['valueDate'] ?? null,
                         'value_date_time' => $tx['valueDateTime'] ?? null,
                         'amount' => $tx['transactionAmount']['amount'] ?? '0',
                         'currency' => $tx['transactionAmount']['currency'] ?? null,
-                        'counterparty_name' => $tx['debtorName'] ?? $tx['creditorName'] ?? null,
-                        'counterparty_iban' => $tx['debtorAccount']['iban'] ?? $tx['creditorAccount']['iban'] ?? null,
-                        'reference' => $tx['remittanceInformationUnstructured'] ?? null,
+                        'direction' => $direction,
+                        'remittance_information' => $remittance,
+                        'remittance_information_structured' => $tx['remittanceInformationStructured'] ?? null,
+                        'remittance_information_unstructured' => $tx['remittanceInformationUnstructured'] ?? null,
+                        'debtor_name' => $debtorName,
+                        'creditor_name' => $creditorName,
+                        'debtor_account_iban' => $debtorIban,
+                        'creditor_account_iban' => $creditorIban,
+                        'debtor_agent' => $debtorAgent,
+                        'creditor_agent' => $creditorAgent,
+                        'counterparty_name' => $counterpartyName,
+                        'counterparty_iban' => $counterpartyIban,
+                        'reference' => $remittance ?? $parsed['purpose'] ?? null,
+                        'internal_transaction_id' => $tx['internalTransactionId'] ?? null,
+                        'end_to_end_id' => $tx['endToEndId'] ?? null,
+                        'mandate_id' => $tx['mandateId'] ?? null,
+                        'creditor_id' => $tx['creditorId'] ?? null,
+                        'additional_information' => $additionalInfo,
                         'team_id' => $this->teamId,
                     ]
                 );
@@ -805,6 +856,49 @@ class GoCardlessService
             }
 
             foreach ($response->json()['transactions']['booked'] ?? [] as $tx) {
+                $amount = (float)($tx['transactionAmount']['amount'] ?? '0');
+                $direction = $amount >= 0 ? 'credit' : 'debit';
+
+                // Direkte API-Felder
+                $debtorName = $tx['debtorName'] ?? null;
+                $creditorName = $tx['creditorName'] ?? null;
+                $debtorIban = $tx['debtorAccount']['iban'] ?? null;
+                $creditorIban = $tx['creditorAccount']['iban'] ?? null;
+                $debtorAgent = $tx['debtorAgent'] ?? null;
+                $creditorAgent = $tx['creditorAgent'] ?? null;
+                $remittance = $tx['remittanceInformationUnstructured'] ?? null;
+                $additionalInfo = $tx['additionalInformation'] ?? null;
+
+                // additional_information parsen (Commerzbank-Format: Name\nBIC\nIBAN\nZweck\n...)
+                $parsed = $this->parseAdditionalInformation($additionalInfo);
+
+                // Fehlende Felder aus additional_information ergänzen
+                if (!$debtorAgent && !$creditorAgent && $parsed['bic']) {
+                    if ($direction === 'debit') {
+                        $creditorAgent = $parsed['bic'];
+                    } else {
+                        $debtorAgent = $parsed['bic'];
+                    }
+                }
+                if (!$creditorIban && !$debtorIban && $parsed['iban']) {
+                    if ($direction === 'debit') {
+                        $creditorIban = $parsed['iban'];
+                    } else {
+                        $debtorIban = $parsed['iban'];
+                    }
+                }
+
+                // Counterparty ableiten (bei debit = creditor, bei credit = debtor)
+                $counterpartyName = $direction === 'debit'
+                    ? ($creditorName ?? $parsed['name'] ?? $debtorName)
+                    : ($debtorName ?? $parsed['name'] ?? $creditorName);
+                $counterpartyIban = $direction === 'debit'
+                    ? ($creditorIban ?? $debtorIban)
+                    : ($debtorIban ?? $creditorIban);
+
+                // Reference aus remittance ableiten
+                $reference = $remittance ?? $parsed['purpose'] ?? null;
+
                 BankTransaction::updateOrCreate(
                 [
                     'transaction_id' => $tx['transactionId'] ?? uniqid('tx_'),
@@ -818,22 +912,27 @@ class GoCardlessService
                     'value_date_time' => $tx['valueDateTime'] ?? null,
                     'amount' => $tx['transactionAmount']['amount'] ?? '0',
                     'currency' => $tx['transactionAmount']['currency'] ?? null,
-                    'direction' => (float)($tx['transactionAmount']['amount'] ?? '0') >= 0 ? 'credit' : 'debit',
+                    'direction' => $direction,
 
-                    // Verwendungszweck und Infos
-                    'remittance_information' => $tx['remittanceInformationUnstructured'] ?? null,
+                    // Verwendungszweck
+                    'remittance_information' => $remittance,
                     'remittance_information_structured' => $tx['remittanceInformationStructured'] ?? null,
                     'remittance_information_structured_array' => $tx['remittanceInformationStructuredArray'] ?? null,
                     'remittance_information_unstructured' => $tx['remittanceInformationUnstructured'] ?? null,
                     'remittance_information_unstructured_array' => $tx['remittanceInformationUnstructuredArray'] ?? null,
 
                     // Beteiligte Konten und Namen
-                    'debtor_name' => $tx['debtorName'] ?? null,
-                    'creditor_name' => $tx['creditorName'] ?? null,
-                    'debtor_account_iban' => $tx['debtorAccount']['iban'] ?? null,
-                    'creditor_account_iban' => $tx['creditorAccount']['iban'] ?? null,
-                    'debtor_agent' => $tx['debtorAgent'] ?? null,
-                    'creditor_agent' => $tx['creditorAgent'] ?? null,
+                    'debtor_name' => $debtorName,
+                    'creditor_name' => $creditorName,
+                    'debtor_account_iban' => $debtorIban,
+                    'creditor_account_iban' => $creditorIban,
+                    'debtor_agent' => $debtorAgent,
+                    'creditor_agent' => $creditorAgent,
+
+                    // Abgeleitete Felder
+                    'counterparty_name' => $counterpartyName,
+                    'counterparty_iban' => $counterpartyIban,
+                    'reference' => $reference,
 
                     // Typen und Codes
                     'transaction_type' => $tx['transactionType'] ?? null,
@@ -854,7 +953,7 @@ class GoCardlessService
                     'currency_exchange' => $tx['currencyExchange'] ?? null,
                     'balance_after_transaction' => $tx['balanceAfterTransaction'] ?? null,
                     'additional_data_structured' => $tx['additionalDataStructured'] ?? null,
-                    'additional_information' => $tx['additionalInformation'] ?? null,
+                    'additional_information' => $additionalInfo,
                     'additional_information_structured' => $tx['additionalInformationStructured'] ?? null,
                 ]
             );
@@ -871,4 +970,49 @@ class GoCardlessService
                 $requisition->update(['last_sync_at' => now()]);
             }
         }
+    }
+
+    /**
+     * Parst das additional_information Feld (Commerzbank-Format).
+     * Typisches Format: "Name\nBIC\nIBAN\nZweck\nWeitere Infos"
+     */
+    protected function parseAdditionalInformation(?string $info): array
+    {
+        $result = ['name' => null, 'bic' => null, 'iban' => null, 'purpose' => null];
+
+        if (!$info) {
+            return $result;
+        }
+
+        $lines = preg_split('/\r?\n/', trim($info));
+        $remaining = [];
+
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if (!$line) continue;
+
+            // IBAN erkennen (DE + 20 Zeichen oder anderes Länderformat)
+            if (!$result['iban'] && preg_match('/^[A-Z]{2}\d{2}[A-Z0-9]{10,30}$/', $line)) {
+                $result['iban'] = $line;
+                continue;
+            }
+
+            // BIC erkennen (8 oder 11 Zeichen, endet typisch auf XXX)
+            if (!$result['bic'] && preg_match('/^[A-Z]{4}[A-Z]{2}[A-Z0-9]{2}([A-Z0-9]{3})?$/', $line)) {
+                $result['bic'] = $line;
+                continue;
+            }
+
+            $remaining[] = $line;
+        }
+
+        // Erste verbleibende Zeile = Name, Rest = Zweck
+        if (!empty($remaining)) {
+            $result['name'] = array_shift($remaining);
+        }
+        if (!empty($remaining)) {
+            $result['purpose'] = implode(' ', $remaining);
+        }
+
+        return $result;
     }
