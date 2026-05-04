@@ -10,6 +10,7 @@ class GroupTransactions extends Component
 {
     public BankAccountGroup $group;
     public string $search = '';
+    public string $direction = '';
     public string $sortBy = 'booked_at';
     public string $sortDirection = 'desc';
     public int $perPage = 25;
@@ -20,6 +21,11 @@ class GroupTransactions extends Component
     }
 
     public function updatedSearch()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedDirection()
     {
         $this->resetPage();
     }
@@ -37,6 +43,7 @@ class GroupTransactions extends Component
     public function render()
     {
         $transactions = $this->group->transactions()
+            ->with(['bankAccount', 'category'])
             ->when($this->search, function ($query) {
                 $query->where(function ($q) {
                     $q->where('remittance_information', 'like', '%' . $this->search . '%')
@@ -44,6 +51,9 @@ class GroupTransactions extends Component
                       ->orWhere('creditor_name', 'like', '%' . $this->search . '%')
                       ->orWhere('counterparty_name', 'like', '%' . $this->search . '%');
                 });
+            })
+            ->when($this->direction, function ($query) {
+                $query->where('direction', $this->direction);
             })
             ->orderBy($this->sortBy, $this->sortDirection)
             ->paginate($this->perPage);

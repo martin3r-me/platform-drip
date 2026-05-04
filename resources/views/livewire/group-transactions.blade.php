@@ -18,7 +18,7 @@
             </x-slot>
         </x-ui-page-navbar>
     </x-slot>
-    
+
     <x-ui-page-container>
 
     {{-- Transaktionen Liste --}}
@@ -36,6 +36,9 @@
                                     @endif
                                 </div>
                             </th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-[var(--ui-muted)] uppercase tracking-wider">
+                                Richtung
+                            </th>
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-[var(--ui-muted)] uppercase tracking-wider cursor-pointer hover:bg-[var(--ui-muted-5)]" wire:click="sortBy('amount')">
                                 <div class="flex items-center gap-1">
                                     Betrag
@@ -45,10 +48,13 @@
                                 </div>
                             </th>
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-[var(--ui-muted)] uppercase tracking-wider">
-                                Beschreibung
+                                Gegenpartei
                             </th>
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-[var(--ui-muted)] uppercase tracking-wider">
-                                Gegenpartei
+                                Verwendungszweck
+                            </th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-[var(--ui-muted)] uppercase tracking-wider">
+                                Kategorie
                             </th>
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-[var(--ui-muted)] uppercase tracking-wider">
                                 Konto
@@ -57,18 +63,33 @@
                     </thead>
                     <tbody class="bg-white divide-y border-t border-[var(--ui-border)]/40">
                         @foreach ($transactions as $transaction)
-                            <tr class="hover:bg-[var(--ui-muted-5)]/50">
+                            <tr class="hover:bg-[var(--ui-muted-5)]/50 cursor-pointer" onclick="window.location='{{ route('drip.transactions.show', $transaction) }}'">
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-[var(--ui-secondary)]">
                                     {{ $transaction->booked_at?->format('d.m.Y') ?? '-' }}
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                    <div class="flex items-center gap-2">
-                                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium {{ $transaction->direction === 'credit' ? 'bg-[var(--ui-success-soft)] text-[var(--ui-success)]' : 'bg-red-100 text-red-800' }}">
-                                            {{ $transaction->direction === 'credit' ? '+' : '-' }}
-                                        </span>
-                                        <span class="font-medium {{ $transaction->direction === 'credit' ? 'text-[var(--ui-success)]' : 'text-red-600' }}">
-                                            {{ number_format($transaction->amount, 2, ',', '.') }} {{ $transaction->currency }}
-                                        </span>
+                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium {{ $transaction->direction === 'credit' ? 'bg-[var(--ui-success-soft)] text-[var(--ui-success)]' : 'bg-red-100 text-red-800' }}">
+                                        {{ $transaction->direction === 'credit' ? 'Einnahme' : 'Ausgabe' }}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                    <span class="font-medium {{ $transaction->direction === 'credit' ? 'text-[var(--ui-success)]' : 'text-red-600' }}">
+                                        {{ $transaction->direction === 'credit' ? '+' : '-' }}{{ number_format($transaction->amount, 2, ',', '.') }} {{ $transaction->currency }}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-[var(--ui-secondary)]">
+                                    <div>
+                                        <div class="font-medium">
+                                            {{ $transaction->counterparty_name ?? ($transaction->direction === 'debit' ? $transaction->creditor_name : $transaction->debtor_name) ?? '-' }}
+                                        </div>
+                                        @php
+                                            $displayIban = $transaction->counterparty_iban ?? ($transaction->direction === 'debit' ? $transaction->creditor_account_iban : $transaction->debtor_account_iban);
+                                        @endphp
+                                        @if($displayIban)
+                                            <div class="text-xs text-[var(--ui-muted)] font-mono mt-0.5">
+                                                {{ Str::limit($displayIban, 22) }}
+                                            </div>
+                                        @endif
                                     </div>
                                 </td>
                                 <td class="px-6 py-4 text-sm text-[var(--ui-secondary)]">
@@ -76,17 +97,8 @@
                                         {{ $transaction->remittance_information ?? $transaction->reference ?? '-' }}
                                     </div>
                                 </td>
-                                <td class="px-6 py-4 text-sm text-[var(--ui-secondary)]">
-                                    <div>
-                                        <div class="font-medium">
-                                            {{ $transaction->debtor_name ?? $transaction->creditor_name ?? $transaction->counterparty_name ?? '-' }}
-                                        </div>
-                                        @if($transaction->additional_information)
-                                            <div class="text-xs text-[var(--ui-muted)] mt-1">
-                                                {{ $transaction->additional_information }}
-                                            </div>
-                                        @endif
-                                    </div>
+                                <td class="px-6 py-4 text-sm text-[var(--ui-muted)]">
+                                    {{ $transaction->category->name ?? '-' }}
                                 </td>
                                 <td class="px-6 py-4 text-sm text-[var(--ui-muted)]">
                                     {{ $transaction->bankAccount->name }}
@@ -137,6 +149,25 @@
         <x-ui-page-sidebar title="Filter" width="w-80" side="right" :defaultOpen="true" storeKey="activityOpen">
             <div class="p-6 space-y-4">
                 <x-ui-input-text name="searchRight" label="Suche" placeholder="Transaktionen durchsuchen" wire:model.live.debounce.300ms="search" />
+
+                {{-- Direction Filter --}}
+                <div>
+                    <label class="block text-xs font-medium text-[var(--ui-muted)] uppercase tracking-wider mb-2">Richtung</label>
+                    <div class="space-y-2">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" wire:model.live="direction" value="" class="text-[var(--ui-primary)]">
+                            <span class="text-sm text-[var(--ui-secondary)]">Alle</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" wire:model.live="direction" value="credit" class="text-[var(--ui-success)]">
+                            <span class="text-sm text-[var(--ui-secondary)]">Einnahmen</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" wire:model.live="direction" value="debit" class="text-red-600">
+                            <span class="text-sm text-[var(--ui-secondary)]">Ausgaben</span>
+                        </label>
+                    </div>
+                </div>
             </div>
         </x-ui-page-sidebar>
     </x-slot>
