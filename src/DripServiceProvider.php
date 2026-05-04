@@ -154,6 +154,7 @@ class DripServiceProvider extends ServiceProvider
                 \Platform\Drip\Console\Commands\BuildGroupMetricsCommand::class,
                 \Platform\Drip\Console\Commands\DebugRequisitionCreateCommand::class,
                 \Platform\Drip\Console\Commands\DebugTransactionCommand::class,
+                \Platform\Drip\Console\Commands\RepairTransactionIbansCommand::class,
             ]);
         }
     }
