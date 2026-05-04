@@ -82,6 +82,9 @@ class DripServiceProvider extends ServiceProvider
         
         // Schritt 7: Commands
         $this->registerCommands();
+
+        // Schritt 8: MCP Tools
+        $this->registerTools();
     }
 
     protected function registerLivewireComponents(): void
@@ -124,6 +127,21 @@ class DripServiceProvider extends ServiceProvider
             } catch (\Exception $e) {
                 \Log::error("Failed to register Livewire component {$alias}: " . $e->getMessage());
             }
+        }
+    }
+
+    protected function registerTools(): void
+    {
+        try {
+            $registry = resolve(\Platform\Core\Tools\ToolRegistry::class);
+
+            $registry->register(new \Platform\Drip\Tools\DripOverviewTool());
+            $registry->register(new \Platform\Drip\Tools\ListRequisitionsTool());
+            $registry->register(new \Platform\Drip\Tools\ListBankAccountsTool());
+            $registry->register(new \Platform\Drip\Tools\ListBankTransactionsTool());
+            $registry->register(new \Platform\Drip\Tools\ListInstitutionsTool());
+        } catch (\Throwable $e) {
+            \Log::warning('Drip: Tool-Registrierung fehlgeschlagen', ['error' => $e->getMessage()]);
         }
     }
 
