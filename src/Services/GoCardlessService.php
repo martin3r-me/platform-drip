@@ -624,6 +624,13 @@ class GoCardlessService
 
             $transactions = $response->json()['transactions']['booked'] ?? [];
 
+            // Raw API Response loggen für Debugging
+            Log::info('GoCardlessService: Raw transactions response', [
+                'accountId' => $accountId,
+                'transaction_count' => count($transactions),
+                'sample' => array_slice($transactions, 0, 3),
+            ]);
+
             foreach ($transactions as $tx) {
                 $amount = (float)($tx['transactionAmount']['amount'] ?? '0');
                 $direction = $amount >= 0 ? 'credit' : 'debit';
@@ -654,12 +661,13 @@ class GoCardlessService
                     }
                 }
 
-                // Fix: Manche Banken liefern die Gegenpartei-IBAN im falschen Feld
-                if ($direction === 'debit' && !$creditorIban && $debtorIban) {
+                // Fix: Bei debit gehört eine einzelne IBAN immer zum Empfänger (creditor)
+                // Bei credit gehört eine einzelne IBAN immer zum Absender (debtor)
+                if ($direction === 'debit' && $debtorIban && !$creditorIban) {
                     $creditorIban = $debtorIban;
                     $debtorIban = null;
                 }
-                if ($direction === 'credit' && !$debtorIban && $creditorIban) {
+                if ($direction === 'credit' && $creditorIban && !$debtorIban) {
                     $debtorIban = $creditorIban;
                     $creditorIban = null;
                 }
