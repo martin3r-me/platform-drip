@@ -248,14 +248,29 @@ class GoCardlessService
                 'status_short' => $data['status']['short'] ?? 'no status.short'
             ]);
 
-            Requisition::create([
-                'external_id' => $data['id'],
-                'reference' => $reference,
-                'institution_id' => Institution::where('external_id', $institutionId)->first()?->id,
-                'team_id' => $this->teamId,
-                'status' => $data['status']['short'] ?? 'pending',
-                'redirect' => $data['redirect'] ?? $redirectUrl,
-            ]);
+            try {
+                $req = Requisition::create([
+                    'external_id' => $data['id'],
+                    'reference' => $reference,
+                    'institution_id' => Institution::where('external_id', $institutionId)->first()?->id,
+                    'team_id' => $this->teamId,
+                    'status' => $data['status']['short'] ?? 'pending',
+                    'redirect' => $data['redirect'] ?? $redirectUrl,
+                ]);
+
+                Log::info('GoCardless Requisition Created', [
+                    'id' => $req->id,
+                    'reference' => $reference,
+                    'reference_hash' => $req->reference_hash ?? 'NULL',
+                    'exists' => $req->exists,
+                ]);
+            } catch (\Throwable $e) {
+                Log::error('GoCardless Requisition CREATE FAILED', [
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
+                throw $e;
+            }
 
             return $data['link'];
         }
