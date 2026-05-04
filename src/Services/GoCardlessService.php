@@ -661,23 +661,14 @@ class GoCardlessService
                     }
                 }
 
-                // Fix: Bei debit gehört eine einzelne IBAN immer zum Empfänger (creditor)
-                // Bei credit gehört eine einzelne IBAN immer zum Absender (debtor)
-                if ($direction === 'debit' && $debtorIban && !$creditorIban) {
-                    $creditorIban = $debtorIban;
-                    $debtorIban = null;
-                }
-                if ($direction === 'credit' && $creditorIban && !$debtorIban) {
-                    $debtorIban = $creditorIban;
-                    $creditorIban = null;
-                }
-
+                // Counterparty = die Gegenpartei (bei debit: Empfänger, bei credit: Absender)
                 $counterpartyName = $direction === 'debit'
                     ? ($creditorName ?? $parsed['name'] ?? $debtorName)
                     : ($debtorName ?? $parsed['name'] ?? $creditorName);
-                $counterpartyIban = $direction === 'debit'
-                    ? ($creditorIban ?? $debtorIban)
-                    : ($debtorIban ?? $creditorIban);
+
+                // Counterparty-IBAN: geparste IBAN aus additional_information bevorzugen,
+                // da debtor/creditorAccount oft nur die eigene Konto-IBAN enthält
+                $counterpartyIban = $parsed['iban'] ?? ($direction === 'debit' ? $creditorIban : $debtorIban);
 
                 BankTransaction::updateOrCreate(
                     ['transaction_id' => $tx['transactionId'] ?? uniqid('tx_')],
@@ -906,24 +897,14 @@ class GoCardlessService
                     }
                 }
 
-                // Fix: Manche Banken liefern die Gegenpartei-IBAN im falschen Feld
-                // Bei debit ohne creditorIban aber mit debtorIban → IBAN gehört zum Empfänger
-                if ($direction === 'debit' && !$creditorIban && $debtorIban) {
-                    $creditorIban = $debtorIban;
-                    $debtorIban = null;
-                }
-                if ($direction === 'credit' && !$debtorIban && $creditorIban) {
-                    $debtorIban = $creditorIban;
-                    $creditorIban = null;
-                }
-
-                // Counterparty ableiten (bei debit = creditor, bei credit = debtor)
+                // Counterparty = die Gegenpartei (bei debit: Empfänger, bei credit: Absender)
                 $counterpartyName = $direction === 'debit'
                     ? ($creditorName ?? $parsed['name'] ?? $debtorName)
                     : ($debtorName ?? $parsed['name'] ?? $creditorName);
-                $counterpartyIban = $direction === 'debit'
-                    ? ($creditorIban ?? $debtorIban)
-                    : ($debtorIban ?? $creditorIban);
+
+                // Counterparty-IBAN: geparste IBAN aus additional_information bevorzugen,
+                // da debtor/creditorAccount oft nur die eigene Konto-IBAN enthält
+                $counterpartyIban = $parsed['iban'] ?? ($direction === 'debit' ? $creditorIban : $debtorIban);
 
                 // Reference aus remittance ableiten
                 $reference = $remittance ?? $parsed['purpose'] ?? null;

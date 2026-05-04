@@ -44,53 +44,31 @@
         <x-ui-panel class="mt-4">
             <div class="p-6">
                 <h3 class="text-sm font-medium text-[var(--ui-muted)] uppercase tracking-wider mb-4">Gegenpartei</h3>
+                @php
+                    $cpName = $transaction->counterparty_name
+                        ?? ($transaction->direction === 'debit' ? $transaction->creditor_name : $transaction->debtor_name);
+                    $cpIban = $transaction->counterparty_iban;
+                    $cpAgent = $transaction->direction === 'debit'
+                        ? $transaction->creditor_agent
+                        : $transaction->debtor_agent;
+                @endphp
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    @if($transaction->counterparty_name)
+                    @if($cpName)
                         <div>
                             <dt class="text-xs text-[var(--ui-muted)]">Name</dt>
-                            <dd class="text-sm font-medium text-[var(--ui-primary)]">{{ $transaction->counterparty_name }}</dd>
+                            <dd class="text-sm font-medium text-[var(--ui-primary)]">{{ $cpName }}</dd>
                         </div>
                     @endif
-                    @if($transaction->counterparty_iban)
+                    @if($cpIban)
                         <div>
                             <dt class="text-xs text-[var(--ui-muted)]">IBAN</dt>
-                            <dd class="text-sm font-mono text-[var(--ui-secondary)]">{{ $transaction->counterparty_iban }}</dd>
+                            <dd class="text-sm font-mono text-[var(--ui-secondary)]">{{ $cpIban }}</dd>
                         </div>
                     @endif
-                    @if($transaction->debtor_name)
+                    @if($cpAgent)
                         <div>
-                            <dt class="text-xs text-[var(--ui-muted)]">Auftraggeber</dt>
-                            <dd class="text-sm font-medium text-[var(--ui-primary)]">{{ $transaction->debtor_name }}</dd>
-                        </div>
-                    @endif
-                    @if($transaction->debtor_account_iban)
-                        <div>
-                            <dt class="text-xs text-[var(--ui-muted)]">Auftraggeber IBAN</dt>
-                            <dd class="text-sm font-mono text-[var(--ui-secondary)]">{{ $transaction->debtor_account_iban }}</dd>
-                        </div>
-                    @endif
-                    @if($transaction->debtor_agent)
-                        <div>
-                            <dt class="text-xs text-[var(--ui-muted)]">Auftraggeber BIC</dt>
-                            <dd class="text-sm font-mono text-[var(--ui-secondary)]">{{ $transaction->debtor_agent }}</dd>
-                        </div>
-                    @endif
-                    @if($transaction->creditor_name)
-                        <div>
-                            <dt class="text-xs text-[var(--ui-muted)]">Empfänger</dt>
-                            <dd class="text-sm font-medium text-[var(--ui-primary)]">{{ $transaction->creditor_name }}</dd>
-                        </div>
-                    @endif
-                    @if($transaction->creditor_account_iban)
-                        <div>
-                            <dt class="text-xs text-[var(--ui-muted)]">Empfänger IBAN</dt>
-                            <dd class="text-sm font-mono text-[var(--ui-secondary)]">{{ $transaction->creditor_account_iban }}</dd>
-                        </div>
-                    @endif
-                    @if($transaction->creditor_agent)
-                        <div>
-                            <dt class="text-xs text-[var(--ui-muted)]">Empfänger BIC</dt>
-                            <dd class="text-sm font-mono text-[var(--ui-secondary)]">{{ $transaction->creditor_agent }}</dd>
+                            <dt class="text-xs text-[var(--ui-muted)]">BIC</dt>
+                            <dd class="text-sm font-mono text-[var(--ui-secondary)]">{{ $cpAgent }}</dd>
                         </div>
                     @endif
                 </div>

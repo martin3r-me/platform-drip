@@ -11,7 +11,7 @@ class RepairTransactionIbansCommand extends Command
                                     {--team= : Team ID (required)}
                                     {--dry : Show what would be fixed without saving}';
 
-    protected $description = 'Repair IBAN assignment: swap debtor/creditor IBAN based on direction';
+    protected $description = 'Repair counterparty_iban from additional_information for all transactions';
 
     public function handle(): int
     {
@@ -23,97 +23,69 @@ class RepairTransactionIbansCommand extends Command
             return 1;
         }
 
-        // Finde Transaktionen mit falscher IBAN-Zuordnung:
-        // debit + debtor_account_iban gesetzt + creditor_account_iban leer
-        $debitBroken = BankTransaction::where('team_id', $teamId)
-            ->where('direction', 'debit')
-            ->whereNotNull('debtor_account_iban')
-            ->whereNull('creditor_account_iban')
+        // Finde Transaktionen ohne counterparty_iban aber mit additional_information
+        $transactions = BankTransaction::where('team_id', $teamId)
+            ->whereNull('counterparty_iban')
+            ->whereNotNull('additional_information')
             ->get();
 
-        // credit + creditor_account_iban gesetzt + debtor_account_iban leer
-        $creditBroken = BankTransaction::where('team_id', $teamId)
-            ->where('direction', 'credit')
-            ->whereNotNull('creditor_account_iban')
-            ->whereNull('debtor_account_iban')
-            ->get();
+        $this->info("Found {$transactions->count()} transactions without counterparty_iban");
 
-        $total = $debitBroken->count() + $creditBroken->count();
-        $this->info("Found {$debitBroken->count()} debit + {$creditBroken->count()} credit transactions with misassigned IBANs");
-
-        if ($total === 0) {
-            $this->info('Nothing to repair.');
+        if ($transactions->isEmpty()) {
             return 0;
         }
 
-        $fixed = 0;
+        // Ermittle die eigene Konto-IBAN (die häufigste in debtor/creditor_account_iban)
+        $ownIban = BankTransaction::where('team_id', $teamId)
+            ->whereNotNull('debtor_account_iban')
+            ->groupBy('debtor_account_iban')
+            ->orderByRaw('COUNT(*) DESC')
+            ->value('debtor_account_iban');
 
-        foreach ($debitBroken as $tx) {
-            $parsed = $this->parseAdditionalInformation($tx->additional_information);
-
-            $this->line("  [{$tx->transaction_id}] {$tx->booked_at?->format('Y-m-d')} | {$tx->amount} {$tx->currency}");
-            $this->line("    debtor_account_iban: {$tx->debtor_account_iban} → creditor_account_iban");
-
-            if (!$dry) {
-                $updates = [
-                    'creditor_account_iban' => $tx->debtor_account_iban,
-                    'debtor_account_iban' => null,
-                    'counterparty_iban' => $tx->debtor_account_iban,
-                ];
-
-                // BIC aus additional_information zuweisen wenn möglich
-                if (!$tx->creditor_agent && $parsed['bic']) {
-                    $updates['creditor_agent'] = $parsed['bic'];
-                    $this->line("    creditor_agent: {$parsed['bic']}");
-                }
-
-                // counterparty_name setzen wenn leer
-                if (!$tx->counterparty_name) {
-                    $name = $tx->creditor_name ?? $parsed['name'] ?? null;
-                    if ($name) {
-                        $updates['counterparty_name'] = $name;
-                        $this->line("    counterparty_name: {$name}");
-                    }
-                }
-
-                $tx->update($updates);
-            }
-            $fixed++;
+        if ($ownIban) {
+            $this->info("Detected own IBAN: {$ownIban}");
         }
 
-        foreach ($creditBroken as $tx) {
+        $fixed = 0;
+        $skipped = 0;
+
+        foreach ($transactions as $tx) {
             $parsed = $this->parseAdditionalInformation($tx->additional_information);
 
+            if (!$parsed['iban']) {
+                $skipped++;
+                continue;
+            }
+
+            // Wenn geparste IBAN = eigene IBAN → keine Gegenpartei-IBAN verfügbar
+            if ($parsed['iban'] === $ownIban) {
+                $skipped++;
+                continue;
+            }
+
+            $updates = ['counterparty_iban' => $parsed['iban']];
+
+            // counterparty_name setzen wenn leer
+            if (!$tx->counterparty_name) {
+                $name = $tx->direction === 'debit'
+                    ? ($tx->creditor_name ?? $parsed['name'])
+                    : ($tx->debtor_name ?? $parsed['name']);
+                if ($name) {
+                    $updates['counterparty_name'] = $name;
+                }
+            }
+
             $this->line("  [{$tx->transaction_id}] {$tx->booked_at?->format('Y-m-d')} | {$tx->amount} {$tx->currency}");
-            $this->line("    creditor_account_iban: {$tx->creditor_account_iban} → debtor_account_iban");
+            $this->line("    → counterparty_iban: {$parsed['iban']}" . (isset($updates['counterparty_name']) ? " | name: {$updates['counterparty_name']}" : ''));
 
             if (!$dry) {
-                $updates = [
-                    'debtor_account_iban' => $tx->creditor_account_iban,
-                    'creditor_account_iban' => null,
-                    'counterparty_iban' => $tx->creditor_account_iban,
-                ];
-
-                if (!$tx->debtor_agent && $parsed['bic']) {
-                    $updates['debtor_agent'] = $parsed['bic'];
-                    $this->line("    debtor_agent: {$parsed['bic']}");
-                }
-
-                if (!$tx->counterparty_name) {
-                    $name = $tx->debtor_name ?? $parsed['name'] ?? null;
-                    if ($name) {
-                        $updates['counterparty_name'] = $name;
-                        $this->line("    counterparty_name: {$name}");
-                    }
-                }
-
                 $tx->update($updates);
             }
             $fixed++;
         }
 
         $this->newLine();
-        $this->info(($dry ? '[DRY RUN] Would fix' : 'Fixed') . ": {$fixed} transactions");
+        $this->info(($dry ? '[DRY RUN] Would fix' : 'Fixed') . ": {$fixed} transactions (skipped: {$skipped})");
 
         return 0;
     }
