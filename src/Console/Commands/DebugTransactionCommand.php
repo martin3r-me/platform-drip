@@ -123,16 +123,14 @@ class DebugTransactionCommand extends Command
 
                 $allRawData[$accountId] = $booked;
 
-                // Zeige erste 3 Transaktionen
-                foreach (array_slice($booked, 0, 3) as $i => $tx) {
+                // Alle Transaktionen inline ausgeben
+                foreach ($booked as $i => $tx) {
                     $this->newLine();
                     $txIdLabel = $tx['transactionId'] ?? 'no-id';
-                    $this->info("  --- TX #{$i}: {$txIdLabel} ---");
+                    $amount = $tx['transactionAmount']['amount'] ?? '?';
+                    $date = $tx['bookingDate'] ?? '?';
+                    $this->info("  --- TX #{$i}: {$txIdLabel} | {$amount} EUR | {$date} ---");
                     $this->line(json_encode($tx, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
-                }
-
-                if (count($booked) > 3) {
-                    $this->info("  ... and " . (count($booked) - 3) . " more");
                 }
             }
         }
