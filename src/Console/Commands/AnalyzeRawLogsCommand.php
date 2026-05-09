@@ -48,7 +48,8 @@ class AnalyzeRawLogsCommand extends Command
 
         $allTransactions = [];
         foreach ($raw as $accountId => $transactions) {
-            $this->info("Account: {$accountId} — {$count = count($transactions)} transactions");
+            $count = count($transactions);
+            $this->info("Account: {$accountId} — {$count} transactions");
             foreach ($transactions as $tx) {
                 $tx['_accountId'] = $accountId;
                 $allTransactions[] = $tx;
