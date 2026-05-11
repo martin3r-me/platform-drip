@@ -77,99 +77,101 @@
             </div>
         @endif
 
-        {{-- Trend (6 Monate) --}}
+        {{-- Trend (6 Monate) — Area Chart --}}
         @if(count($trend) > 0)
-            @php
-                $maxTrend = max(1, collect($trend)->max('debit'), collect($trend)->max('credit'));
-            @endphp
-            <div class="bg-white rounded-lg border border-gray-200 p-4 mb-6">
+            <div class="bg-white rounded-lg border border-gray-200 p-4 mb-6" wire:key="trend-{{ $selectedMonth }}-{{ $direction }}">
                 <h2 class="text-sm font-semibold text-gray-900 mb-4">Trend (6 Monate)</h2>
-                <div class="space-y-3">
-                    @foreach($trend as $t)
-                        @php $isSelected = $t['period'] === $selectedMonth; @endphp
-                        <div class="flex items-center gap-3 {{ $isSelected ? 'bg-blue-50/50 -mx-2 px-2 py-1 rounded' : '' }}">
-                            <div class="w-10 text-[11px] font-medium {{ $isSelected ? 'text-blue-700' : 'text-gray-500' }} shrink-0">{{ $t['label'] }}</div>
-                            <div class="flex-1 space-y-1">
-                                <div class="flex items-center gap-2">
-                                    <div class="h-2.5 rounded-sm bg-green-500" style="width: {{ $maxTrend > 0 ? round($t['credit'] / $maxTrend * 100, 1) : 0 }}%"></div>
-                                    <span class="text-[11px] tabular-nums text-gray-500">+{{ number_format($t['credit'], 0, ',', '.') }}</span>
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    <div class="h-2.5 rounded-sm bg-red-400" style="width: {{ $maxTrend > 0 ? round($t['debit'] / $maxTrend * 100, 1) : 0 }}%"></div>
-                                    <span class="text-[11px] tabular-nums text-gray-500">-{{ number_format($t['debit'], 0, ',', '.') }}</span>
-                                </div>
-                            </div>
-                            <div class="text-[11px] font-medium tabular-nums shrink-0 w-20 text-right {{ $t['net'] >= 0 ? 'text-green-600' : 'text-red-500' }}">
-                                {{ $t['net'] >= 0 ? '+' : '' }}{{ number_format($t['net'], 0, ',', '.') }}
-                            </div>
-                        </div>
-                    @endforeach
-                </div>
-                <div class="flex items-center gap-4 mt-3 pt-3 border-t border-gray-100">
-                    <div class="flex items-center gap-1.5">
-                        <div class="w-3 h-2.5 rounded-sm bg-green-500"></div>
-                        <span class="text-[11px] text-gray-500">Einnahmen</span>
-                    </div>
-                    <div class="flex items-center gap-1.5">
-                        <div class="w-3 h-2.5 rounded-sm bg-red-400"></div>
-                        <span class="text-[11px] text-gray-500">Ausgaben</span>
-                    </div>
+                <div wire:ignore x-data="{
+                    chart: null,
+                    init() {
+                        this.chart = new ApexCharts(this.$refs.el, {
+                            chart: { type: 'area', height: 260, toolbar: { show: false }, fontFamily: 'inherit' },
+                            series: [
+                                { name: 'Einnahmen', type: 'area', data: {{ json_encode(collect($trend)->pluck('credit')->values()) }} },
+                                { name: 'Ausgaben', type: 'area', data: {{ json_encode(collect($trend)->pluck('debit')->values()) }} },
+                                { name: 'Netto', type: 'line', data: {{ json_encode(collect($trend)->pluck('net')->values()) }} }
+                            ],
+                            colors: ['#22C55E', '#F87171', '#3B82F6'],
+                            stroke: { curve: 'smooth', width: [2, 2, 2.5] },
+                            fill: { type: ['gradient', 'gradient', 'solid'], gradient: { opacityFrom: 0.35, opacityTo: 0.05 } },
+                            xaxis: { categories: {{ json_encode(collect($trend)->pluck('label')->values()) }}, labels: { style: { fontSize: '11px', colors: '#6B7280' } } },
+                            yaxis: { labels: { style: { fontSize: '11px', colors: '#6B7280' }, formatter: v => new Intl.NumberFormat('de-DE').format(Math.round(v)) } },
+                            tooltip: { y: { formatter: v => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(v) } },
+                            dataLabels: { enabled: false },
+                            legend: { fontSize: '11px', labels: { colors: '#6B7280' } },
+                            grid: { borderColor: '#F3F4F6' }
+                        });
+                        this.chart.render();
+                    },
+                    destroy() { this.chart?.destroy(); }
+                }">
+                    <div x-ref="el"></div>
                 </div>
             </div>
         @endif
 
         {{-- Top Kategorien + Counterparties --}}
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-            {{-- Top Kategorien --}}
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6" wire:key="details-{{ $selectedMonth }}-{{ $direction }}">
+            {{-- Top Kategorien — Horizontal Bar Chart --}}
             <div class="bg-white rounded-lg border border-gray-200 p-4">
                 <h2 class="text-sm font-semibold text-gray-900 mb-4">
                     Top Kategorien
                     <span class="text-[11px] font-normal text-gray-400 ml-1">{{ $direction === 'debit' ? 'Ausgaben' : 'Einnahmen' }}</span>
                 </h2>
                 @if(count($topCategories) > 0)
-                    @php $maxCat = max(1, collect($topCategories)->max('amount')); @endphp
-                    <div class="space-y-2">
-                        @foreach($topCategories as $cat)
-                            <div class="flex items-center gap-3">
-                                <div class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: {{ $cat['color'] }}"></div>
-                                <div class="w-28 text-[13px] text-gray-700 truncate shrink-0">{{ $cat['name'] }}</div>
-                                <div class="flex-1">
-                                    <div class="h-3 rounded-sm" style="width: {{ round($cat['amount'] / $maxCat * 100, 1) }}%; background-color: {{ $cat['color'] }}"></div>
-                                </div>
-                                <div class="text-[12px] tabular-nums text-gray-500 shrink-0 w-10 text-right">{{ $cat['percent'] }}%</div>
-                                <div class="text-[13px] font-medium tabular-nums text-gray-900 shrink-0 w-24 text-right">
-                                    {{ number_format($cat['amount'], 2, ',', '.') }} &euro;
-                                </div>
-                            </div>
-                        @endforeach
+                    <div wire:ignore x-data="{
+                        chart: null,
+                        init() {
+                            this.chart = new ApexCharts(this.$refs.el, {
+                                chart: { type: 'bar', height: {{ max(180, count($topCategories) * 28) }}, toolbar: { show: false }, fontFamily: 'inherit' },
+                                series: [{ name: 'Betrag', data: {{ json_encode(collect($topCategories)->pluck('amount')->values()) }} }],
+                                colors: {{ json_encode(collect($topCategories)->pluck('color')->values()) }},
+                                plotOptions: { bar: { horizontal: true, borderRadius: 3, barHeight: '60%', distributed: true } },
+                                xaxis: { categories: {{ json_encode(collect($topCategories)->pluck('name')->values()) }}, labels: { style: { fontSize: '11px', colors: '#6B7280' }, formatter: v => new Intl.NumberFormat('de-DE').format(Math.round(v)) } },
+                                yaxis: { labels: { style: { fontSize: '11px', colors: '#374151' }, maxWidth: 120 } },
+                                tooltip: { y: { formatter: v => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(v) } },
+                                dataLabels: { enabled: false },
+                                legend: { show: false },
+                                grid: { borderColor: '#F3F4F6' }
+                            });
+                            this.chart.render();
+                        },
+                        destroy() { this.chart?.destroy(); }
+                    }">
+                        <div x-ref="el"></div>
                     </div>
                 @else
                     <p class="text-[13px] text-gray-400 py-4 text-center">Keine Daten fuer diesen Monat</p>
                 @endif
             </div>
 
-            {{-- Top Counterparties --}}
+            {{-- Top Counterparties — Horizontal Bar Chart --}}
             <div class="bg-white rounded-lg border border-gray-200 p-4">
                 <h2 class="text-sm font-semibold text-gray-900 mb-4">
                     Top {{ $direction === 'debit' ? 'Zahlungsempfaenger' : 'Einzahler' }}
                     <span class="text-[11px] font-normal text-gray-400 ml-1">{{ $direction === 'debit' ? 'Ausgaben' : 'Einnahmen' }}</span>
                 </h2>
                 @if(count($topCounterparties) > 0)
-                    @php $maxCp = max(1, collect($topCounterparties)->max('amount')); @endphp
-                    <div class="space-y-2">
-                        @foreach($topCounterparties as $cp)
-                            <div class="flex items-center gap-3">
-                                <div class="w-2.5 h-2.5 rounded-full shrink-0 bg-gray-400"></div>
-                                <div class="w-28 text-[13px] text-gray-700 truncate shrink-0" title="{{ $cp['name'] }}">{{ $cp['name'] }}</div>
-                                <div class="flex-1">
-                                    <div class="h-3 rounded-sm {{ $direction === 'debit' ? 'bg-red-300' : 'bg-green-300' }}" style="width: {{ round($cp['amount'] / $maxCp * 100, 1) }}%"></div>
-                                </div>
-                                <div class="text-[12px] tabular-nums text-gray-500 shrink-0 w-10 text-right">{{ $cp['percent'] }}%</div>
-                                <div class="text-[13px] font-medium tabular-nums text-gray-900 shrink-0 w-24 text-right">
-                                    {{ number_format($cp['amount'], 2, ',', '.') }} &euro;
-                                </div>
-                            </div>
-                        @endforeach
+                    <div wire:ignore x-data="{
+                        chart: null,
+                        init() {
+                            this.chart = new ApexCharts(this.$refs.el, {
+                                chart: { type: 'bar', height: {{ max(180, count($topCounterparties) * 28) }}, toolbar: { show: false }, fontFamily: 'inherit' },
+                                series: [{ name: 'Betrag', data: {{ json_encode(collect($topCounterparties)->pluck('amount')->values()) }} }],
+                                colors: ['{{ $direction === 'debit' ? '#F87171' : '#4ADE80' }}'],
+                                plotOptions: { bar: { horizontal: true, borderRadius: 3, barHeight: '60%' } },
+                                xaxis: { categories: {{ json_encode(collect($topCounterparties)->pluck('name')->map(fn($n) => Str::limit($n, 22))->values()) }}, labels: { style: { fontSize: '11px', colors: '#6B7280' }, formatter: v => new Intl.NumberFormat('de-DE').format(Math.round(v)) } },
+                                yaxis: { labels: { style: { fontSize: '11px', colors: '#374151' }, maxWidth: 130 } },
+                                tooltip: { y: { formatter: v => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(v) } },
+                                dataLabels: { enabled: false },
+                                legend: { show: false },
+                                grid: { borderColor: '#F3F4F6' }
+                            });
+                            this.chart.render();
+                        },
+                        destroy() { this.chart?.destroy(); }
+                    }">
+                        <div x-ref="el"></div>
                     </div>
                 @else
                     <p class="text-[13px] text-gray-400 py-4 text-center">Keine Daten fuer diesen Monat</p>

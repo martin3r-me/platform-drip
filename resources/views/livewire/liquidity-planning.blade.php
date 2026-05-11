@@ -40,58 +40,15 @@
             </div>
         </div>
 
-        {{-- Daily Balance Curve (SVG) --}}
+        {{-- Daily Balance Curve — Area Chart --}}
         @if(count($plan['daily_forecast']) > 1)
             @php
                 $dailyData = $plan['daily_forecast'];
                 $balances = array_column($dailyData, 'balance');
                 $minBal = min($balances);
                 $maxBal = max($balances);
-                $range = max($maxBal - $minBal, 1);
-
-                $chartW = 900;
-                $chartH = 200;
-                $padX = 0;
-                $padY = 10;
-                $innerW = $chartW - 2 * $padX;
-                $innerH = $chartH - 2 * $padY;
-                $count = count($dailyData);
-
-                // Build SVG path
-                $points = [];
-                $areaPoints = [];
-                foreach ($dailyData as $i => $d) {
-                    $x = $padX + ($i / max($count - 1, 1)) * $innerW;
-                    $y = $padY + $innerH - (($d['balance'] - $minBal) / $range) * $innerH;
-                    $points[] = round($x, 1) . ',' . round($y, 1);
-                    $areaPoints[] = ['x' => round($x, 1), 'y' => round($y, 1)];
-                }
-                $polyline = implode(' ', $points);
-
-                // Area fill: close path at bottom
-                $areaPath = 'M' . $areaPoints[0]['x'] . ',' . $areaPoints[0]['y'];
-                foreach ($areaPoints as $ap) {
-                    $areaPath .= ' L' . $ap['x'] . ',' . $ap['y'];
-                }
-                $areaPath .= ' L' . end($areaPoints)['x'] . ',' . ($chartH) . ' L' . $areaPoints[0]['x'] . ',' . ($chartH) . ' Z';
-
-                // Zero line
-                $zeroY = $minBal < 0 ? $padY + $innerH - ((0 - $minBal) / $range) * $innerH : null;
-
-                // Month labels
-                $monthLabels = [];
-                $lastMonth = '';
-                foreach ($dailyData as $i => $d) {
-                    $m = \Illuminate\Support\Carbon::parse($d['date'])->format('M');
-                    if ($m !== $lastMonth) {
-                        $x = $padX + ($i / max($count - 1, 1)) * $innerW;
-                        $monthLabels[] = ['x' => round($x, 1), 'label' => $m];
-                        $lastMonth = $m;
-                    }
-                }
             @endphp
-
-            <div class="bg-white rounded-lg border border-gray-200 p-4 mb-6">
+            <div class="bg-white rounded-lg border border-gray-200 p-4 mb-6" wire:key="balance-curve-{{ $monthsAhead }}">
                 <div class="flex items-center justify-between mb-3">
                     <h3 class="text-sm font-semibold text-gray-900">Kontoverlauf-Prognose</h3>
                     <div class="flex items-center gap-3 text-[11px] text-gray-400">
@@ -99,34 +56,29 @@
                         <span>Max: {{ number_format($maxBal, 0, ',', '.') }} &euro;</span>
                     </div>
                 </div>
-                <svg viewBox="0 0 {{ $chartW }} {{ $chartH + 20 }}" class="w-full h-48" preserveAspectRatio="none">
-                    {{-- Area fill --}}
-                    <path d="{{ $areaPath }}" fill="url(#balanceGradient)" opacity="0.3" />
-
-                    {{-- Gradient definition --}}
-                    <defs>
-                        <linearGradient id="balanceGradient" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stop-color="#3B82F6" />
-                            <stop offset="100%" stop-color="#3B82F6" stop-opacity="0" />
-                        </linearGradient>
-                    </defs>
-
-                    {{-- Zero line --}}
-                    @if($zeroY !== null)
-                        <line x1="{{ $padX }}" y1="{{ round($zeroY, 1) }}" x2="{{ $chartW - $padX }}" y2="{{ round($zeroY, 1) }}"
-                              stroke="#EF4444" stroke-width="0.5" stroke-dasharray="4,4" opacity="0.5" />
-                    @endif
-
-                    {{-- Balance line --}}
-                    <polyline points="{{ $polyline }}" fill="none" stroke="#3B82F6" stroke-width="2" stroke-linejoin="round" />
-
-                    {{-- Month labels --}}
-                    @foreach($monthLabels as $ml)
-                        <line x1="{{ $ml['x'] }}" y1="{{ $padY }}" x2="{{ $ml['x'] }}" y2="{{ $chartH }}"
-                              stroke="#E5E7EB" stroke-width="0.5" />
-                        <text x="{{ $ml['x'] + 4 }}" y="{{ $chartH + 14 }}" font-size="10" fill="#9CA3AF">{{ $ml['label'] }}</text>
-                    @endforeach
-                </svg>
+                <div wire:ignore x-data="{
+                    chart: null,
+                    init() {
+                        const data = {{ Js::from(collect($dailyData)->map(fn($d) => ['x' => $d['date'], 'y' => round($d['balance'], 2)])->values()) }};
+                        this.chart = new ApexCharts(this.$refs.el, {
+                            chart: { type: 'area', height: 300, toolbar: { show: true, tools: { download: false, selection: true, zoom: true, zoomin: true, zoomout: true, pan: true, reset: true } }, fontFamily: 'inherit', zoom: { enabled: true } },
+                            series: [{ name: 'Kontostand', data: data }],
+                            colors: ['#3B82F6'],
+                            stroke: { curve: 'smooth', width: 2 },
+                            fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.35, opacityTo: 0.05, stops: [0, 100] } },
+                            xaxis: { type: 'datetime', labels: { style: { fontSize: '11px', colors: '#6B7280' }, datetimeFormatter: { month: 'MMM', day: 'dd. MMM' } } },
+                            yaxis: { labels: { style: { fontSize: '11px', colors: '#6B7280' }, formatter: v => new Intl.NumberFormat('de-DE').format(Math.round(v)) + ' \u20AC' } },
+                            tooltip: { x: { format: 'dd.MM.yyyy' }, y: { formatter: v => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(v) } },
+                            annotations: { yaxis: [{ y: 0, borderColor: '#EF4444', strokeDashArray: 4, opacity: 0.5, label: { text: '0 \u20AC', style: { color: '#EF4444', fontSize: '10px', background: 'transparent' } } }] },
+                            dataLabels: { enabled: false },
+                            grid: { borderColor: '#F3F4F6' }
+                        });
+                        this.chart.render();
+                    },
+                    destroy() { this.chart?.destroy(); }
+                }">
+                    <div x-ref="el"></div>
+                </div>
             </div>
         @endif
 
@@ -140,21 +92,31 @@
                     </div>
 
                     @if(count($plan['monthly_summary']) > 0)
-                        {{-- Chart bars --}}
-                        <div class="px-4 py-4 border-b border-gray-100">
-                            <div class="flex items-end gap-2 h-32">
-                                @php
-                                    $maxVal = max(1, max(array_column($plan['monthly_summary'], 'credits')), max(array_column($plan['monthly_summary'], 'debits')));
-                                @endphp
-                                @foreach($plan['monthly_summary'] as $ms)
-                                    <div class="flex-1 flex flex-col items-center gap-1">
-                                        <div class="w-full flex gap-0.5 justify-center items-end h-24">
-                                            <div class="w-1/3 bg-green-400 rounded-t" style="height: {{ max(2, $ms['credits'] / $maxVal * 100) }}%"></div>
-                                            <div class="w-1/3 bg-red-400 rounded-t" style="height: {{ max(2, $ms['debits'] / $maxVal * 100) }}%"></div>
-                                        </div>
-                                        <span class="text-[10px] text-gray-400 truncate w-full text-center">{{ Str::limit($ms['month'], 7) }}</span>
-                                    </div>
-                                @endforeach
+                        {{-- Monthly Summary — Grouped Bar Chart --}}
+                        <div class="px-4 py-4 border-b border-gray-100" wire:key="monthly-bars-{{ $monthsAhead }}">
+                            <div wire:ignore x-data="{
+                                chart: null,
+                                init() {
+                                    this.chart = new ApexCharts(this.$refs.el, {
+                                        chart: { type: 'bar', height: 180, toolbar: { show: false }, fontFamily: 'inherit' },
+                                        series: [
+                                            { name: 'Einnahmen', data: {{ json_encode(array_column($plan['monthly_summary'], 'credits')) }} },
+                                            { name: 'Ausgaben', data: {{ json_encode(array_column($plan['monthly_summary'], 'debits')) }} }
+                                        ],
+                                        colors: ['#4ADE80', '#F87171'],
+                                        plotOptions: { bar: { columnWidth: '55%', borderRadius: 2 } },
+                                        xaxis: { categories: {{ json_encode(array_map(fn($ms) => Str::limit($ms['month'], 7), $plan['monthly_summary'])) }}, labels: { style: { fontSize: '10px', colors: '#9CA3AF' } } },
+                                        yaxis: { labels: { style: { fontSize: '10px', colors: '#9CA3AF' }, formatter: v => new Intl.NumberFormat('de-DE').format(Math.round(v)) } },
+                                        tooltip: { y: { formatter: v => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(v) } },
+                                        dataLabels: { enabled: false },
+                                        legend: { fontSize: '10px', labels: { colors: '#9CA3AF' } },
+                                        grid: { borderColor: '#F3F4F6' }
+                                    });
+                                    this.chart.render();
+                                },
+                                destroy() { this.chart?.destroy(); }
+                            }">
+                                <div x-ref="el"></div>
                             </div>
                         </div>
 
