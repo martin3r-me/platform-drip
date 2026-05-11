@@ -19,7 +19,7 @@ class LiquidityPlanning extends Component
         $teamId = (int) auth()->user()?->current_team_id;
 
         $service = app(LiquidityPlanningService::class);
-        $plan = $service->buildPlan($teamId, $this->monthsAhead);
+        $plan = $service->getPlan($teamId, $this->monthsAhead);
 
         return view('drip::livewire.liquidity-planning', [
             'plan' => $plan,
