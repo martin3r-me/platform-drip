@@ -14,24 +14,24 @@
 
         {{-- Test/Apply Feedback --}}
         @if($testResult)
-            <div class="mb-4 px-4 py-3 rounded-xl bg-blue-50 border border-blue-200 text-[13px] text-blue-800">
+            <div class="mb-4 px-4 py-3 rounded-lg bg-blue-50 border border-blue-200 text-[13px] text-blue-800">
                 {{ $testResult }}
             </div>
         @endif
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
             {{-- Links: Regeln-Liste --}}
             <div class="lg:col-span-2">
                 @if ($rules->count() > 0)
-                    <div class="bg-white rounded-xl border border-gray-200">
+                    <div class="bg-white rounded-lg border border-gray-200">
                         @foreach ($rules as $rule)
                             @php
                                 $cat = $rule->category;
                                 $matchers = is_array($rule->matchers) ? $rule->matchers : [];
                                 $defaults = is_array($rule->defaults) ? $rule->defaults : [];
                             @endphp
-                            <div class="px-5 py-3.5 {{ !$loop->last ? 'border-b border-gray-100' : '' }}">
+                            <div class="px-4 py-3 {{ !$loop->last ? 'border-b border-gray-100' : '' }}">
                                 <div class="flex items-start justify-between gap-3">
                                     <div class="flex-1 min-w-0">
                                         <div class="flex items-center gap-2 mb-1">
@@ -81,20 +81,20 @@
                         @endforeach
                     </div>
                 @else
-                    <div class="bg-white rounded-xl border border-gray-200 p-12 text-center">
+                    <div class="bg-white rounded-lg border border-gray-200 p-12 text-center">
                         <div class="text-gray-400 mb-4">
                             @svg('heroicon-o-funnel', 'w-12 h-12 mx-auto')
                         </div>
-                        <h3 class="text-base font-semibold text-gray-900 mb-1">Noch keine Regeln</h3>
-                        <p class="text-sm text-gray-500">Erstelle eine Regel, um Transaktionen automatisch zu kategorisieren.</p>
+                        <h3 class="text-sm font-semibold text-gray-900 mb-1">Noch keine Regeln</h3>
+                        <p class="text-[13px] text-gray-500">Erstelle eine Regel, um Transaktionen automatisch zu kategorisieren.</p>
                     </div>
                 @endif
             </div>
 
             {{-- Rechts: Formular --}}
             <div class="lg:col-span-1">
-                <div class="bg-white rounded-xl border border-gray-200 p-5">
-                    <h3 class="text-base font-semibold text-gray-900 mb-4">
+                <div class="bg-white rounded-lg border border-gray-200 p-5">
+                    <h3 class="text-sm font-semibold text-gray-900 mb-4">
                         {{ $editingId ? 'Regel bearbeiten' : 'Regel erstellen' }}
                     </h3>
 

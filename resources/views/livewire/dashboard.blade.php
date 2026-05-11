@@ -12,9 +12,9 @@
     <x-ui-page-container>
 
         {{-- Stat Cards --}}
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             {{-- Kontostand --}}
-            <div class="bg-white rounded-xl border border-gray-200 p-5">
+            <div class="bg-white rounded-lg border border-gray-200 p-4">
                 <div class="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Kontostand</div>
                 <div class="mt-1 text-2xl font-bold tabular-nums text-gray-900">
                     {{ number_format($totalBalance, 2, ',', '.') }} &euro;
@@ -22,7 +22,7 @@
             </div>
 
             {{-- Einnahmen 30T --}}
-            <div class="bg-white rounded-xl border border-gray-200 p-5">
+            <div class="bg-white rounded-lg border border-gray-200 p-4">
                 <div class="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Einnahmen (30T)</div>
                 <div class="mt-1 text-2xl font-bold tabular-nums text-green-600">
                     +{{ number_format($income30d, 2, ',', '.') }} &euro;
@@ -36,7 +36,7 @@
             </div>
 
             {{-- Ausgaben 30T --}}
-            <div class="bg-white rounded-xl border border-gray-200 p-5">
+            <div class="bg-white rounded-lg border border-gray-200 p-4">
                 <div class="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Ausgaben (30T)</div>
                 <div class="mt-1 text-2xl font-bold tabular-nums text-red-600">
                     -{{ number_format($expenses30d, 2, ',', '.') }} &euro;
@@ -50,7 +50,7 @@
             </div>
 
             {{-- Transaktionen 30T --}}
-            <div class="bg-white rounded-xl border border-gray-200 p-5">
+            <div class="bg-white rounded-lg border border-gray-200 p-4">
                 <div class="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Transaktionen (30T)</div>
                 <div class="mt-1 text-2xl font-bold tabular-nums text-gray-900">
                     {{ $transactions30d }}
@@ -60,8 +60,8 @@
 
         {{-- Cashflow (6 Monate) — Grouped Bar Chart --}}
         @if(count($monthlyFlow) > 0)
-            <div class="bg-white rounded-xl border border-gray-200 p-5 mb-8">
-                <h2 class="text-base font-semibold text-gray-900 mb-4">Cashflow (6 Monate)</h2>
+            <div class="bg-white rounded-lg border border-gray-200 p-4 mb-6">
+                <h2 class="text-sm font-semibold text-gray-900 mb-4">Cashflow (6 Monate)</h2>
                 <div wire:ignore x-data="{
                     chart: null,
                     init() {
@@ -78,7 +78,7 @@
                             tooltip: { y: { formatter: v => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(v) } },
                             dataLabels: { enabled: false },
                             legend: { fontSize: '11px', labels: { colors: '#6B7280' } },
-                            grid: { borderColor: '#F9FAFB' }
+                            grid: { borderColor: '#F3F4F6' }
                         });
                         this.chart.render();
                     },
@@ -91,12 +91,12 @@
 
         {{-- Ausgaben: Kategorien (Donut) + Counterparties (Horizontal Bar) --}}
         @if(count($categoryBreakdown) > 0 || count($topCounterparties) > 0)
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                 {{-- Top Kategorien — Donut Chart --}}
                 @if(count($categoryBreakdown) > 0)
-                    <div class="bg-white rounded-xl border border-gray-200 p-5">
+                    <div class="bg-white rounded-lg border border-gray-200 p-4">
                         <div class="flex items-center justify-between mb-4">
-                            <h2 class="text-base font-semibold text-gray-900">Top Kategorien</h2>
+                            <h2 class="text-sm font-semibold text-gray-900">Top Kategorien</h2>
                             <a href="{{ route('drip.cashflow') }}" wire:navigate class="text-[11px] text-blue-600 hover:text-blue-700">Details</a>
                         </div>
                         <div wire:ignore x-data="{
@@ -124,9 +124,9 @@
 
                 {{-- Top Counterparties — Horizontal Bar Chart --}}
                 @if(count($topCounterparties) > 0)
-                    <div class="bg-white rounded-xl border border-gray-200 p-5">
+                    <div class="bg-white rounded-lg border border-gray-200 p-4">
                         <div class="flex items-center justify-between mb-4">
-                            <h2 class="text-base font-semibold text-gray-900">Top Zahlungsempfaenger</h2>
+                            <h2 class="text-sm font-semibold text-gray-900">Top Zahlungsempfaenger</h2>
                             <a href="{{ route('drip.cashflow') }}" wire:navigate class="text-[11px] text-blue-600 hover:text-blue-700">Details</a>
                         </div>
                         <div wire:ignore x-data="{
@@ -141,7 +141,7 @@
                                     yaxis: { labels: { style: { fontSize: '11px', colors: '#374151' }, maxWidth: 120 } },
                                     tooltip: { y: { formatter: v => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(v) } },
                                     dataLabels: { enabled: false },
-                                    grid: { borderColor: '#F9FAFB' }
+                                    grid: { borderColor: '#F3F4F6' }
                                 });
                                 this.chart.render();
                             },
@@ -156,9 +156,9 @@
 
         {{-- Budget-Status --}}
         @if(count($budgetOverview) > 0)
-            <div class="bg-white rounded-xl border border-gray-200 p-5 mb-8">
+            <div class="bg-white rounded-lg border border-gray-200 p-4 mb-6">
                 <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-base font-semibold text-gray-900">Budget-Status</h2>
+                    <h2 class="text-sm font-semibold text-gray-900">Budget-Status</h2>
                     <a href="{{ route('drip.budgets') }}" wire:navigate class="text-[11px] text-blue-600 hover:text-blue-700">
                         Alle Budgets
                         @if($budgetSuggestionsCount > 0)
@@ -166,7 +166,7 @@
                         @endif
                     </a>
                 </div>
-                <div class="space-y-3">
+                <div class="space-y-2.5">
                     @foreach($budgetOverview as $b)
                         @php
                             $barColor = $b['percent'] <= 100 ? 'bg-green-500' : ($b['percent'] <= 120 ? 'bg-yellow-500' : 'bg-red-500');
@@ -174,7 +174,7 @@
                         @endphp
                         <div class="flex items-center gap-3">
                             <div class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: {{ $b['category_color'] }}"></div>
-                            <div class="w-28 text-sm text-gray-700 truncate shrink-0">{{ $b['name'] }}</div>
+                            <div class="w-28 text-[13px] text-gray-700 truncate shrink-0">{{ $b['name'] }}</div>
                             <div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
                                 <div class="{{ $barColor }} h-2 rounded-full" style="width: {{ $barWidth }}%"></div>
                             </div>
@@ -187,18 +187,18 @@
             </div>
         @endif
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {{-- Letzte Transaktionen --}}
-            <div class="bg-white rounded-xl border border-gray-200">
-                <div class="px-5 py-3.5 border-b border-gray-100">
-                    <h2 class="text-base font-semibold text-gray-900">Letzte Transaktionen</h2>
+            <div class="bg-white rounded-lg border border-gray-200">
+                <div class="px-4 py-3 border-b border-gray-100">
+                    <h2 class="text-sm font-semibold text-gray-900">Letzte Transaktionen</h2>
                 </div>
                 <div class="divide-y divide-gray-100">
                     @forelse(($recentTransactions ?? []) as $t)
                         <a href="{{ route('drip.transactions.show', $t) }}" wire:navigate
-                           class="flex items-center justify-between px-5 py-3 hover:bg-blue-50/50 transition-colors">
+                           class="flex items-center justify-between px-4 py-2.5 hover:bg-blue-50/50 transition-colors">
                             <div class="flex-1 min-w-0 mr-3">
-                                <div class="text-sm text-gray-900 truncate">
+                                <div class="text-[13px] text-gray-900 truncate">
                                     {{ $t->counterparty_name ?? ($t->direction === 'debit' ? $t->creditor_name : $t->debtor_name) ?? ($t->remittance_information ?? $t->reference ?? '-') }}
                                 </div>
                                 <div class="text-[11px] text-gray-500 truncate mt-0.5">
@@ -208,32 +208,32 @@
                                     @endif
                                 </div>
                             </div>
-                            <div class="text-sm font-medium tabular-nums shrink-0 {{ $t->direction === 'credit' ? 'text-green-600' : 'text-red-600' }}">
+                            <div class="text-[13px] font-medium tabular-nums shrink-0 {{ $t->direction === 'credit' ? 'text-green-600' : 'text-red-600' }}">
                                 {{ $t->direction === 'credit' ? '+' : '-' }}{{ number_format($t->amount, 2, ',', '.') }} {{ $t->currency }}
                             </div>
                         </a>
                     @empty
-                        <div class="px-5 py-8 text-center">
+                        <div class="px-4 py-8 text-center">
                             <div class="text-gray-400 mb-2">
                                 @svg('heroicon-o-banknotes', 'w-8 h-8 mx-auto')
                             </div>
-                            <p class="text-sm text-gray-500">Keine Transaktionen vorhanden</p>
+                            <p class="text-[13px] text-gray-500">Keine Transaktionen vorhanden</p>
                         </div>
                     @endforelse
                 </div>
             </div>
 
             {{-- Kontogruppen --}}
-            <div class="bg-white rounded-xl border border-gray-200">
-                <div class="px-5 py-3.5 border-b border-gray-100">
-                    <h2 class="text-base font-semibold text-gray-900">Kontogruppen</h2>
+            <div class="bg-white rounded-lg border border-gray-200">
+                <div class="px-4 py-3 border-b border-gray-100">
+                    <h2 class="text-sm font-semibold text-gray-900">Kontogruppen</h2>
                 </div>
                 <div class="divide-y divide-gray-100">
                     @forelse(($groups ?? []) as $g)
-                        <div class="flex items-center justify-between px-5 py-3 hover:bg-blue-50/50 transition-colors">
+                        <div class="flex items-center justify-between px-4 py-2.5 hover:bg-blue-50/50 transition-colors">
                             <div class="flex items-center gap-2">
                                 <div class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: {{ $g->color ?? '#6B7280' }}"></div>
-                                <span class="text-sm text-gray-900">{{ $g->name }}</span>
+                                <span class="text-[13px] text-gray-900">{{ $g->name }}</span>
                                 <span class="text-[11px] text-gray-400">{{ $g->bank_accounts_count ?? 0 }} Konten</span>
                             </div>
                             <a href="{{ route('drip.groups.show', $g) }}" wire:navigate
@@ -243,11 +243,11 @@
                             </a>
                         </div>
                     @empty
-                        <div class="px-5 py-8 text-center">
+                        <div class="px-4 py-8 text-center">
                             <div class="text-gray-400 mb-2">
                                 @svg('heroicon-o-folder', 'w-8 h-8 mx-auto')
                             </div>
-                            <p class="text-sm text-gray-500">Keine Gruppen vorhanden</p>
+                            <p class="text-[13px] text-gray-500">Keine Gruppen vorhanden</p>
                         </div>
                     @endforelse
                 </div>
@@ -262,7 +262,7 @@
                 {{-- Letzter Sync --}}
                 <div>
                     <div class="text-[11px] font-medium text-gray-500 uppercase tracking-wide mb-1">Letzter Sync</div>
-                    <div class="text-sm text-gray-900">
+                    <div class="text-[13px] text-gray-900">
                         @if($lastSyncAt)
                             {{ \Carbon\Carbon::parse($lastSyncAt)->diffForHumans() }}
                         @else
@@ -276,7 +276,7 @@
                     <div class="text-[11px] font-medium text-gray-500 uppercase tracking-wide mb-2">Schnellaktionen</div>
                     <div class="space-y-1.5">
                         <a href="{{ route('drip.banks') }}" wire:navigate
-                           class="flex items-center gap-2 px-3 py-2 rounded-md text-sm text-gray-700 hover:bg-gray-100 transition-colors">
+                           class="flex items-center gap-2 px-3 py-2 rounded-md text-[13px] text-gray-700 hover:bg-gray-100 transition-colors">
                             @svg('heroicon-o-building-library', 'w-4 h-4 text-gray-400')
                             Banken verwalten
                         </a>
@@ -286,7 +286,7 @@
                 {{-- Konteninfo --}}
                 <div>
                     <div class="text-[11px] font-medium text-gray-500 uppercase tracking-wide mb-2">Statistiken</div>
-                    <div class="space-y-1.5 text-sm">
+                    <div class="space-y-1.5 text-[13px]">
                         <div class="flex items-center justify-between">
                             <span class="text-gray-500">Gruppen</span>
                             <span class="font-medium text-gray-900">{{ $groupsCount }}</span>
