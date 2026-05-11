@@ -5,12 +5,14 @@ namespace Platform\Drip\Livewire;
 use Livewire\Component;
 use Platform\Drip\Models\BankAccountGroup;
 use Platform\Drip\Models\BankTransaction;
+use Platform\Drip\Models\BankTransactionCategory;
 
 class GroupTransactions extends Component
 {
     public BankAccountGroup $group;
     public string $search = '';
     public string $direction = '';
+    public string $categoryFilter = '';
     public string $sortBy = 'booked_at';
     public string $sortDirection = 'desc';
     public int $perPage = 25;
@@ -28,6 +30,21 @@ class GroupTransactions extends Component
     public function updatedDirection()
     {
         $this->resetPage();
+    }
+
+    public function updatedCategoryFilter()
+    {
+        $this->resetPage();
+    }
+
+    public function updateCategory(int $transactionId, $categoryId): void
+    {
+        $transaction = BankTransaction::findOrFail($transactionId);
+        abort_unless($transaction->team_id === auth()->user()->current_team_id, 403);
+
+        $transaction->update([
+            'category_id' => $categoryId ?: null,
+        ]);
     }
 
     public function sortBy($field)
@@ -55,6 +72,13 @@ class GroupTransactions extends Component
             ->when($this->direction, function ($query) {
                 $query->where('direction', $this->direction);
             })
+            ->when($this->categoryFilter !== '', function ($query) {
+                if ($this->categoryFilter === 'none') {
+                    $query->whereNull('category_id');
+                } else {
+                    $query->where('category_id', $this->categoryFilter);
+                }
+            })
             ->orderBy($this->sortBy, $this->sortDirection)
             ->paginate($this->perPage);
 
@@ -64,11 +88,17 @@ class GroupTransactions extends Component
         $totalExpenses = $allTransactions->where('direction', 'debit')->sum(fn ($t) => abs((float) $t->amount));
         $totalBalance = $totalIncome - $totalExpenses;
 
+        $teamId = (int) auth()->user()->current_team_id;
+        $categories = BankTransactionCategory::where('team_id', $teamId)
+            ->orderBy('name')
+            ->get();
+
         return view('drip::livewire.group-transactions', [
             'transactions' => $transactions,
             'totalIncome' => $totalIncome,
             'totalExpenses' => $totalExpenses,
             'totalBalance' => $totalBalance,
+            'categories' => $categories,
         ])->layout('platform::layouts.app');
     }
 }

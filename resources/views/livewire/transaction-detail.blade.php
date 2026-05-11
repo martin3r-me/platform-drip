@@ -197,8 +197,18 @@
                 </div>
 
                 <div>
-                    <dt class="text-[11px] text-gray-400 uppercase tracking-wide">Kategorie</dt>
-                    <dd class="text-[13px] text-gray-700 mt-0.5">{{ $transaction->category->name ?? '-' }}</dd>
+                    <dt class="text-[11px] text-gray-400 uppercase tracking-wide mb-1">Kategorie</dt>
+                    <dd>
+                        <select wire:model.live="categoryId"
+                                class="w-full px-2 py-1 rounded-md border border-gray-200 text-[13px] text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">— Keine —</option>
+                            @foreach ($categories as $cat)
+                                <option value="{{ $cat->id }}">
+                                    {{ $cat->parent_id ? '  └ ' : '' }}{{ $cat->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </dd>
                 </div>
 
                 <div>
