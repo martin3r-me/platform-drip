@@ -22,10 +22,10 @@
                 @endif
             </div>
             <div class="flex items-center gap-2">
-                <span class="text-[13px] text-gray-500">Zeitraum:</span>
+                <span class="text-sm text-gray-500">Zeitraum:</span>
                 @foreach([3, 6, 12] as $m)
                     <button wire:click="setMonthsAhead({{ $m }})"
-                            class="px-2.5 py-1 rounded-md text-[12px] font-medium transition-colors {{ $monthsAhead === $m ? 'bg-blue-100 text-blue-700' : 'bg-gray-50 text-gray-600 hover:bg-gray-100' }}">
+                            class="px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors {{ $monthsAhead === $m ? 'bg-blue-100 text-blue-700' : 'bg-gray-50 text-gray-600 hover:bg-gray-100' }}">
                         {{ $m }} Monate
                     </button>
                 @endforeach
@@ -33,7 +33,7 @@
         </div>
 
         {{-- Current Balance Card --}}
-        <div class="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+        <div class="bg-white rounded-xl border border-gray-200 p-6 mb-8">
             <div class="text-[11px] font-medium text-gray-500 uppercase tracking-wide mb-1">Aktueller Kontostand</div>
             <div class="text-3xl font-bold tabular-nums {{ $plan['current_balance'] >= 0 ? 'text-gray-900' : 'text-red-600' }}">
                 {{ number_format($plan['current_balance'], 2, ',', '.') }} &euro;
@@ -48,9 +48,9 @@
                 $minBal = min($balances);
                 $maxBal = max($balances);
             @endphp
-            <div class="bg-white rounded-lg border border-gray-200 p-4 mb-6" wire:key="balance-curve-{{ $monthsAhead }}">
+            <div class="bg-white rounded-xl border border-gray-200 p-5 mb-8" wire:key="balance-curve-{{ $monthsAhead }}">
                 <div class="flex items-center justify-between mb-3">
-                    <h3 class="text-sm font-semibold text-gray-900">Kontoverlauf-Prognose</h3>
+                    <h3 class="text-base font-semibold text-gray-900">Kontoverlauf-Prognose</h3>
                     <div class="flex items-center gap-3 text-[11px] text-gray-400">
                         <span>Min: {{ number_format($minBal, 0, ',', '.') }} &euro;</span>
                         <span>Max: {{ number_format($maxBal, 0, ',', '.') }} &euro;</span>
@@ -71,7 +71,7 @@
                             tooltip: { x: { format: 'dd.MM.yyyy' }, y: { formatter: v => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(v) } },
                             annotations: { yaxis: [{ y: 0, borderColor: '#EF4444', strokeDashArray: 4, opacity: 0.5, label: { text: '0 \u20AC', style: { color: '#EF4444', fontSize: '10px', background: 'transparent' } } }] },
                             dataLabels: { enabled: false },
-                            grid: { borderColor: '#F3F4F6' }
+                            grid: { borderColor: '#F9FAFB' }
                         });
                         this.chart.render();
                     },
@@ -82,13 +82,13 @@
             </div>
         @endif
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
             {{-- Left: Monthly forecast table --}}
             <div class="lg:col-span-2">
-                <div class="bg-white rounded-lg border border-gray-200">
+                <div class="bg-white rounded-xl border border-gray-200">
                     <div class="px-4 py-3 border-b border-gray-100">
-                        <h3 class="text-sm font-semibold text-gray-900">Monatliche Prognose</h3>
+                        <h3 class="text-base font-semibold text-gray-900">Monatliche Prognose</h3>
                     </div>
 
                     @if(count($plan['monthly_summary']) > 0)
@@ -110,7 +110,7 @@
                                         tooltip: { y: { formatter: v => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(v) } },
                                         dataLabels: { enabled: false },
                                         legend: { fontSize: '10px', labels: { colors: '#9CA3AF' } },
-                                        grid: { borderColor: '#F3F4F6' }
+                                        grid: { borderColor: '#F9FAFB' }
                                     });
                                     this.chart.render();
                                 },
@@ -149,7 +149,7 @@
                         </table>
                     @else
                         <div class="px-4 py-8 text-center">
-                            <p class="text-[13px] text-gray-500">Keine Prognosedaten vorhanden.</p>
+                            <p class="text-sm text-gray-500">Keine Prognosedaten vorhanden.</p>
                             <p class="text-[11px] text-gray-400 mt-1">Fuehre <code class="bg-gray-100 px-1 rounded">drip:compute-liquidity</code> aus, um die Prognose zu berechnen.</p>
                         </div>
                     @endif
@@ -158,18 +158,18 @@
 
             {{-- Right: Upcoming items --}}
             <div class="lg:col-span-1">
-                <div class="bg-white rounded-lg border border-gray-200">
+                <div class="bg-white rounded-xl border border-gray-200">
                     <div class="px-4 py-3 border-b border-gray-100">
-                        <h3 class="text-sm font-semibold text-gray-900">Naechste geplante Posten</h3>
+                        <h3 class="text-base font-semibold text-gray-900">Naechste geplante Posten</h3>
                     </div>
 
                     @if(count($plan['upcoming_items']) > 0)
                         <div class="divide-y divide-gray-50">
                             @foreach($plan['upcoming_items'] as $item)
-                                <div class="px-4 py-2.5">
+                                <div class="px-4 py-3">
                                     <div class="flex items-center justify-between mb-0.5">
-                                        <span class="text-[13px] font-medium text-gray-900 truncate mr-2">{{ $item['name'] }}</span>
-                                        <span class="text-[13px] tabular-nums font-medium shrink-0 {{ $item['direction'] === 'credit' ? 'text-green-600' : 'text-red-600' }}">
+                                        <span class="text-sm font-medium text-gray-900 truncate mr-2">{{ $item['name'] }}</span>
+                                        <span class="text-sm tabular-nums font-medium shrink-0 {{ $item['direction'] === 'credit' ? 'text-green-600' : 'text-red-600' }}">
                                             {{ $item['direction'] === 'credit' ? '+' : '-' }}{{ number_format($item['amount'], 2, ',', '.') }} &euro;
                                         </span>
                                     </div>
@@ -184,7 +184,7 @@
                         </div>
                     @else
                         <div class="px-4 py-8 text-center">
-                            <p class="text-[13px] text-gray-500">Keine geplanten Posten.</p>
+                            <p class="text-sm text-gray-500">Keine geplanten Posten.</p>
                             <p class="text-[11px] text-gray-400 mt-1">Erstelle Budgets, um Prognosen zu sehen.</p>
                         </div>
                     @endif

@@ -11,15 +11,15 @@
     </x-slot>
 
     <x-ui-page-container>
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
             {{-- Links: Kategorien-Baum --}}
             <div class="lg:col-span-2">
                 @if ($categories->count() > 0)
-                    <div class="bg-white rounded-lg border border-gray-200">
+                    <div class="bg-white rounded-xl border border-gray-200">
                         @foreach ($categories as $category)
                             {{-- Root-Kategorie --}}
-                            <div class="flex items-center justify-between px-4 py-3 {{ !$loop->last ? 'border-b border-gray-100' : '' }}">
+                            <div class="flex items-center justify-between px-5 py-3.5 {{ !$loop->last ? 'border-b border-gray-100' : '' }}">
                                 <div class="flex items-center gap-3">
                                     <div class="w-3 h-3 rounded-full" style="background-color: {{ $category->color ?? '#6B7280' }}"></div>
                                     <span class="text-sm font-medium text-gray-900">{{ $category->name }}</span>
@@ -42,7 +42,7 @@
 
                             {{-- Children --}}
                             @foreach ($category->children as $child)
-                                <div class="flex items-center justify-between px-4 py-3 pl-12 {{ !($loop->parent->last && $loop->last) ? 'border-b border-gray-100' : '' }} bg-gray-50/50">
+                                <div class="flex items-center justify-between px-5 py-3.5 pl-14 {{ !($loop->parent->last && $loop->last) ? 'border-b border-gray-100' : '' }} bg-gray-50/50">
                                     <div class="flex items-center gap-3">
                                         <div class="w-3 h-3 rounded-full" style="background-color: {{ $child->color ?? '#6B7280' }}"></div>
                                         <span class="text-sm text-gray-700">{{ $child->name }}</span>
@@ -66,27 +66,27 @@
                         @endforeach
                     </div>
                 @else
-                    <div class="bg-white rounded-lg border border-gray-200 p-12 text-center">
+                    <div class="bg-white rounded-xl border border-gray-200 p-12 text-center">
                         <div class="text-gray-400 mb-4">
                             @svg('heroicon-o-tag', 'w-12 h-12 mx-auto')
                         </div>
-                        <h3 class="text-sm font-semibold text-gray-900 mb-1">Noch keine Kategorien</h3>
-                        <p class="text-[13px] text-gray-500">Erstelle eine Kategorie, um Transaktionen zu organisieren.</p>
+                        <h3 class="text-base font-semibold text-gray-900 mb-1">Noch keine Kategorien</h3>
+                        <p class="text-sm text-gray-500">Erstelle eine Kategorie, um Transaktionen zu organisieren.</p>
                     </div>
                 @endif
             </div>
 
             {{-- Rechts: Formular --}}
             <div class="lg:col-span-1">
-                <div class="bg-white rounded-lg border border-gray-200 p-5">
-                    <h3 class="text-sm font-semibold text-gray-900 mb-4">
+                <div class="bg-white rounded-xl border border-gray-200 p-5">
+                    <h3 class="text-base font-semibold text-gray-900 mb-4">
                         {{ $editingId ? 'Kategorie bearbeiten' : 'Kategorie erstellen' }}
                     </h3>
 
                     <form wire:submit="save" class="space-y-4">
                         {{-- Name --}}
                         <div>
-                            <label for="category-name" class="block text-[13px] font-medium text-gray-700 mb-1">Name</label>
+                            <label for="category-name" class="block text-sm font-medium text-gray-700 mb-1">Name</label>
                             <input type="text" id="category-name" wire:model="form.name" required
                                    class="w-full px-3 py-1.5 rounded-md border border-gray-200 text-[13px] text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                                    placeholder="z.B. Lebensmittel">
@@ -97,7 +97,7 @@
 
                         {{-- Farbe --}}
                         <div>
-                            <label for="category-color" class="block text-[13px] font-medium text-gray-700 mb-1">Farbe</label>
+                            <label for="category-color" class="block text-sm font-medium text-gray-700 mb-1">Farbe</label>
                             <select id="category-color" wire:model="form.color"
                                     class="w-full px-3 py-1.5 rounded-md border border-gray-200 text-[13px] text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                                 <option value="">Keine Farbe</option>
@@ -118,7 +118,7 @@
 
                         {{-- Parent --}}
                         <div>
-                            <label for="category-parent" class="block text-[13px] font-medium text-gray-700 mb-1">Übergeordnete Kategorie</label>
+                            <label for="category-parent" class="block text-sm font-medium text-gray-700 mb-1">Übergeordnete Kategorie</label>
                             <select id="category-parent" wire:model="form.parent_id"
                                     class="w-full px-3 py-1.5 rounded-md border border-gray-200 text-[13px] text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
                                 <option value="">Keine (Root-Kategorie)</option>
