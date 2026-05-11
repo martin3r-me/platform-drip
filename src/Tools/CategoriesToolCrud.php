@@ -6,6 +6,7 @@ use Platform\Core\Contracts\ToolContract;
 use Platform\Core\Contracts\ToolContext;
 use Platform\Core\Contracts\ToolMetadataContract;
 use Platform\Core\Contracts\ToolResult;
+use Platform\Drip\Models\BankTransaction;
 use Platform\Drip\Models\BankTransactionCategory;
 use Platform\Drip\Tools\Concerns\ResolvesDripTeam;
 use Illuminate\Support\Str;
@@ -21,7 +22,7 @@ class CategoriesToolCrud implements ToolContract, ToolMetadataContract
 
     public function getDescription(): string
     {
-        return 'CRUD /drip/categories - Verwaltet Transaktionskategorien. action=list (default), action=create (name required, color/parent_id optional), action=update (category_id + Felder), action=delete (category_id).';
+        return 'CRUD /drip/categories - Verwaltet Transaktionskategorien. action=list (default), action=create (name required, color/parent_id optional), action=update (category_id + Felder), action=delete (category_id), action=assign (category_id + counterparty_pattern für Bulk-Zuweisung per LIKE-Match auf counterparty_name, oder transaction_ids für explizite IDs).';
     }
 
     public function getSchema(): array
@@ -31,8 +32,21 @@ class CategoriesToolCrud implements ToolContract, ToolMetadataContract
             'properties' => [
                 'action' => [
                     'type' => 'string',
-                    'enum' => ['list', 'create', 'update', 'delete'],
-                    'description' => 'Aktion: list, create, update, delete. Default: list.',
+                    'enum' => ['list', 'create', 'update', 'delete', 'assign'],
+                    'description' => 'Aktion: list, create, update, delete, assign. Default: list.',
+                ],
+                'counterparty_pattern' => [
+                    'type' => 'string',
+                    'description' => 'LIKE-Pattern für counterparty_name (für assign, z.B. "DKV%"). Matched alle TXs mit diesem Pattern.',
+                ],
+                'transaction_ids' => [
+                    'type' => 'array',
+                    'items' => ['type' => 'integer'],
+                    'description' => 'Explizite TX-IDs für assign.',
+                ],
+                'reference_pattern' => [
+                    'type' => 'string',
+                    'description' => 'LIKE-Pattern für reference/remittance (für assign, z.B. "%Ausleihung%").',
                 ],
                 'category_id' => [
                     'type' => 'integer',
@@ -73,6 +87,7 @@ class CategoriesToolCrud implements ToolContract, ToolMetadataContract
                 'create' => $this->create($arguments, $teamId, $context),
                 'update' => $this->update($arguments, $teamId),
                 'delete' => $this->delete($arguments, $teamId),
+                'assign' => $this->assign($arguments, $teamId),
                 default => $this->list($teamId),
             };
         } catch (\Throwable $e) {
@@ -192,6 +207,43 @@ class CategoriesToolCrud implements ToolContract, ToolMetadataContract
         $category->delete();
 
         return ToolResult::success(['message' => "Kategorie '{$name}' gelöscht."]);
+    }
+
+    protected function assign(array $arguments, int $teamId): ToolResult
+    {
+        $categoryId = $arguments['category_id'] ?? null;
+        if (!$categoryId) {
+            return ToolResult::error('VALIDATION_ERROR', 'category_id ist erforderlich.');
+        }
+
+        // Verify category exists
+        BankTransactionCategory::where('team_id', $teamId)->findOrFail($categoryId);
+
+        $query = BankTransaction::where('team_id', $teamId);
+
+        if (!empty($arguments['transaction_ids'])) {
+            $query->whereIn('id', $arguments['transaction_ids']);
+        } elseif (!empty($arguments['counterparty_pattern']) || !empty($arguments['reference_pattern'])) {
+            if (!empty($arguments['counterparty_pattern'])) {
+                $query->where('counterparty_name', 'like', $arguments['counterparty_pattern']);
+            }
+            if (!empty($arguments['reference_pattern'])) {
+                $query->where('reference', 'like', $arguments['reference_pattern']);
+            }
+        } else {
+            return ToolResult::error('VALIDATION_ERROR', 'transaction_ids, counterparty_pattern oder reference_pattern erforderlich.');
+        }
+
+        $count = $query->count();
+        $query->update(['category_id' => $categoryId]);
+
+        $category = BankTransactionCategory::find($categoryId);
+
+        return ToolResult::success([
+            'message' => "{$count} Transaktionen der Kategorie '{$category->name}' zugewiesen.",
+            'updated_count' => $count,
+            'category_id' => $categoryId,
+        ]);
     }
 
     public function getMetadata(): array
