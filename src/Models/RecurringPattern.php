@@ -16,6 +16,7 @@ class RecurringPattern extends Model
     protected $fillable = [
         'uuid', 'team_id', 'user_id',
         'name', 'frequency', 'day_of_month', 'weekday', 'matchers', 'defaults',
+        'bank_transaction_category_id',
     ];
 
     use Encryptable;

@@ -236,6 +236,22 @@ class TransactionService
             'updated' => $updated,
         ]);
 
+        // Auto-categorize uncategorized transactions
+        try {
+            $categorized = app(CategorizationService::class)->categorizeUncategorized($teamId);
+            if ($categorized > 0) {
+                Log::info('TransactionService: auto-categorization done', [
+                    'teamId' => $teamId,
+                    'categorized' => $categorized,
+                ]);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('TransactionService: auto-categorization failed', [
+                'teamId' => $teamId,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
         return $updated;
     }
 

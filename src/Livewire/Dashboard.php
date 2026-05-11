@@ -7,6 +7,7 @@ use Platform\Drip\Models\BankAccount;
 use Platform\Drip\Models\BankAccountBalance;
 use Platform\Drip\Models\BankAccountGroup;
 use Platform\Drip\Models\BankTransaction;
+use Platform\Drip\Models\BankTransactionCategory;
 use Illuminate\Support\Carbon;
 
 class Dashboard extends Component
@@ -23,6 +24,7 @@ class Dashboard extends Component
     public float $expensesPrev30d = 0;
 
     public array $monthlyFlow = [];
+    public array $categoryBreakdown = [];
 
     public $groups = [];
     public $recentTransactions = [];
@@ -80,6 +82,51 @@ class Dashboard extends Component
         $this->expenses30d = $current30d->where('direction', 'debit')->sum(fn ($t) => abs((float) $t->amount));
         $this->incomePrev30d = $prev30d->where('direction', 'credit')->sum(fn ($t) => (float) $t->amount);
         $this->expensesPrev30d = $prev30d->where('direction', 'debit')->sum(fn ($t) => abs((float) $t->amount));
+
+        // Category breakdown (last 30 days, debit only)
+        $debitTxIds = $current30d->where('direction', 'debit')->pluck('id')->all();
+        if (!empty($debitTxIds)) {
+            $debitWithCategory = BankTransaction::whereIn('id', $debitTxIds)
+                ->get(['id', 'amount', 'category_id']);
+
+            $categoriesById = BankTransactionCategory::where('team_id', $teamId)
+                ->get(['id', 'name', 'color'])
+                ->keyBy('id');
+
+            $grouped = $debitWithCategory->groupBy('category_id');
+            $breakdown = [];
+
+            foreach ($grouped as $catId => $txs) {
+                $sum = $txs->sum(fn ($t) => abs((float) $t->amount));
+                if ($catId && $categoriesById->has($catId)) {
+                    $cat = $categoriesById->get($catId);
+                    $breakdown[] = [
+                        'name' => $cat->name,
+                        'color' => $cat->color ?? '#6B7280',
+                        'amount' => $sum,
+                    ];
+                } else {
+                    $breakdown[] = [
+                        'name' => 'Ohne Kategorie',
+                        'color' => '#9CA3AF',
+                        'amount' => $sum,
+                        '_uncategorized' => true,
+                    ];
+                }
+            }
+
+            usort($breakdown, function ($a, $b) {
+                if (!empty($a['_uncategorized'])) return 1;
+                if (!empty($b['_uncategorized'])) return -1;
+                return $b['amount'] <=> $a['amount'];
+            });
+
+            // Clean up internal flag
+            $this->categoryBreakdown = array_map(function ($item) {
+                unset($item['_uncategorized']);
+                return $item;
+            }, array_slice($breakdown, 0, 10));
+        }
 
         // Monthly cashflow (last 6 months)
         $sixMonthsAgo = $now->copy()->startOfMonth()->subMonths(5);

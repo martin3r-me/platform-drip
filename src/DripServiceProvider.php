@@ -142,6 +142,7 @@ class DripServiceProvider extends ServiceProvider
             $registry->register(new \Platform\Drip\Tools\ListInstitutionsTool());
             $registry->register(new \Platform\Drip\Tools\RawLogsTool());
             $registry->register(new \Platform\Drip\Tools\CategoriesToolCrud());
+            $registry->register(new \Platform\Drip\Tools\RulesToolCrud());
         } catch (\Throwable $e) {
             \Log::warning('Drip: Tool-Registrierung fehlgeschlagen', ['error' => $e->getMessage()]);
         }
