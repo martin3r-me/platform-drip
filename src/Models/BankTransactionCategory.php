@@ -3,9 +3,11 @@
 namespace Platform\Drip\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use Symfony\Component\Uid\UuidV7;
 
 class BankTransactionCategory extends Model
@@ -33,7 +35,18 @@ class BankTransactionCategory extends Model
             $model->uuid = $model->uuid ?: $uuid;
             $model->user_id ??= Auth::id();
             $model->team_id ??= Auth::user()?->current_team_id;
+            $model->slug = $model->slug ?: Str::slug($model->name);
         });
+    }
+
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'parent_id');
+    }
+
+    public function children(): HasMany
+    {
+        return $this->hasMany(self::class, 'parent_id');
     }
 
     public function transactions(): HasMany
