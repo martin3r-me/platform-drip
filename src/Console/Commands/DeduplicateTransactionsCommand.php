@@ -4,7 +4,6 @@ namespace Platform\Drip\Console\Commands;
 
 use Illuminate\Console\Command;
 use Platform\Drip\Models\BankTransaction;
-use Illuminate\Support\Facades\DB;
 
 class DeduplicateTransactionsCommand extends Command
 {
@@ -12,7 +11,7 @@ class DeduplicateTransactionsCommand extends Command
         {--team= : Team ID}
         {--dry : Nur anzeigen, nicht löschen}';
 
-    protected $description = 'Entfernt doppelte Transaktionen (gleiche transaction_id + bank_account_id)';
+    protected $description = 'Entfernt doppelte Transaktionen anhand inhaltlicher Übereinstimmung (Datum + Betrag + Gegenpartei + Verwendungszweck)';
 
     public function handle(): int
     {
@@ -24,20 +23,31 @@ class DeduplicateTransactionsCommand extends Command
             return 1;
         }
 
-        $this->info("Suche Duplikate für Team {$teamId}...");
+        $this->info("Lade Transaktionen für Team {$teamId}...");
 
-        // Alle Transaktionen des Teams laden
+        // Alle Transaktionen laden — Felder sind verschlüsselt, daher alles in PHP
         $transactions = BankTransaction::where('team_id', $teamId)
-            ->orderBy('bank_account_id')
-            ->orderBy('transaction_id')
-            ->orderBy('updated_at', 'desc') // Neueste zuerst
-            ->get(['id', 'transaction_id', 'bank_account_id', 'amount', 'booked_at', 'counterparty_name', 'created_at', 'updated_at']);
+            ->orderBy('updated_at', 'desc')
+            ->get();
 
-        $this->info("Gefunden: {$transactions->count()} Transaktionen");
+        $count = $transactions->count();
+        $this->info("Gefunden: {$count} Transaktionen");
 
-        // Gruppieren nach transaction_id + bank_account_id
+        if ($count === 0) {
+            return 0;
+        }
+
+        // Inhaltlicher Fingerprint: Datum + Betrag + Richtung + Konto + Verwendungszweck
+        $this->info('Gruppiere nach inhaltlichem Fingerprint...');
+
         $grouped = $transactions->groupBy(function ($t) {
-            return $t->bank_account_id . '|' . $t->transaction_id;
+            return implode('|', [
+                $t->bank_account_id,
+                $t->booked_at?->format('Y-m-d') ?? '',
+                (string) $t->amount,
+                $t->direction ?? '',
+                $t->reference ?? $t->remittance_information ?? '',
+            ]);
         });
 
         $duplicateGroups = $grouped->filter(fn ($group) => $group->count() > 1);
@@ -48,110 +58,61 @@ class DeduplicateTransactionsCommand extends Command
         }
 
         $totalDuplicates = $duplicateGroups->sum(fn ($group) => $group->count() - 1);
-        $this->warn("Gefunden: {$duplicateGroups->count()} Gruppen mit {$totalDuplicates} Duplikaten");
+        $uniqueKeep = $duplicateGroups->count();
 
-        // Auch nach Hash-Duplikaten suchen (gleiche Daten, verschiedene tx_ IDs)
-        $txPrefixed = $transactions->filter(fn ($t) => str_starts_with($t->transaction_id, 'tx_'));
-        if ($txPrefixed->isNotEmpty()) {
-            $this->warn("Davon {$txPrefixed->count()} mit generiertem tx_* ID (potenzielle Duplikate durch fehlende transactionId)");
-        }
+        $this->warn("Gefunden: {$uniqueKeep} Gruppen mit insgesamt {$totalDuplicates} Duplikaten");
+        $this->line("(Von {$count} Transaktionen bleiben " . ($count - $totalDuplicates) . " übrig)");
+        $this->line('');
 
+        // Tabelle mit Beispielen
         $this->table(
-            ['Gruppe', 'Transaction ID', 'Account', 'Anzahl', 'Behalten (neueste)'],
-            $duplicateGroups->take(20)->map(function ($group, $key) {
-                $keep = $group->first(); // neueste (sortiert nach updated_at desc)
+            ['Datum', 'Betrag', 'Richtung', 'Gegenpartei', 'Anzahl', 'Duplikate'],
+            $duplicateGroups->take(25)->map(function ($group) {
+                $sample = $group->first();
                 return [
-                    $key,
-                    \Illuminate\Support\Str::limit($keep->transaction_id, 30),
-                    $keep->bank_account_id,
+                    $sample->booked_at?->format('d.m.Y') ?? '-',
+                    number_format((float) $sample->amount, 2, ',', '.') . ' ' . ($sample->currency ?? 'EUR'),
+                    $sample->direction === 'credit' ? 'Einnahme' : 'Ausgabe',
+                    \Illuminate\Support\Str::limit($sample->counterparty_name ?? $sample->creditor_name ?? $sample->debtor_name ?? '-', 30),
                     $group->count(),
-                    $keep->id . ' (' . ($keep->updated_at?->format('d.m.Y') ?? '-') . ')',
+                    $group->count() - 1,
                 ];
             })
         );
 
-        if ($duplicateGroups->count() > 20) {
-            $this->line("... und " . ($duplicateGroups->count() - 20) . " weitere Gruppen");
+        if ($duplicateGroups->count() > 25) {
+            $this->line("... und " . ($duplicateGroups->count() - 25) . " weitere Gruppen");
         }
 
         if ($dry) {
-            $this->info("[DRY RUN] Würde {$totalDuplicates} Duplikate löschen.");
+            $this->info("[DRY RUN] Würde {$totalDuplicates} Duplikate löschen, {$uniqueKeep} Originale behalten.");
             return 0;
         }
 
-        if (!$this->confirm("Sollen {$totalDuplicates} Duplikate gelöscht werden? (Neueste Einträge werden behalten)")) {
+        if (!$this->confirm("Sollen {$totalDuplicates} Duplikate gelöscht werden? (Neueste Version je Gruppe wird behalten)")) {
             $this->info('Abgebrochen.');
             return 0;
         }
 
         $deleted = 0;
+        $bar = $this->output->createProgressBar($duplicateGroups->count());
+        $bar->start();
+
         foreach ($duplicateGroups as $group) {
-            $keep = $group->first(); // neueste behalten
+            // Neueste behalten (bereits nach updated_at desc sortiert)
             $removeIds = $group->skip(1)->pluck('id');
             BankTransaction::whereIn('id', $removeIds)->forceDelete();
             $deleted += $removeIds->count();
+            $bar->advance();
         }
 
+        $bar->finish();
+        $this->line('');
         $this->info("Erledigt: {$deleted} Duplikate gelöscht.");
 
-        // Zusätzlich: tx_* Duplikate finden (verschiedene IDs, aber gleiche Daten)
-        $this->info('');
-        $this->info('Suche nach tx_*-Duplikaten (generierte IDs mit gleichen Daten)...');
-
-        $txGenerated = BankTransaction::where('team_id', $teamId)
-            ->where('transaction_id', 'like', 'tx_%')
-            ->orderBy('bank_account_id')
-            ->orderBy('booked_at')
-            ->orderBy('updated_at', 'desc')
-            ->get(['id', 'transaction_id', 'bank_account_id', 'amount', 'direction', 'booked_at', 'counterparty_name', 'updated_at']);
-
-        if ($txGenerated->isEmpty()) {
-            $this->info('Keine tx_*-Transaktionen gefunden.');
-            return 0;
-        }
-
-        // Gruppieren nach inhaltlichem Fingerprint
-        $contentGroups = $txGenerated->groupBy(function ($t) {
-            return $t->bank_account_id . '|' . ($t->booked_at?->format('Y-m-d') ?? '') . '|' . $t->amount . '|' . $t->direction . '|' . ($t->counterparty_name ?? '');
-        });
-
-        $contentDuplicates = $contentGroups->filter(fn ($group) => $group->count() > 1);
-
-        if ($contentDuplicates->isEmpty()) {
-            $this->info('Keine inhaltlichen tx_*-Duplikate gefunden.');
-            return 0;
-        }
-
-        $totalContentDups = $contentDuplicates->sum(fn ($group) => $group->count() - 1);
-        $this->warn("Gefunden: {$contentDuplicates->count()} Gruppen mit {$totalContentDups} inhaltlichen Duplikaten (tx_* IDs)");
-
-        $this->table(
-            ['Fingerprint', 'Anzahl', 'Datum', 'Betrag', 'Gegenpartei'],
-            $contentDuplicates->take(20)->map(function ($group, $key) {
-                $sample = $group->first();
-                return [
-                    \Illuminate\Support\Str::limit($key, 50),
-                    $group->count(),
-                    $sample->booked_at?->format('d.m.Y') ?? '-',
-                    $sample->amount,
-                    \Illuminate\Support\Str::limit($sample->counterparty_name ?? '-', 25),
-                ];
-            })
-        );
-
-        if (!$this->confirm("Sollen {$totalContentDups} inhaltliche tx_*-Duplikate gelöscht werden?")) {
-            return 0;
-        }
-
-        $deleted2 = 0;
-        foreach ($contentDuplicates as $group) {
-            $keep = $group->first();
-            $removeIds = $group->skip(1)->pluck('id');
-            BankTransaction::whereIn('id', $removeIds)->forceDelete();
-            $deleted2 += $removeIds->count();
-        }
-
-        $this->info("Erledigt: {$deleted2} inhaltliche Duplikate gelöscht.");
+        // Verbleibende Transaktionen zählen
+        $remaining = BankTransaction::where('team_id', $teamId)->count();
+        $this->info("Verbleibende Transaktionen: {$remaining}");
 
         return 0;
     }

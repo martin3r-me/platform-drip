@@ -653,6 +653,8 @@ class GoCardlessService
         }
 
         // Deterministischer Hash aus den unveränderlichen Transaktionsdaten
+        // additionalInformation ist bei der Commerzbank der Haupt-Datenträger
+        // und unterscheidet auch identische Beträge am selben Tag
         $hashInput = implode('|', [
             $account->id,
             $tx['bookingDate'] ?? '',
@@ -662,6 +664,9 @@ class GoCardlessService
             $tx['endToEndId'] ?? '',
             $tx['mandateId'] ?? '',
             $tx['remittanceInformationUnstructured'] ?? '',
+            $tx['additionalInformation'] ?? '',
+            $tx['creditorName'] ?? '',
+            $tx['debtorName'] ?? '',
         ]);
 
         return 'hash_' . substr(hash('sha256', $hashInput), 0, 32);
