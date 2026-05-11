@@ -1,22 +1,33 @@
 <x-ui-page>
     <x-slot name="navbar">
-        <x-ui-page-navbar title="Banken & Konten" subtitle="Verwalte Bankverbindungen, Gruppen und Konten">
-            <x-slot name="actions">
-                <x-ui-button variant="success" size="sm" wire:click="openGroupModal">
-                    @svg('heroicon-o-plus', 'w-4 h-4')
-                    <span class="ml-2">Gruppe hinzufügen</span>
-                </x-ui-button>
-            </x-slot>
-        </x-ui-page-navbar>
+        <x-ui-page-navbar title="Banken & Konten" />
     </x-slot>
+
+    <x-slot name="actionbar">
+        <x-ui-page-actionbar :breadcrumbs="[
+            ['label' => 'Drip', 'href' => route('drip.dashboard'), 'icon' => 'chart-bar'],
+            ['label' => 'Banken & Konten'],
+        ]">
+            <button type="button" wire:click="openGroupModal"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-green-600 text-white text-[13px] font-medium hover:bg-green-700 transition-colors">
+                @svg('heroicon-o-plus', 'w-4 h-4')
+                Gruppe hinzufügen
+            </button>
+        </x-ui-page-actionbar>
+    </x-slot>
+
     <x-ui-page-container>
 
     {{-- GoCardless Banken --}}
-    <x-ui-panel title="Banken verbinden" subtitle="Verbinde deine Bank über GoCardless" class="mb-8">
+    <div class="bg-white rounded-lg border border-gray-200 p-6 mb-6">
         <div class="flex items-center justify-between mb-4">
-            <div></div>
+            <div>
+                <h2 class="text-sm font-semibold text-gray-900">Banken verbinden</h2>
+                <p class="text-[13px] text-gray-500 mt-0.5">Verbinde deine Bank über GoCardless</p>
+            </div>
             @if (empty($gocardlessInstitutions))
-                <x-ui-button variant="success" size="sm" wire:click="loadGoCardlessInstitutions" wire:loading.attr="disabled" wire:target="loadGoCardlessInstitutions">
+                <button type="button" wire:click="loadGoCardlessInstitutions" wire:loading.attr="disabled" wire:target="loadGoCardlessInstitutions"
+                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-green-600 text-white text-[13px] font-medium hover:bg-green-700 transition-colors disabled:opacity-50">
                     <span wire:loading.remove wire:target="loadGoCardlessInstitutions">Banken laden</span>
                     <span wire:loading wire:target="loadGoCardlessInstitutions" class="flex items-center">
                         <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -25,47 +36,49 @@
                         </svg>
                         Lade Banken...
                     </span>
-                </x-ui-button>
+                </button>
             @endif
         </div>
-        
+
         @if (session('error'))
-            <div class="p-3 rounded mb-4 bg-[var(--ui-danger-soft)] text-[var(--ui-danger)] border border-[var(--ui-border)]/40">
+            <div class="p-3 rounded-md mb-4 bg-red-50 text-red-700 border border-red-200 text-[13px]">
                 {{ session('error') }}
             </div>
         @endif
 
         @if (session('success'))
-            <div class="p-3 rounded mb-4 bg-[var(--ui-success-soft)] text-[var(--ui-success)] border border-[var(--ui-border)]/40">
+            <div class="p-3 rounded-md mb-4 bg-green-50 text-green-700 border border-green-200 text-[13px]">
                 {{ session('success') }}
             </div>
         @endif
 
         @if (!empty($gocardlessInstitutions))
             <div class="mb-4">
-                <x-ui-input-text name="institution_search" label="Bank suchen" placeholder="Bank suchen..." wire:model.live="search" />
+                <input type="text" wire:model.live="search" placeholder="Bank suchen..."
+                       class="w-full px-3 py-1.5 rounded-md border border-gray-200 text-[13px] text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
             </div>
 
             @if (count($filteredInstitutions))
-                <x-ui-form-grid :cols="4" :gap="4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     @foreach ($filteredInstitutions as $bank)
-                        <div class="bg-white border border-[var(--ui-border)] rounded-lg p-4 hover:shadow-sm transition-shadow duration-200">
+                        <div class="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow">
                             <div class="flex items-center space-x-3 mb-4">
-                                <div class="w-12 h-12 bg-[var(--ui-muted-5)] rounded-lg flex items-center justify-center overflow-hidden">
+                                <div class="w-12 h-12 bg-gray-50 rounded-lg flex items-center justify-center overflow-hidden">
                                     @if($bank['logo'])
                                         <img src="{{ $bank['logo'] }}" alt="{{ $bank['name'] }}" class="w-10 h-10 object-contain">
                                     @else
-                                        <div class="w-8 h-8 bg-[var(--ui-primary)] rounded-full flex items-center justify-center">
+                                        <div class="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
                                             <span class="text-white font-bold text-sm">{{ substr($bank['name'], 0, 1) }}</span>
                                         </div>
                                     @endif
                                 </div>
                                 <div class="flex-1 min-w-0">
-                                    <h3 class="font-semibold text-[var(--ui-secondary)] truncate">{{ $bank['name'] }}</h3>
-                                    <p class="text-sm text-[var(--ui-muted)]">{{ $bank['countries'][0] ?? 'DE' }}</p>
+                                    <h3 class="text-[13px] font-semibold text-gray-900 truncate">{{ $bank['name'] }}</h3>
+                                    <p class="text-[11px] text-gray-500">{{ $bank['countries'][0] ?? 'DE' }}</p>
                                 </div>
                             </div>
-                            <x-ui-button class="w-full justify-center" size="sm" variant="primary" wire:click="connectBank('{{ $bank['id'] }}')" wire:loading.attr="disabled" wire:target="connectBank">
+                            <button type="button" wire:click="connectBank('{{ $bank['id'] }}')" wire:loading.attr="disabled" wire:target="connectBank"
+                                    class="w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md bg-blue-600 text-white text-[13px] font-medium hover:bg-blue-700 transition-colors disabled:opacity-50">
                                 <span wire:loading.remove wire:target="connectBank">Jetzt verbinden</span>
                                 <span wire:loading wire:target="connectBank" class="flex items-center justify-center">
                                     <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -74,156 +87,153 @@
                                     </svg>
                                     Verbinde...
                                 </span>
-                            </x-ui-button>
+                            </button>
                         </div>
                     @endforeach
-                </x-ui-form-grid>
+                </div>
             @else
                 <div class="text-center py-8">
-                    <div class="text-[var(--ui-muted)] mb-2">
-                        <svg class="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
+                    <div class="text-gray-400 mb-2">
+                        @svg('heroicon-o-magnifying-glass', 'w-10 h-10 mx-auto')
                     </div>
-                    <p class="text-[var(--ui-muted)]">Keine passenden Banken gefunden.</p>
+                    <p class="text-[13px] text-gray-500">Keine passenden Banken gefunden.</p>
                 </div>
             @endif
         @else
-            <div class="text-center py-12 bg-[var(--ui-muted-5)] rounded-lg border border-[var(--ui-border)]/40">
-                <div class="text-[var(--ui-muted)] mb-4">
-                    <svg class="mx-auto h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                    </svg>
+            <div class="text-center py-12 bg-gray-50 rounded-lg border border-gray-100">
+                <div class="text-gray-400 mb-4">
+                    @svg('heroicon-o-building-library', 'w-12 h-12 mx-auto')
                 </div>
-                <h3 class="text-lg font-semibold text-[var(--ui-secondary)] mb-2">Banken verbinden</h3>
-                <p class="text-[var(--ui-muted)] mb-4">Lade verfügbare Banken, um deine Konten zu verbinden.</p>
+                <h3 class="text-sm font-semibold text-gray-900 mb-1">Banken verbinden</h3>
+                <p class="text-[13px] text-gray-500">Lade verfügbare Banken, um deine Konten zu verbinden.</p>
             </div>
         @endif
-    </x-ui-panel>
+    </div>
 
     {{-- Kontogruppen --}}
     <div class="space-y-6">
         @forelse ($groups as $group)
-            <x-ui-panel class="p-6">
+            <div class="bg-white rounded-lg border border-gray-200 p-6">
                 <div class="flex items-center justify-between mb-4">
                     <div class="flex-1">
-                        <h3 class="text-lg font-semibold text-[var(--ui-secondary)]">{{ $group->name }}</h3>
-                        <p class="text-sm text-[var(--ui-muted)]">{{ $group->accounts->count() }} Konten</p>
+                        <h3 class="text-sm font-semibold text-gray-900">{{ $group->name }}</h3>
+                        <p class="text-[13px] text-gray-500 mt-0.5">{{ $group->accounts->count() }} Konten</p>
                     </div>
                     <div class="flex items-center gap-2">
-                        <x-ui-button :href="route('drip.groups.show', $group)" wire:navigate size="sm" variant="success">
+                        <a href="{{ route('drip.groups.show', $group) }}" wire:navigate
+                           class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-green-600 text-white text-[13px] font-medium hover:bg-green-700 transition-colors">
                             @svg('heroicon-o-banknotes', 'w-4 h-4')
-                            <span class="ml-1">Transaktionen</span>
-                        </x-ui-button>
-                        <x-ui-button size="sm" variant="primary" wire:click="openAccountModal({{ $group->id }})">
+                            Transaktionen
+                        </a>
+                        <button type="button" wire:click="openAccountModal({{ $group->id }})"
+                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-blue-600 text-white text-[13px] font-medium hover:bg-blue-700 transition-colors">
                             @svg('heroicon-o-plus', 'w-4 h-4')
-                            <span class="ml-1">Konto hinzufügen</span>
-                        </x-ui-button>
+                            Konto hinzufügen
+                        </button>
                     </div>
                 </div>
-                
+
                 @if ($group->accounts->count() > 0)
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         @foreach ($group->accounts as $account)
-                            <div class="border border-[var(--ui-border)]/60 rounded-lg p-4 hover:shadow-sm transition-shadow bg-white">
+                            <div class="border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow bg-white">
                                 <div class="flex items-start justify-between">
                                     <div class="flex-1">
-                                        <h4 class="font-medium text-[var(--ui-secondary)]">{{ $account->name }}</h4>
-                                        <p class="text-sm text-[var(--ui-muted)] mt-1">{{ $account->institution?->name ?? 'Unbekannte Bank' }}</p>
-                                        <p class="text-xs text-[var(--ui-muted)] mt-1">{{ $account->currency }} • {{ $account->iban ? '****' . substr($account->iban, -4) : 'Keine IBAN' }}</p>
-                                        
-                                        {{-- Balances --}}
+                                        <h4 class="text-[13px] font-medium text-gray-900">{{ $account->name }}</h4>
+                                        <p class="text-[11px] text-gray-500 mt-1">{{ $account->institution?->name ?? 'Unbekannte Bank' }}</p>
+                                        <p class="text-[11px] text-gray-400 mt-0.5">{{ $account->currency }} &middot; {{ $account->iban ? '****' . substr($account->iban, -4) : 'Keine IBAN' }}</p>
+
                                         @if($account->balances->count() > 0)
                                             <div class="mt-3 space-y-1">
                                                 @foreach($account->balances->take(3) as $balance)
-                                                    <div class="flex items-center justify-between text-xs">
-                                                        <span class="text-[var(--ui-muted)]">{{ ucfirst($balance->balance_type) }}:</span>
-                                                        <span class="font-medium {{ $balance->amount >= 0 ? 'text-green-600' : 'text-red-600' }}">
+                                                    <div class="flex items-center justify-between text-[11px]">
+                                                        <span class="text-gray-400">{{ ucfirst($balance->balance_type) }}:</span>
+                                                        <span class="font-medium tabular-nums {{ $balance->amount >= 0 ? 'text-green-600' : 'text-red-600' }}">
                                                             {{ number_format($balance->amount, 2, ',', '.') }} {{ $balance->currency ?? $account->currency }}
                                                         </span>
                                                     </div>
                                                 @endforeach
                                                 @if($account->balances->count() > 3)
-                                                    <div class="text-xs text-[var(--ui-muted)]">
+                                                    <div class="text-[11px] text-gray-400">
                                                         +{{ $account->balances->count() - 3 }} weitere
                                                     </div>
                                                 @endif
                                             </div>
                                         @else
-                                            <div class="mt-2 text-xs text-[var(--ui-muted)]">
+                                            <div class="mt-2 text-[11px] text-gray-400">
                                                 Keine Salden verfügbar
                                             </div>
                                         @endif
                                     </div>
-                                    <div class="flex items-center gap-1">
-                                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-[var(--ui-success-soft)] text-[var(--ui-success)]">
-                                            Verbunden
-                                        </span>
-                                    </div>
+                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[11px] font-medium bg-green-50 text-green-700">
+                                        Verbunden
+                                    </span>
                                 </div>
                             </div>
                         @endforeach
                     </div>
                 @else
-                    <div class="text-center py-8 bg-[var(--ui-muted-5)] rounded-lg border border-[var(--ui-border)]/40">
-                        <div class="text-[var(--ui-muted)] mb-2">
+                    <div class="text-center py-8 bg-gray-50 rounded-lg border border-gray-100">
+                        <div class="text-gray-400 mb-2">
                             @svg('heroicon-o-credit-card', 'w-8 h-8 mx-auto')
                         </div>
-                        <p class="text-[var(--ui-muted)] text-sm">Keine Konten in dieser Gruppe</p>
-                        <x-ui-button size="xs" variant="primary-link" wire:click="openAccountModal({{ $group->id }})">
+                        <p class="text-[13px] text-gray-500">Keine Konten in dieser Gruppe</p>
+                        <button type="button" wire:click="openAccountModal({{ $group->id }})" class="mt-2 text-[13px] text-blue-600 hover:text-blue-700 font-medium">
                             Erstes Konto hinzufügen
-                        </x-ui-button>
+                        </button>
                     </div>
                 @endif
-            </x-ui-panel>
+            </div>
         @empty
-            <x-ui-panel class="p-12 text-center">
-                <div class="text-[var(--ui-muted)] mb-4">
-                    @svg('heroicon-o-folder', 'w-16 h-16 mx-auto')
+            <div class="bg-white rounded-lg border border-gray-200 p-12 text-center">
+                <div class="text-gray-400 mb-4">
+                    @svg('heroicon-o-folder', 'w-12 h-12 mx-auto')
                 </div>
-                <h3 class="text-lg font-semibold text-[var(--ui-secondary)] mb-2">Keine Kontogruppen</h3>
-                <p class="text-[var(--ui-muted)] mb-6">Erstelle eine Kontogruppe, um deine Bankkonten zu organisieren.</p>
-                <x-ui-button variant="success" wire:click="openGroupModal">
+                <h3 class="text-sm font-semibold text-gray-900 mb-1">Keine Kontogruppen</h3>
+                <p class="text-[13px] text-gray-500 mb-4">Erstelle eine Kontogruppe, um deine Bankkonten zu organisieren.</p>
+                <button type="button" wire:click="openGroupModal"
+                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-green-600 text-white text-[13px] font-medium hover:bg-green-700 transition-colors">
                     @svg('heroicon-o-plus', 'w-4 h-4')
-                    <span class="ml-2">Erste Gruppe erstellen</span>
-                </x-ui-button>
-            </x-ui-panel>
+                    Erste Gruppe erstellen
+                </button>
+            </div>
         @endforelse
     </div>
 
     {{-- Konten ohne Gruppe --}}
     @if ($accounts->whereNull('group_id')->count() > 0)
-        <x-ui-panel class="p-6">
+        <div class="bg-white rounded-lg border border-gray-200 p-6 mt-6">
             <div class="flex items-center justify-between mb-4">
                 <div>
-                    <h3 class="text-lg font-semibold text-gray-900">Konten ohne Gruppe</h3>
-                    <p class="text-sm text-gray-600">{{ $accounts->whereNull('group_id')->count() }} Konten warten auf Zuordnung</p>
+                    <h3 class="text-sm font-semibold text-gray-900">Konten ohne Gruppe</h3>
+                    <p class="text-[13px] text-gray-500 mt-0.5">{{ $accounts->whereNull('group_id')->count() }} Konten warten auf Zuordnung</p>
                 </div>
             </div>
-            
+
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 @foreach ($accounts->whereNull('group_id') as $account)
-                    <div class="border border-[var(--ui-border)]/60 rounded-lg p-4 hover:shadow-sm transition-shadow bg-white">
+                    <div class="border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow bg-white">
                         <div class="flex items-start justify-between">
                             <div class="flex-1">
-                                <h4 class="font-medium text-[var(--ui-secondary)]">{{ $account->name }}</h4>
-                                <p class="text-sm text-[var(--ui-muted)] mt-1">{{ $account->institution?->name ?? 'Unbekannte Bank' }}</p>
-                                <p class="text-xs text-[var(--ui-muted)] mt-1">{{ $account->currency }} • {{ $account->iban ? '****' . substr($account->iban, -4) : 'Keine IBAN' }}</p>
+                                <h4 class="text-[13px] font-medium text-gray-900">{{ $account->name }}</h4>
+                                <p class="text-[11px] text-gray-500 mt-1">{{ $account->institution?->name ?? 'Unbekannte Bank' }}</p>
+                                <p class="text-[11px] text-gray-400 mt-0.5">{{ $account->currency }} &middot; {{ $account->iban ? '****' . substr($account->iban, -4) : 'Keine IBAN' }}</p>
                             </div>
                             <div class="flex items-center gap-2">
-                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[11px] font-medium bg-yellow-50 text-yellow-700">
                                     Ohne Gruppe
                                 </span>
-                                <x-ui-button size="xs" variant="primary" wire:click="assignAccountToGroup({{ $account->id }})">
+                                <button type="button" wire:click="assignAccountToGroup({{ $account->id }})"
+                                        class="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-blue-600 text-white text-[11px] font-medium hover:bg-blue-700 transition-colors">
                                     @svg('heroicon-o-plus', 'w-3 h-3')
-                                    <span class="ml-1">Zuordnen</span>
-                                </x-ui-button>
+                                    Zuordnen
+                                </button>
                             </div>
                         </div>
                     </div>
                 @endforeach
             </div>
-        </x-ui-panel>
+        </div>
     @endif
 
     <x-ui-modal model="showInstitutionModal">
@@ -277,23 +287,23 @@
     <x-ui-modal model="showGroupSelectionModal">
         <x-slot:title>Konto einer Gruppe zuordnen</x-slot:title>
         <div class="space-y-4">
-            <p class="text-sm text-gray-600">Wähle eine Gruppe für das Konto aus:</p>
+            <p class="text-[13px] text-gray-500">Wähle eine Gruppe für das Konto aus:</p>
             <div class="grid grid-cols-1 gap-3">
                 @foreach ($groups as $group)
-                    <button 
-                        type="button" 
+                    <button
+                        type="button"
                         wire:click="assignToGroup({{ $group->id }})"
-                        class="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-colors"
+                        class="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-blue-50/50 hover:border-gray-300 transition-colors"
                     >
                         <div class="flex items-center">
                             <div class="w-3 h-3 rounded-full mr-3" style="background-color: {{ $group->color ?? '#6B7280' }}"></div>
-                            <div>
-                                <h4 class="font-medium text-gray-900">{{ $group->name }}</h4>
-                                <p class="text-sm text-gray-600">{{ $group->accounts->count() }} Konten</p>
+                            <div class="text-left">
+                                <h4 class="text-[13px] font-medium text-gray-900">{{ $group->name }}</h4>
+                                <p class="text-[11px] text-gray-500">{{ $group->accounts->count() }} Konten</p>
                             </div>
                         </div>
                         <div class="text-gray-400">
-                            @svg('heroicon-o-arrow-right', 'w-5 h-5')
+                            @svg('heroicon-o-arrow-right', 'w-4 h-4')
                         </div>
                     </button>
                 @endforeach
@@ -306,57 +316,35 @@
 
     </x-ui-page-container>
 
-    <x-slot name="sidebar">
-        {{-- Linke Sidebar --}}
-        <x-ui-page-sidebar title="Schnellzugriff" width="w-80" side="left" :defaultOpen="true" storeKey="sidebarOpen">
-            <div class="p-6 space-y-6">
-                <div>
-                    <h3 class="text-xs font-semibold uppercase tracking-wide text-[var(--ui-muted)] mb-3">Aktionen</h3>
-                    <div class="space-y-2">
-                        <x-ui-button variant="secondary" size="sm" wire:click="openGroupModal" class="w-full justify-start">
-                            @svg('heroicon-o-plus', 'w-4 h-4')
-                            <span class="ml-2">Neue Gruppe</span>
-                        </x-ui-button>
-                        <x-ui-button variant="secondary" size="sm" wire:click="loadGoCardlessInstitutions" class="w-full justify-start">
-                            @svg('heroicon-o-building-library', 'w-4 h-4')
-                            <span class="ml-2">Banken laden</span>
-                        </x-ui-button>
-                    </div>
-                </div>
-            </div>
-        </x-ui-page-sidebar>
-
-    </x-slot>
-
     <x-slot name="activity">
-        {{-- Rechte Sidebar --}}
-        <x-ui-page-sidebar title="Information" width="w-80" side="right" :defaultOpen="true" storeKey="activityOpen">
-            <div class="p-6 space-y-6">
+        <x-ui-page-sidebar title="Aktionen" width="w-80" side="right" :defaultOpen="true" storeKey="activityOpen">
+            <div class="p-4 space-y-5">
                 <div>
-                    <h3 class="text-xs font-semibold uppercase tracking-wide text-[var(--ui-muted)] mb-3">Übersicht</h3>
-                    <div class="space-y-2 text-sm text-[var(--ui-secondary)]">
+                    <div class="text-[11px] font-medium text-gray-500 uppercase tracking-wide mb-2">Übersicht</div>
+                    <div class="space-y-1.5 text-[13px]">
                         <div class="flex items-center justify-between">
-                            <span>Gruppen</span>
-                            <span class="font-semibold">{{ $groups->count() }}</span>
+                            <span class="text-gray-500">Gruppen</span>
+                            <span class="font-medium text-gray-900">{{ $groups->count() }}</span>
                         </div>
                         <div class="flex items-center justify-between">
-                            <span>Konten</span>
-                            <span class="font-semibold">{{ $accounts->count() }}</span>
+                            <span class="text-gray-500">Konten</span>
+                            <span class="font-medium text-gray-900">{{ $accounts->count() }}</span>
                         </div>
                         <div class="flex items-center justify-between">
-                            <span>Ohne Gruppe</span>
-                            <span class="font-semibold">{{ $accounts->whereNull('group_id')->count() }}</span>
+                            <span class="text-gray-500">Ohne Gruppe</span>
+                            <span class="font-medium text-gray-900">{{ $accounts->whereNull('group_id')->count() }}</span>
                         </div>
                     </div>
                 </div>
 
                 <div>
-                    <h3 class="text-xs font-semibold uppercase tracking-wide text-[var(--ui-muted)] mb-3">Aktionen</h3>
-                    <div class="space-y-2">
-                        <x-ui-button variant="secondary-outline" size="sm" wire:click="updateAll" class="w-full">
-                            @svg('heroicon-o-arrow-path', 'w-4 h-4')
-                            <span class="ml-2">Bankdaten aktualisieren</span>
-                        </x-ui-button>
+                    <div class="text-[11px] font-medium text-gray-500 uppercase tracking-wide mb-2">Aktionen</div>
+                    <div class="space-y-1.5">
+                        <button type="button" wire:click="updateAll"
+                                class="w-full flex items-center gap-2 px-3 py-2 rounded-md text-[13px] text-gray-700 hover:bg-gray-100 transition-colors border border-gray-200">
+                            @svg('heroicon-o-arrow-path', 'w-4 h-4 text-gray-400')
+                            Bankdaten aktualisieren
+                        </button>
                     </div>
                 </div>
             </div>
@@ -364,5 +352,3 @@
     </x-slot>
 
 </x-ui-page>
-
-

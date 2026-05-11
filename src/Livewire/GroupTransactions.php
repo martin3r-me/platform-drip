@@ -58,8 +58,17 @@ class GroupTransactions extends Component
             ->orderBy($this->sortBy, $this->sortDirection)
             ->paginate($this->perPage);
 
+        // Summary stats — amounts are encrypted, must compute in PHP
+        $allTransactions = $this->group->transactions()->get(['id', 'amount', 'direction']);
+        $totalIncome = $allTransactions->where('direction', 'credit')->sum(fn ($t) => (float) $t->amount);
+        $totalExpenses = $allTransactions->where('direction', 'debit')->sum(fn ($t) => (float) $t->amount);
+        $totalBalance = $totalIncome - $totalExpenses;
+
         return view('drip::livewire.group-transactions', [
             'transactions' => $transactions,
+            'totalIncome' => $totalIncome,
+            'totalExpenses' => $totalExpenses,
+            'totalBalance' => $totalBalance,
         ])->layout('platform::layouts.app');
     }
 }
