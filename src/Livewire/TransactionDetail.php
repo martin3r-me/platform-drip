@@ -61,6 +61,7 @@ class TransactionDetail extends Component
             'amount' => $avgAmount,
             'direction' => $direction,
             'category_id' => $tx->category_id,
+            'bank_account_id' => $tx->bank_account_id,
             'day_of_month' => $typicalDay,
         ]));
 

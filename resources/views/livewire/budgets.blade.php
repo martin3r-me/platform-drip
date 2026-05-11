@@ -124,6 +124,11 @@
                                             <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium {{ $b['direction'] === 'debit' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600' }} shrink-0">
                                                 {{ $b['direction'] === 'debit' ? 'Ausgabe' : 'Einnahme' }}
                                             </span>
+                                            @if($b['bank_account_name'])
+                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-blue-50 text-blue-600 shrink-0 truncate max-w-[120px]">
+                                                    {{ $b['bank_account_name'] }}
+                                                </span>
+                                            @endif
                                             @if($b['status'] === 'paused')
                                                 <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-yellow-50 text-yellow-700 shrink-0">Pausiert</span>
                                             @endif
@@ -369,6 +374,21 @@
                                 @endforeach
                             </select>
                             @error('formCategoryId')
+                                <p class="mt-1 text-[11px] text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        {{-- Bankkonto --}}
+                        <div>
+                            <label for="budget-bank-account" class="block text-[13px] font-medium text-gray-700 mb-1">Bankkonto</label>
+                            <select id="budget-bank-account" wire:model="formBankAccountId"
+                                    class="w-full px-3 py-1.5 rounded-md border border-gray-200 text-[13px] text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="">Kein Konto</option>
+                                @foreach ($bankAccounts as $acc)
+                                    <option value="{{ $acc->id }}">{{ $acc->name }}</option>
+                                @endforeach
+                            </select>
+                            @error('formBankAccountId')
                                 <p class="mt-1 text-[11px] text-red-600">{{ $message }}</p>
                             @enderror
                         </div>

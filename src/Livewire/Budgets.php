@@ -3,6 +3,7 @@
 namespace Platform\Drip\Livewire;
 
 use Livewire\Component;
+use Platform\Drip\Models\BankAccount;
 use Platform\Drip\Models\BankTransactionCategory;
 use Platform\Drip\Models\BudgetItem;
 use Platform\Drip\Models\BudgetItemPeriod;
@@ -25,6 +26,7 @@ class Budgets extends Component
     public ?string $formEndDate = null;
     public ?string $formNotes = null;
     public ?string $formPlannedDate = null;
+    public ?int $formBankAccountId = null;
 
     public string $historyMonth = '';
 
@@ -43,6 +45,7 @@ class Budgets extends Component
             $this->formDirection = request()->query('direction', 'debit');
             $this->formCategoryId = request()->query('category_id') ? (int) request()->query('category_id') : null;
             $this->formDayOfMonth = request()->query('day_of_month') ? (int) request()->query('day_of_month') : null;
+            $this->formBankAccountId = request()->query('bank_account_id') ? (int) request()->query('bank_account_id') : null;
         }
     }
 
@@ -60,6 +63,7 @@ class Budgets extends Component
             'formEndDate' => ['nullable', 'date'],
             'formNotes' => ['nullable', 'string', 'max:1000'],
             'formPlannedDate' => ['nullable', 'date', 'required_if:formFrequency,once'],
+            'formBankAccountId' => ['nullable', 'integer', 'exists:drip_bank_accounts,id'],
         ];
     }
 
@@ -72,6 +76,7 @@ class Budgets extends Component
         $data = [
             'name' => $this->formName,
             'category_id' => $this->formCategoryId ?: null,
+            'bank_account_id' => $this->formBankAccountId ?: null,
             'direction' => $this->formDirection,
             'amount' => $this->formAmount,
             'frequency' => $this->formFrequency,
@@ -108,6 +113,7 @@ class Budgets extends Component
         $this->editingId = $budget->id;
         $this->formName = $budget->name;
         $this->formCategoryId = $budget->category_id;
+        $this->formBankAccountId = $budget->bank_account_id;
         $this->formDirection = $budget->direction;
         $this->formAmount = (string) $budget->amount;
         $this->formFrequency = $budget->frequency;
@@ -133,6 +139,7 @@ class Budgets extends Component
         $this->formStartDate = null;
         $this->formEndDate = null;
         $this->formPlannedDate = null;
+        $this->formBankAccountId = null;
         $this->formNotes = null;
         $this->showPeriodsFor = null;
         $this->editingPeriodId = null;
@@ -283,7 +290,7 @@ class Budgets extends Component
         // Active budgets with fulfillment for current month
         $activeBudgets = BudgetItem::where('team_id', $teamId)
             ->whereIn('status', ['active', 'paused'])
-            ->with('category')
+            ->with(['category', 'bankAccount'])
             ->orderBy('name')
             ->get()
             ->map(function (BudgetItem $item) use ($teamId, $monthStart) {
@@ -298,6 +305,7 @@ class Budgets extends Component
                     'status' => $item->status,
                     'category_name' => $item->category?->name,
                     'category_color' => $item->category?->color ?? '#6B7280',
+                    'bank_account_name' => $item->bankAccount?->name,
                     'budget' => $fulfillment['budget'],
                     'actual' => $fulfillment['actual'],
                     'percent' => $fulfillment['percent'],
@@ -356,6 +364,10 @@ class Budgets extends Component
             ->orderBy('name')
             ->get(['id', 'name', 'color']);
 
+        $bankAccounts = BankAccount::where('team_id', $teamId)
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
         return view('drip::livewire.budgets', [
             'suggestions' => $suggestions,
             'budgets' => $activeBudgets,
@@ -365,6 +377,7 @@ class Budgets extends Component
             'historyMonthLabel' => $historyMonthStart->translatedFormat('F Y'),
             'periods' => $periods,
             'categories' => $categories,
+            'bankAccounts' => $bankAccounts,
         ])->layout('platform::layouts.app');
     }
 }

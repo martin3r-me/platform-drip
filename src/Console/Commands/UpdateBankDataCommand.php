@@ -178,6 +178,11 @@ class UpdateBankDataCommand extends Command
             $frows = $fm->buildFromGroupMetrics((int) $team->id, now()->startOfMonth()->subMonth(), now());
             $this->info("   📊 Team Finance Metrics rows: {$frows}");
 
+            // Cashflow-Snapshots (vorberechnete Ist-Aggregation)
+            $cs = app(\Platform\Drip\Services\CashflowSnapshotService::class);
+            $csRows = $cs->computeForTeam((int) $team->id, now()->startOfMonth()->subMonth(), now());
+            $this->info("   📸 Cashflow Snapshots: {$csRows}");
+
             return true;
 
         } catch (\Exception $e) {

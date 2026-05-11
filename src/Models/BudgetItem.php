@@ -18,7 +18,7 @@ class BudgetItem extends Model
     protected $table = 'drip_budget_items';
 
     protected $fillable = [
-        'uuid', 'team_id', 'user_id', 'category_id',
+        'uuid', 'team_id', 'user_id', 'category_id', 'bank_account_id',
         'name', 'direction', 'amount', 'frequency',
         'day_of_month', 'start_date', 'end_date', 'planned_date',
         'is_active', 'notes',
@@ -57,6 +57,11 @@ class BudgetItem extends Model
     public function category(): BelongsTo
     {
         return $this->belongsTo(BankTransactionCategory::class, 'category_id');
+    }
+
+    public function bankAccount(): BelongsTo
+    {
+        return $this->belongsTo(BankAccount::class, 'bank_account_id');
     }
 
     public function periods(): HasMany
@@ -153,10 +158,15 @@ class BudgetItem extends Model
         if ($this->category_id) {
             $monthEnd = $monthStart->copy()->endOfMonth();
 
-            $actual = BankTransaction::where('team_id', $teamId)
+            $query = BankTransaction::where('team_id', $teamId)
                 ->where('category_id', $this->category_id)
-                ->where('direction', $this->direction)
-                ->where(function ($q) use ($monthStart, $monthEnd) {
+                ->where('direction', $this->direction);
+
+            if ($this->bank_account_id) {
+                $query->where('bank_account_id', $this->bank_account_id);
+            }
+
+            $actual = $query->where(function ($q) use ($monthStart, $monthEnd) {
                     $q->where(function ($inner) use ($monthStart, $monthEnd) {
                         $inner->whereNotNull('booked_at')
                             ->whereBetween('booked_at', [$monthStart, $monthEnd]);

@@ -49,6 +49,10 @@ class BudgetItemsToolCrud implements ToolContract, ToolMetadataContract
                     'type' => 'integer',
                     'description' => 'Kategorie-ID (fuer create/update, optional).',
                 ],
+                'bank_account_id' => [
+                    'type' => 'integer',
+                    'description' => 'Bankkonto-ID (fuer create/update, optional). Scoped Fulfillment auf dieses Konto.',
+                ],
                 'direction' => [
                     'type' => 'string',
                     'enum' => ['debit', 'credit'],
@@ -148,7 +152,7 @@ class BudgetItemsToolCrud implements ToolContract, ToolMetadataContract
 
     protected function list(array $arguments, int $teamId): ToolResult
     {
-        $query = BudgetItem::where('team_id', $teamId)->with('category');
+        $query = BudgetItem::where('team_id', $teamId)->with(['category', 'bankAccount']);
 
         if (isset($arguments['status'])) {
             $query->where('status', $arguments['status']);
@@ -182,6 +186,10 @@ class BudgetItemsToolCrud implements ToolContract, ToolMetadataContract
                     'id' => $item->category->id,
                     'name' => $item->category->name,
                     'color' => $item->category->color,
+                ] : null,
+                'bank_account' => $item->bankAccount ? [
+                    'id' => $item->bankAccount->id,
+                    'name' => $item->bankAccount->name,
                 ] : null,
                 'notes' => $item->notes,
             ];
@@ -222,6 +230,7 @@ class BudgetItemsToolCrud implements ToolContract, ToolMetadataContract
             'direction' => $arguments['direction'],
             'frequency' => $arguments['frequency'],
             'category_id' => $arguments['category_id'] ?? null,
+            'bank_account_id' => $arguments['bank_account_id'] ?? null,
             'day_of_month' => $arguments['day_of_month'] ?? null,
             'planned_date' => $arguments['planned_date'] ?? null,
             'is_active' => $arguments['is_active'] ?? true,
@@ -268,6 +277,9 @@ class BudgetItemsToolCrud implements ToolContract, ToolMetadataContract
 
         if (array_key_exists('category_id', $arguments)) {
             $data['category_id'] = $arguments['category_id'];
+        }
+        if (array_key_exists('bank_account_id', $arguments)) {
+            $data['bank_account_id'] = $arguments['bank_account_id'];
         }
         if (array_key_exists('is_active', $arguments)) {
             $data['is_active'] = $arguments['is_active'];

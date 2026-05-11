@@ -79,10 +79,15 @@ class BudgetItemPeriod extends Model
         $actual = 0;
 
         if ($item->category_id) {
-            $actual = BankTransaction::where('team_id', $teamId)
+            $query = BankTransaction::where('team_id', $teamId)
                 ->where('category_id', $item->category_id)
-                ->where('direction', $item->direction)
-                ->where(function ($q) {
+                ->where('direction', $item->direction);
+
+            if ($item->bank_account_id) {
+                $query->where('bank_account_id', $item->bank_account_id);
+            }
+
+            $actual = $query->where(function ($q) {
                     $q->where(function ($inner) {
                         $inner->whereNotNull('booked_at')
                             ->whereBetween('booked_at', [$this->period_start, $this->period_end]);
