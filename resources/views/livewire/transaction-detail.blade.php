@@ -224,6 +224,16 @@
                 <hr class="border-gray-200">
 
                 <div>
+                    <button wire:click="createBudgetFromTransaction"
+                            class="w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md border border-gray-200 text-[13px] font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                        @svg('heroicon-o-calculator', 'w-4 h-4')
+                        Budget erstellen
+                    </button>
+                </div>
+
+                <hr class="border-gray-200">
+
+                <div>
                     <dt class="text-[11px] text-gray-400 uppercase tracking-wide">Buchungsdatum</dt>
                     <dd class="text-[13px] text-gray-700 mt-0.5">{{ $transaction->booking_date?->format('d.m.Y') ?? $transaction->booked_at?->format('d.m.Y') ?? '-' }}</dd>
                 </div>

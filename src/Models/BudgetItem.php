@@ -4,6 +4,7 @@ namespace Platform\Drip\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
@@ -19,7 +20,7 @@ class BudgetItem extends Model
     protected $fillable = [
         'uuid', 'team_id', 'user_id', 'category_id',
         'name', 'direction', 'amount', 'frequency',
-        'day_of_month', 'start_date', 'end_date',
+        'day_of_month', 'start_date', 'end_date', 'planned_date',
         'is_active', 'notes',
         'status', 'source_type', 'source_counterparty', 'source_iban',
         'source_month_count', 'source_avg_amount',
@@ -31,6 +32,7 @@ class BudgetItem extends Model
         'source_avg_amount' => 'decimal:2',
         'start_date' => 'date',
         'end_date' => 'date',
+        'planned_date' => 'date',
         'is_active' => 'boolean',
         'day_of_month' => 'integer',
         'source_month_count' => 'integer',
@@ -55,6 +57,17 @@ class BudgetItem extends Model
     public function category(): BelongsTo
     {
         return $this->belongsTo(BankTransactionCategory::class, 'category_id');
+    }
+
+    public function periods(): HasMany
+    {
+        return $this->hasMany(BudgetItemPeriod::class, 'budget_item_id');
+    }
+
+    public function generatePeriods(int $monthsAhead = 12): int
+    {
+        return app(\Platform\Drip\Services\BudgetPeriodService::class)
+            ->generatePeriodsForItem($this, $monthsAhead);
     }
 
     // ── Scopes ──
@@ -173,6 +186,7 @@ class BudgetItem extends Model
         $amount = (float) $this->amount;
 
         return match ($this->frequency) {
+            'once' => $amount,
             'weekly' => $amount * 4.33,
             'monthly' => $amount,
             'quarterly' => $amount / 3,

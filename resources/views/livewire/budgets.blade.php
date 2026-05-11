@@ -119,7 +119,7 @@
                                             <div class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: {{ $b['category_color'] }}"></div>
                                             <span class="text-sm font-medium text-gray-900 truncate">{{ $b['name'] }}</span>
                                             <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-500 shrink-0">
-                                                {{ match($b['frequency']) { 'weekly' => 'W', 'monthly' => 'M', 'quarterly' => 'Q', 'yearly' => 'J', default => $b['frequency'] } }}
+                                                {{ match($b['frequency']) { 'weekly' => 'W', 'monthly' => 'M', 'quarterly' => 'Q', 'yearly' => 'J', 'once' => '1x', default => $b['frequency'] } }}
                                             </span>
                                             <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium {{ $b['direction'] === 'debit' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600' }} shrink-0">
                                                 {{ $b['direction'] === 'debit' ? 'Ausgabe' : 'Einnahme' }}
@@ -143,6 +143,11 @@
                                         </div>
                                     </div>
                                     <div class="flex items-center gap-1 shrink-0">
+                                        <button type="button" wire:click="togglePeriods({{ $b['id'] }})"
+                                                class="p-1.5 rounded-md {{ $showPeriodsFor === $b['id'] ? 'text-blue-600 bg-blue-50' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100' }} transition-colors"
+                                                title="Perioden">
+                                            @svg('heroicon-o-calendar-days', 'w-4 h-4')
+                                        </button>
                                         <button type="button" wire:click="togglePause({{ $b['id'] }})"
                                                 class="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
                                                 title="{{ $b['status'] === 'paused' ? 'Fortsetzen' : 'Pausieren' }}">
@@ -171,6 +176,77 @@
                                 </div>
                             @endforeach
                         </div>
+
+                        {{-- Periods panel --}}
+                        @if($showPeriodsFor && count($periods) > 0)
+                            <div class="mt-3 bg-white rounded-lg border border-gray-200">
+                                <div class="px-4 py-2 border-b border-gray-100 bg-gray-50 rounded-t-lg">
+                                    <h4 class="text-[12px] font-medium text-gray-600 uppercase tracking-wide">Perioden</h4>
+                                </div>
+                                <div class="divide-y divide-gray-100">
+                                    @foreach($periods as $p)
+                                        <div class="flex items-center justify-between px-4 py-2 {{ $p['status'] === 'skipped' ? 'opacity-40 line-through' : '' }}">
+                                            <div class="flex items-center gap-3 flex-1 min-w-0">
+                                                <span class="text-[13px] font-medium text-gray-700 w-20 shrink-0">{{ $p['period_label'] }}</span>
+                                                @if($p['expected_date'])
+                                                    <span class="text-[11px] text-gray-400">{{ $p['expected_date'] }}</span>
+                                                @endif
+                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium shrink-0
+                                                    {{ match($p['status']) {
+                                                        'fulfilled' => 'bg-green-50 text-green-700',
+                                                        'partial' => 'bg-yellow-50 text-yellow-700',
+                                                        'missed' => 'bg-red-50 text-red-700',
+                                                        'skipped' => 'bg-gray-100 text-gray-500',
+                                                        default => 'bg-blue-50 text-blue-700',
+                                                    } }}">
+                                                    {{ match($p['status']) {
+                                                        'fulfilled' => 'Erfuellt',
+                                                        'partial' => 'Teilweise',
+                                                        'missed' => 'Verpasst',
+                                                        'skipped' => 'Uebersprungen',
+                                                        default => 'Ausstehend',
+                                                    } }}
+                                                </span>
+                                            </div>
+                                            <div class="flex items-center gap-2 shrink-0">
+                                                @if($editingPeriodId === $p['id'])
+                                                    <form wire:submit="adjustPeriod" class="flex items-center gap-1">
+                                                        <input type="number" wire:model="editingPeriodAmount" step="0.01" min="0"
+                                                               class="w-24 px-2 py-0.5 rounded border border-gray-200 text-[12px] text-right tabular-nums">
+                                                        <button type="submit" class="p-1 rounded text-green-600 hover:bg-green-50">
+                                                            @svg('heroicon-o-check', 'w-3.5 h-3.5')
+                                                        </button>
+                                                    </form>
+                                                @else
+                                                    <span class="text-[12px] tabular-nums text-gray-600 w-28 text-right">
+                                                        {{ number_format($p['actual_amount'], 2, ',', '.') }} / {{ number_format($p['planned_amount'], 2, ',', '.') }} &euro;
+                                                    </span>
+                                                @endif
+                                                @if($p['status'] !== 'skipped')
+                                                    <button wire:click="startEditPeriod({{ $p['id'] }})"
+                                                            class="p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100" title="Betrag anpassen">
+                                                        @svg('heroicon-o-pencil', 'w-3.5 h-3.5')
+                                                    </button>
+                                                    <button wire:click="skipPeriod({{ $p['id'] }})"
+                                                            class="p-1 rounded text-gray-400 hover:text-yellow-600 hover:bg-yellow-50" title="Ueberspringen">
+                                                        @svg('heroicon-o-forward', 'w-3.5 h-3.5')
+                                                    </button>
+                                                @endif
+                                                <button wire:click="deletePeriod({{ $p['id'] }})"
+                                                        wire:confirm="Periode loeschen?"
+                                                        class="p-1 rounded text-gray-400 hover:text-red-600 hover:bg-red-50" title="Loeschen">
+                                                    @svg('heroicon-o-trash', 'w-3.5 h-3.5')
+                                                </button>
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @elseif($showPeriodsFor && count($periods) === 0)
+                            <div class="mt-3 bg-white rounded-lg border border-gray-200 p-6 text-center">
+                                <p class="text-[13px] text-gray-500">Keine Perioden vorhanden.</p>
+                            </div>
+                        @endif
                     @else
                         <div class="bg-white rounded-lg border border-gray-200 p-12 text-center">
                             <div class="text-gray-400 mb-4">
@@ -330,11 +406,24 @@
                                 <option value="monthly">Monatlich</option>
                                 <option value="quarterly">Quartalsweise</option>
                                 <option value="yearly">Jaehrlich</option>
+                                <option value="once">Einmalig</option>
                             </select>
                             @error('formFrequency')
                                 <p class="mt-1 text-[11px] text-red-600">{{ $message }}</p>
                             @enderror
                         </div>
+
+                        {{-- Geplantes Datum (nur bei Einmalig) --}}
+                        @if($formFrequency === 'once')
+                            <div>
+                                <label for="budget-planned-date" class="block text-[13px] font-medium text-gray-700 mb-1">Geplantes Datum</label>
+                                <input type="date" id="budget-planned-date" wire:model="formPlannedDate" required
+                                       class="w-full px-3 py-1.5 rounded-md border border-gray-200 text-[13px] text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                                @error('formPlannedDate')
+                                    <p class="mt-1 text-[11px] text-red-600">{{ $message }}</p>
+                                @enderror
+                            </div>
+                        @endif
 
                         {{-- Tag im Monat --}}
                         <div>
