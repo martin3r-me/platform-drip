@@ -163,10 +163,10 @@ class CashflowAnalytics extends Component
 
         $indexed = $snapshots->groupBy(fn ($s) => $s->period_key . '|' . $s->direction);
 
-        $currentDebit = (float) ($indexed[$this->selectedMonth . '|debit']->first()?->total_amount ?? 0);
-        $prevDebit = (float) ($indexed[$prevMonth . '|debit']->first()?->total_amount ?? 0);
-        $currentCredit = (float) ($indexed[$this->selectedMonth . '|credit']->first()?->total_amount ?? 0);
-        $prevCredit = (float) ($indexed[$prevMonth . '|credit']->first()?->total_amount ?? 0);
+        $currentDebit = (float) ($indexed->get($this->selectedMonth . '|debit')?->first()?->total_amount ?? 0);
+        $prevDebit = (float) ($indexed->get($prevMonth . '|debit')?->first()?->total_amount ?? 0);
+        $currentCredit = (float) ($indexed->get($this->selectedMonth . '|credit')?->first()?->total_amount ?? 0);
+        $prevCredit = (float) ($indexed->get($prevMonth . '|credit')?->first()?->total_amount ?? 0);
 
         $debitDelta = $currentDebit - $prevDebit;
         $creditDelta = $currentCredit - $prevCredit;
@@ -205,8 +205,8 @@ class CashflowAnalytics extends Component
 
         return $monthKeys->map(function (string $pk) use ($indexed) {
             $date = Carbon::createFromFormat('Y-m', $pk);
-            $debit = (float) ($indexed[$pk . '|debit']->first()?->total_amount ?? 0);
-            $credit = (float) ($indexed[$pk . '|credit']->first()?->total_amount ?? 0);
+            $debit = (float) ($indexed->get($pk . '|debit')?->first()?->total_amount ?? 0);
+            $credit = (float) ($indexed->get($pk . '|credit')?->first()?->total_amount ?? 0);
             return [
                 'period' => $pk,
                 'label' => $date->translatedFormat('M'),

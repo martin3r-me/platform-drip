@@ -158,8 +158,8 @@ class Dashboard extends Component
             return [
                 'month' => $monthStart->translatedFormat('M Y'),
                 'month_short' => $monthStart->translatedFormat('M'),
-                'income' => (float) ($indexed[$pk . '|credit']->first()?->total_amount ?? 0),
-                'expenses' => (float) ($indexed[$pk . '|debit']->first()?->total_amount ?? 0),
+                'income' => (float) ($indexed->get($pk . '|credit')?->first()?->total_amount ?? 0),
+                'expenses' => (float) ($indexed->get($pk . '|debit')?->first()?->total_amount ?? 0),
             ];
         })->values()->toArray();
     }
