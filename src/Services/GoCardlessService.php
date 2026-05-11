@@ -598,21 +598,21 @@ class GoCardlessService
             ->whereNotNull('linked_at')
             ->get()
             ->first(fn ($r) => in_array($accountId, $r->accounts ?? []));
-            
+
         // Erste Synchronisation: 90 Tage zurück
         // Delta Updates: Nur seit letztem Sync
         $isFirstSync = !$requisition?->last_sync_at;
-        $dateFrom = $isFirstSync 
+        $dateFrom = $isFirstSync
             ? now()->subDays(90)->format('Y-m-d')  // Erste Sync: 90 Tage
             : ($requisition->last_sync_at ?? now()->subDays(7))->format('Y-m-d');  // Delta: seit letztem Sync
-        
+
         Log::info('GoCardlessService: Transaction sync', [
             'accountId' => $accountId,
             'dateFrom' => $dateFrom,
             'isFirstSync' => $isFirstSync,
             'lastSync' => $requisition?->last_sync_at?->format('Y-m-d H:i:s') ?? 'Never'
         ]);
-        
+
         $response = Http::withToken($token)
             ->get("{$this->baseUrl}/accounts/{$accountId}/transactions/", [
                 'date_from' => $dateFrom
@@ -632,78 +632,121 @@ class GoCardlessService
             ]);
 
             foreach ($transactions as $tx) {
-                $amount = (float)($tx['transactionAmount']['amount'] ?? '0');
-                $direction = $amount >= 0 ? 'credit' : 'debit';
-
-                $debtorName = $tx['debtorName'] ?? null;
-                $creditorName = $tx['creditorName'] ?? null;
-                $debtorIban = $tx['debtorAccount']['iban'] ?? null;
-                $creditorIban = $tx['creditorAccount']['iban'] ?? null;
-                $debtorAgent = $tx['debtorAgent'] ?? null;
-                $creditorAgent = $tx['creditorAgent'] ?? null;
-                $remittance = $tx['remittanceInformationUnstructured'] ?? null;
-                $additionalInfo = $tx['additionalInformation'] ?? null;
-
-                $parsed = $this->parseAdditionalInformation($additionalInfo);
-
-                if (!$debtorAgent && !$creditorAgent && $parsed['bic']) {
-                    if ($direction === 'debit') {
-                        $creditorAgent = $parsed['bic'];
-                    } else {
-                        $debtorAgent = $parsed['bic'];
-                    }
-                }
-                if (!$creditorIban && !$debtorIban && $parsed['iban']) {
-                    if ($direction === 'debit') {
-                        $creditorIban = $parsed['iban'];
-                    } else {
-                        $debtorIban = $parsed['iban'];
-                    }
-                }
-
-                // Counterparty = die Gegenpartei (bei debit: Empfänger, bei credit: Absender)
-                $counterpartyName = $direction === 'debit'
-                    ? ($creditorName ?? $parsed['name'] ?? $debtorName)
-                    : ($debtorName ?? $parsed['name'] ?? $creditorName);
-
-                // Counterparty-IBAN: geparste IBAN aus additional_information bevorzugen,
-                // da debtor/creditorAccount oft nur die eigene Konto-IBAN enthält
-                $counterpartyIban = $parsed['iban'] ?? ($direction === 'debit' ? $creditorIban : $debtorIban);
-
-                BankTransaction::updateOrCreate(
-                    ['transaction_id' => $tx['transactionId'] ?? uniqid('tx_')],
-                    [
-                        'bank_account_id' => $account->id,
-                        'booked_at' => $tx['bookingDate'] ?? now()->toDateString(),
-                        'booking_date' => $tx['bookingDate'] ?? null,
-                        'booking_date_time' => $tx['bookingDateTime'] ?? null,
-                        'value_date' => $tx['valueDate'] ?? null,
-                        'value_date_time' => $tx['valueDateTime'] ?? null,
-                        'amount' => $tx['transactionAmount']['amount'] ?? '0',
-                        'currency' => $tx['transactionAmount']['currency'] ?? null,
-                        'direction' => $direction,
-                        'remittance_information' => $remittance,
-                        'remittance_information_structured' => $tx['remittanceInformationStructured'] ?? null,
-                        'remittance_information_unstructured' => $tx['remittanceInformationUnstructured'] ?? null,
-                        'debtor_name' => $debtorName,
-                        'creditor_name' => $creditorName,
-                        'debtor_account_iban' => $debtorIban,
-                        'creditor_account_iban' => $creditorIban,
-                        'debtor_agent' => $debtorAgent,
-                        'creditor_agent' => $creditorAgent,
-                        'counterparty_name' => $counterpartyName,
-                        'counterparty_iban' => $counterpartyIban,
-                        'reference' => $remittance ?? $parsed['purpose'] ?? null,
-                        'internal_transaction_id' => $tx['internalTransactionId'] ?? null,
-                        'end_to_end_id' => $tx['endToEndId'] ?? null,
-                        'mandate_id' => $tx['mandateId'] ?? null,
-                        'creditor_id' => $tx['creditorId'] ?? null,
-                        'additional_information' => $additionalInfo,
-                        'team_id' => $this->teamId,
-                    ]
-                );
+                $this->upsertTransaction($tx, $account);
             }
         }
+    }
+
+    /**
+     * Erzeugt eine deterministische Transaction-ID als Fallback,
+     * wenn die API keine transactionId liefert.
+     */
+    protected function generateDeterministicTransactionId(array $tx, BankAccount $account): string
+    {
+        // Fallback-Kette: transactionId → internalTransactionId → deterministischer Hash
+        if (!empty($tx['transactionId'])) {
+            return $tx['transactionId'];
+        }
+
+        if (!empty($tx['internalTransactionId'])) {
+            return 'internal_' . $tx['internalTransactionId'];
+        }
+
+        // Deterministischer Hash aus den unveränderlichen Transaktionsdaten
+        $hashInput = implode('|', [
+            $account->id,
+            $tx['bookingDate'] ?? '',
+            $tx['valueDate'] ?? '',
+            $tx['transactionAmount']['amount'] ?? '0',
+            $tx['transactionAmount']['currency'] ?? '',
+            $tx['endToEndId'] ?? '',
+            $tx['mandateId'] ?? '',
+            $tx['remittanceInformationUnstructured'] ?? '',
+        ]);
+
+        return 'hash_' . substr(hash('sha256', $hashInput), 0, 32);
+    }
+
+    /**
+     * Zentrale Methode: Parst eine GoCardless-Transaktion und führt updateOrCreate aus.
+     * Verwendet bank_account_id + transaction_id als composite Match-Key.
+     */
+    protected function upsertTransaction(array $tx, BankAccount $account): void
+    {
+        $amount = (float)($tx['transactionAmount']['amount'] ?? '0');
+        $direction = $amount >= 0 ? 'credit' : 'debit';
+
+        $debtorName = $tx['debtorName'] ?? null;
+        $creditorName = $tx['creditorName'] ?? null;
+        $debtorIban = $tx['debtorAccount']['iban'] ?? null;
+        $creditorIban = $tx['creditorAccount']['iban'] ?? null;
+        $debtorAgent = $tx['debtorAgent'] ?? null;
+        $creditorAgent = $tx['creditorAgent'] ?? null;
+        $remittance = $tx['remittanceInformationUnstructured'] ?? null;
+        $additionalInfo = $tx['additionalInformation'] ?? null;
+
+        $parsed = $this->parseAdditionalInformation($additionalInfo);
+
+        if (!$debtorAgent && !$creditorAgent && $parsed['bic']) {
+            if ($direction === 'debit') {
+                $creditorAgent = $parsed['bic'];
+            } else {
+                $debtorAgent = $parsed['bic'];
+            }
+        }
+        if (!$creditorIban && !$debtorIban && $parsed['iban']) {
+            if ($direction === 'debit') {
+                $creditorIban = $parsed['iban'];
+            } else {
+                $debtorIban = $parsed['iban'];
+            }
+        }
+
+        // Counterparty = die Gegenpartei (bei debit: Empfänger, bei credit: Absender)
+        $counterpartyName = $direction === 'debit'
+            ? ($creditorName ?? $parsed['name'] ?? $debtorName)
+            : ($debtorName ?? $parsed['name'] ?? $creditorName);
+
+        // Counterparty-IBAN: geparste IBAN aus additional_information bevorzugen,
+        // da debtor/creditorAccount oft nur die eigene Konto-IBAN enthält
+        $counterpartyIban = $parsed['iban'] ?? ($direction === 'debit' ? $creditorIban : $debtorIban);
+
+        $transactionId = $this->generateDeterministicTransactionId($tx, $account);
+
+        BankTransaction::updateOrCreate(
+            [
+                'transaction_id' => $transactionId,
+                'bank_account_id' => $account->id,
+            ],
+            [
+                'booked_at' => $tx['bookingDate'] ?? now()->toDateString(),
+                'booking_date' => $tx['bookingDate'] ?? null,
+                'booking_date_time' => $tx['bookingDateTime'] ?? null,
+                'value_date' => $tx['valueDate'] ?? null,
+                'value_date_time' => $tx['valueDateTime'] ?? null,
+                'amount' => $tx['transactionAmount']['amount'] ?? '0',
+                'currency' => $tx['transactionAmount']['currency'] ?? null,
+                'direction' => $direction,
+                'remittance_information' => $remittance,
+                'remittance_information_structured' => $tx['remittanceInformationStructured'] ?? null,
+                'remittance_information_unstructured' => $tx['remittanceInformationUnstructured'] ?? null,
+                'debtor_name' => $debtorName,
+                'creditor_name' => $creditorName,
+                'debtor_account_iban' => $debtorIban,
+                'creditor_account_iban' => $creditorIban,
+                'debtor_agent' => $debtorAgent,
+                'creditor_agent' => $creditorAgent,
+                'counterparty_name' => $counterpartyName,
+                'counterparty_iban' => $counterpartyIban,
+                'reference' => $remittance ?? $parsed['purpose'] ?? null,
+                'internal_transaction_id' => $tx['internalTransactionId'] ?? null,
+                'end_to_end_id' => $tx['endToEndId'] ?? null,
+                'mandate_id' => $tx['mandateId'] ?? null,
+                'creditor_id' => $tx['creditorId'] ?? null,
+                'additional_information' => $additionalInfo,
+                'team_id' => $this->teamId,
+            ]
+        );
     }
 
     protected function storeAccountDetails(string $accountId): void
@@ -865,109 +908,8 @@ class GoCardlessService
             }
 
             foreach ($response->json()['transactions']['booked'] ?? [] as $tx) {
-                $amount = (float)($tx['transactionAmount']['amount'] ?? '0');
-                $direction = $amount >= 0 ? 'credit' : 'debit';
-
-                // Direkte API-Felder
-                $debtorName = $tx['debtorName'] ?? null;
-                $creditorName = $tx['creditorName'] ?? null;
-                $debtorIban = $tx['debtorAccount']['iban'] ?? null;
-                $creditorIban = $tx['creditorAccount']['iban'] ?? null;
-                $debtorAgent = $tx['debtorAgent'] ?? null;
-                $creditorAgent = $tx['creditorAgent'] ?? null;
-                $remittance = $tx['remittanceInformationUnstructured'] ?? null;
-                $additionalInfo = $tx['additionalInformation'] ?? null;
-
-                // additional_information parsen (Commerzbank-Format: Name\nBIC\nIBAN\nZweck\n...)
-                $parsed = $this->parseAdditionalInformation($additionalInfo);
-
-                // Fehlende Felder aus additional_information ergänzen
-                if (!$debtorAgent && !$creditorAgent && $parsed['bic']) {
-                    if ($direction === 'debit') {
-                        $creditorAgent = $parsed['bic'];
-                    } else {
-                        $debtorAgent = $parsed['bic'];
-                    }
-                }
-                if (!$creditorIban && !$debtorIban && $parsed['iban']) {
-                    if ($direction === 'debit') {
-                        $creditorIban = $parsed['iban'];
-                    } else {
-                        $debtorIban = $parsed['iban'];
-                    }
-                }
-
-                // Counterparty = die Gegenpartei (bei debit: Empfänger, bei credit: Absender)
-                $counterpartyName = $direction === 'debit'
-                    ? ($creditorName ?? $parsed['name'] ?? $debtorName)
-                    : ($debtorName ?? $parsed['name'] ?? $creditorName);
-
-                // Counterparty-IBAN: geparste IBAN aus additional_information bevorzugen,
-                // da debtor/creditorAccount oft nur die eigene Konto-IBAN enthält
-                $counterpartyIban = $parsed['iban'] ?? ($direction === 'debit' ? $creditorIban : $debtorIban);
-
-                // Reference aus remittance ableiten
-                $reference = $remittance ?? $parsed['purpose'] ?? null;
-
-                BankTransaction::updateOrCreate(
-                [
-                    'transaction_id' => $tx['transactionId'] ?? uniqid('tx_'),
-                ],
-                [
-                    'bank_account_id' => $account->id,
-                    'booked_at' => $tx['bookingDate'] ?? now()->toDateString(),
-                    'booking_date' => $tx['bookingDate'] ?? null,
-                    'booking_date_time' => $tx['bookingDateTime'] ?? null,
-                    'value_date' => $tx['valueDate'] ?? null,
-                    'value_date_time' => $tx['valueDateTime'] ?? null,
-                    'amount' => $tx['transactionAmount']['amount'] ?? '0',
-                    'currency' => $tx['transactionAmount']['currency'] ?? null,
-                    'direction' => $direction,
-
-                    // Verwendungszweck
-                    'remittance_information' => $remittance,
-                    'remittance_information_structured' => $tx['remittanceInformationStructured'] ?? null,
-                    'remittance_information_structured_array' => $tx['remittanceInformationStructuredArray'] ?? null,
-                    'remittance_information_unstructured' => $tx['remittanceInformationUnstructured'] ?? null,
-                    'remittance_information_unstructured_array' => $tx['remittanceInformationUnstructuredArray'] ?? null,
-
-                    // Beteiligte Konten und Namen
-                    'debtor_name' => $debtorName,
-                    'creditor_name' => $creditorName,
-                    'debtor_account_iban' => $debtorIban,
-                    'creditor_account_iban' => $creditorIban,
-                    'debtor_agent' => $debtorAgent,
-                    'creditor_agent' => $creditorAgent,
-
-                    // Abgeleitete Felder
-                    'counterparty_name' => $counterpartyName,
-                    'counterparty_iban' => $counterpartyIban,
-                    'reference' => $reference,
-
-                    // Typen und Codes
-                    'transaction_type' => $tx['transactionType'] ?? null,
-                    'bank_transaction_code' => $tx['bankTransactionCode'] ?? null,
-                    'proprietary_bank_transaction_code' => $tx['proprietaryBankTransactionCode'] ?? null,
-                    'internal_transaction_id' => $tx['internalTransactionId'] ?? null,
-                    'entry_reference' => $tx['entryReference'] ?? null,
-                    'end_to_end_id' => $tx['endToEndId'] ?? null,
-                    'mandate_id' => $tx['mandateId'] ?? null,
-                    'merchant_category_code' => $tx['merchantCategoryCode'] ?? null,
-                    'check_id' => $tx['checkId'] ?? null,
-                    'creditor_id' => $tx['creditorId'] ?? null,
-                    'purpose_code' => $tx['purposeCode'] ?? null,
-                    'ultimate_creditor' => $tx['ultimateCreditor'] ?? null,
-                    'ultimate_debtor' => $tx['ultimateDebtor'] ?? null,
-
-                    // Weitere optionale Felder
-                    'currency_exchange' => $tx['currencyExchange'] ?? null,
-                    'balance_after_transaction' => $tx['balanceAfterTransaction'] ?? null,
-                    'additional_data_structured' => $tx['additionalDataStructured'] ?? null,
-                    'additional_information' => $additionalInfo,
-                    'additional_information_structured' => $tx['additionalInformationStructured'] ?? null,
-                ]
-            );
-                }
+                $this->upsertTransaction($tx, $account);
+            }
 
             // Sync-Timestamp für Account aktualisieren
             if ($account) {

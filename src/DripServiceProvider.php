@@ -156,6 +156,7 @@ class DripServiceProvider extends ServiceProvider
                 \Platform\Drip\Console\Commands\DebugTransactionCommand::class,
                 \Platform\Drip\Console\Commands\RepairTransactionIbansCommand::class,
                 \Platform\Drip\Console\Commands\AnalyzeRawLogsCommand::class,
+                \Platform\Drip\Console\Commands\DeduplicateTransactionsCommand::class,
             ]);
         }
     }
