@@ -169,6 +169,7 @@ class LiquidityPlanningService
             ->orderBy('period_start')
             ->limit(20)
             ->get()
+            ->filter(fn ($p) => $p->budgetItem !== null)
             ->map(fn ($p) => [
                 'name' => $p->budgetItem->name,
                 'date' => ($p->expected_date ?? $p->period_start)->format('Y-m-d'),
