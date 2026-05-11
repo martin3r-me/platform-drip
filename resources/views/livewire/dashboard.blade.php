@@ -97,27 +97,58 @@
             </div>
         @endif
 
-        {{-- Ausgaben nach Kategorie (30T) --}}
-        @if(count($categoryBreakdown) > 0)
-            @php
-                $maxCatAmount = max(1, collect($categoryBreakdown)->max('amount'));
-            @endphp
-            <div class="bg-white rounded-lg border border-gray-200 p-4 mb-6">
-                <h2 class="text-sm font-semibold text-gray-900 mb-4">Ausgaben nach Kategorie (30T)</h2>
-                <div class="space-y-2">
-                    @foreach($categoryBreakdown as $cat)
-                        <div class="flex items-center gap-3">
-                            <div class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: {{ $cat['color'] }}"></div>
-                            <div class="w-32 text-[13px] text-gray-700 truncate shrink-0">{{ $cat['name'] }}</div>
-                            <div class="flex-1">
-                                <div class="h-3 rounded-sm" style="width: {{ round($cat['amount'] / $maxCatAmount * 100, 1) }}%; background-color: {{ $cat['color'] }}"></div>
-                            </div>
-                            <div class="text-[13px] font-medium tabular-nums text-gray-900 shrink-0 w-24 text-right">
-                                {{ number_format($cat['amount'], 2, ',', '.') }} &euro;
-                            </div>
+        {{-- Ausgaben: Kategorien + Counterparties nebeneinander --}}
+        @if(count($categoryBreakdown) > 0 || count($topCounterparties) > 0)
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                {{-- Ausgaben nach Kategorie --}}
+                @if(count($categoryBreakdown) > 0)
+                    @php $maxCatAmount = max(1, collect($categoryBreakdown)->max('amount')); @endphp
+                    <div class="bg-white rounded-lg border border-gray-200 p-4">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-sm font-semibold text-gray-900">Top Kategorien</h2>
+                            <a href="{{ route('drip.cashflow') }}" wire:navigate class="text-[11px] text-blue-600 hover:text-blue-700">Details</a>
                         </div>
-                    @endforeach
-                </div>
+                        <div class="space-y-2">
+                            @foreach($categoryBreakdown as $cat)
+                                <div class="flex items-center gap-3">
+                                    <div class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: {{ $cat['color'] }}"></div>
+                                    <div class="w-28 text-[13px] text-gray-700 truncate shrink-0">{{ $cat['name'] }}</div>
+                                    <div class="flex-1">
+                                        <div class="h-3 rounded-sm" style="width: {{ round($cat['amount'] / $maxCatAmount * 100, 1) }}%; background-color: {{ $cat['color'] }}"></div>
+                                    </div>
+                                    <div class="text-[13px] font-medium tabular-nums text-gray-900 shrink-0 w-24 text-right">
+                                        {{ number_format($cat['amount'], 2, ',', '.') }} &euro;
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
+
+                {{-- Top Counterparties --}}
+                @if(count($topCounterparties) > 0)
+                    @php $maxCpAmount = max(1, collect($topCounterparties)->max('amount')); @endphp
+                    <div class="bg-white rounded-lg border border-gray-200 p-4">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-sm font-semibold text-gray-900">Top Zahlungsempfaenger</h2>
+                            <a href="{{ route('drip.cashflow') }}" wire:navigate class="text-[11px] text-blue-600 hover:text-blue-700">Details</a>
+                        </div>
+                        <div class="space-y-2">
+                            @foreach($topCounterparties as $cp)
+                                <div class="flex items-center gap-3">
+                                    <div class="w-2.5 h-2.5 rounded-full shrink-0 bg-gray-400"></div>
+                                    <div class="w-28 text-[13px] text-gray-700 truncate shrink-0">{{ $cp['name'] }}</div>
+                                    <div class="flex-1">
+                                        <div class="h-3 rounded-sm bg-red-300" style="width: {{ round($cp['amount'] / $maxCpAmount * 100, 1) }}%"></div>
+                                    </div>
+                                    <div class="text-[13px] font-medium tabular-nums text-gray-900 shrink-0 w-24 text-right">
+                                        {{ number_format($cp['amount'], 2, ',', '.') }} &euro;
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
             </div>
         @endif
 

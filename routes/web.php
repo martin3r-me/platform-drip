@@ -9,6 +9,7 @@ Route::get('/groups/{group}', Platform\Drip\Livewire\GroupTransactions::class)->
 Route::get('/categories', Platform\Drip\Livewire\Categories::class)->name('drip.categories');
 Route::get('/rules', Platform\Drip\Livewire\Rules::class)->name('drip.rules');
 Route::get('/budgets', Platform\Drip\Livewire\Budgets::class)->name('drip.budgets');
+Route::get('/cashflow', Platform\Drip\Livewire\CashflowAnalytics::class)->name('drip.cashflow');
 Route::get('/liquidity', Platform\Drip\Livewire\LiquidityPlanning::class)->name('drip.liquidity');
 Route::get('/transactions/{transaction}', Platform\Drip\Livewire\TransactionDetail::class)->name('drip.transactions.show');
 
