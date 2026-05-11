@@ -61,7 +61,7 @@ class GroupTransactions extends Component
         // Summary stats — amounts are encrypted, must compute in PHP
         $allTransactions = $this->group->transactions()->get(['drip_bank_transactions.id', 'amount', 'direction']);
         $totalIncome = $allTransactions->where('direction', 'credit')->sum(fn ($t) => (float) $t->amount);
-        $totalExpenses = $allTransactions->where('direction', 'debit')->sum(fn ($t) => (float) $t->amount);
+        $totalExpenses = $allTransactions->where('direction', 'debit')->sum(fn ($t) => abs((float) $t->amount));
         $totalBalance = $totalIncome - $totalExpenses;
 
         return view('drip::livewire.group-transactions', [

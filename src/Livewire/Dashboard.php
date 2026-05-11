@@ -77,9 +77,9 @@ class Dashboard extends Component
 
         $this->transactions30d = $current30d->count();
         $this->income30d = $current30d->where('direction', 'credit')->sum(fn ($t) => (float) $t->amount);
-        $this->expenses30d = $current30d->where('direction', 'debit')->sum(fn ($t) => (float) $t->amount);
+        $this->expenses30d = $current30d->where('direction', 'debit')->sum(fn ($t) => abs((float) $t->amount));
         $this->incomePrev30d = $prev30d->where('direction', 'credit')->sum(fn ($t) => (float) $t->amount);
-        $this->expensesPrev30d = $prev30d->where('direction', 'debit')->sum(fn ($t) => (float) $t->amount);
+        $this->expensesPrev30d = $prev30d->where('direction', 'debit')->sum(fn ($t) => abs((float) $t->amount));
 
         // Monthly cashflow (last 6 months)
         $sixMonthsAgo = $now->copy()->startOfMonth()->subMonths(5);
@@ -109,7 +109,7 @@ class Dashboard extends Component
                     'month' => $monthStart->translatedFormat('M Y'),
                     'month_short' => $monthStart->translatedFormat('M'),
                     'income' => $monthTx->where('direction', 'credit')->sum(fn ($t) => (float) $t->amount),
-                    'expenses' => $monthTx->where('direction', 'debit')->sum(fn ($t) => (float) $t->amount),
+                    'expenses' => $monthTx->where('direction', 'debit')->sum(fn ($t) => abs((float) $t->amount)),
                 ];
             })
             ->values()
