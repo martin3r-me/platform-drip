@@ -10,7 +10,7 @@ class WipeTransactionsCommand extends Command
 {
     protected $signature = 'drip:wipe-transactions
         {--team= : Team ID (required)}
-        {--confirm : Skip interactive confirmation}';
+        {--force : Ohne Rückfrage ausführen}';
 
     protected $description = 'Löscht ALLE Transaktionen eines Teams und setzt Sync-Timestamps zurück (für sauberen Neustart)';
 
@@ -42,7 +42,7 @@ class WipeTransactionsCommand extends Command
             ])
         );
 
-        if (!$this->option('confirm')) {
+        if (!$this->option('force')) {
             if (!$this->confirm("ALLE {$txCount} Transaktionen für Team {$teamId} löschen und Sync-Timestamps zurücksetzen?")) {
                 $this->info('Abgebrochen.');
                 return 0;

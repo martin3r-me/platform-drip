@@ -9,7 +9,8 @@ class DeduplicateTransactionsCommand extends Command
 {
     protected $signature = 'drip:deduplicate-transactions
         {--team= : Team ID}
-        {--dry : Nur anzeigen, nicht löschen}';
+        {--dry : Nur anzeigen, nicht löschen}
+        {--force : Ohne Rückfrage ausführen}';
 
     protected $description = 'Entfernt doppelte Transaktionen anhand inhaltlicher Übereinstimmung (Datum + Betrag + Gegenpartei + Verwendungszweck)';
 
@@ -89,7 +90,7 @@ class DeduplicateTransactionsCommand extends Command
             return 0;
         }
 
-        if (!$this->confirm("Sollen {$totalDuplicates} Duplikate gelöscht werden? (Neueste Version je Gruppe wird behalten)")) {
+        if (!$this->option('force') && !$this->confirm("Sollen {$totalDuplicates} Duplikate gelöscht werden? (Neueste Version je Gruppe wird behalten)")) {
             $this->info('Abgebrochen.');
             return 0;
         }
