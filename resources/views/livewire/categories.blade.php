@@ -11,15 +11,15 @@
     </x-slot>
 
     <x-ui-page-container>
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
             {{-- Links: Kategorien-Baum --}}
             <div class="lg:col-span-2">
                 @if ($categories->count() > 0)
-                    <div class="bg-white rounded-lg border border-gray-200">
+                    <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
                         @foreach ($categories as $category)
                             {{-- Root-Kategorie --}}
-                            <div class="flex items-center justify-between px-4 py-3 {{ !$loop->last ? 'border-b border-gray-100' : '' }}">
+                            <div class="flex items-center justify-between px-6 py-4 {{ !$loop->last ? 'border-b border-gray-100' : '' }}">
                                 <div class="flex items-center gap-3">
                                     <div class="w-3 h-3 rounded-full" style="background-color: {{ $category->color ?? '#6B7280' }}"></div>
                                     <span class="text-sm font-medium text-gray-900">{{ $category->name }}</span>
@@ -42,7 +42,7 @@
 
                             {{-- Children --}}
                             @foreach ($category->children as $child)
-                                <div class="flex items-center justify-between px-4 py-3 pl-12 {{ !($loop->parent->last && $loop->last) ? 'border-b border-gray-100' : '' }} bg-gray-50/50">
+                                <div class="flex items-center justify-between px-6 py-4 pl-14 {{ !($loop->parent->last && $loop->last) ? 'border-b border-gray-100' : '' }} bg-gray-50/50">
                                     <div class="flex items-center gap-3">
                                         <div class="w-3 h-3 rounded-full" style="background-color: {{ $child->color ?? '#6B7280' }}"></div>
                                         <span class="text-sm text-gray-700">{{ $child->name }}</span>
@@ -66,11 +66,11 @@
                         @endforeach
                     </div>
                 @else
-                    <div class="bg-white rounded-lg border border-gray-200 p-12 text-center">
+                    <div class="bg-white rounded-2xl shadow-sm p-12 text-center">
                         <div class="text-gray-400 mb-4">
                             @svg('heroicon-o-tag', 'w-12 h-12 mx-auto')
                         </div>
-                        <h3 class="text-sm font-semibold text-gray-900 mb-1">Noch keine Kategorien</h3>
+                        <h3 class="text-xl font-bold text-gray-900 mb-1">Noch keine Kategorien</h3>
                         <p class="text-[13px] text-gray-500">Erstelle eine Kategorie, um Transaktionen zu organisieren.</p>
                     </div>
                 @endif
@@ -78,8 +78,8 @@
 
             {{-- Rechts: Formular --}}
             <div class="lg:col-span-1">
-                <div class="bg-white rounded-lg border border-gray-200 p-5">
-                    <h3 class="text-sm font-semibold text-gray-900 mb-4">
+                <div class="bg-white rounded-2xl shadow-sm p-6">
+                    <h3 class="text-xl font-bold text-gray-900 mb-4">
                         {{ $editingId ? 'Kategorie bearbeiten' : 'Kategorie erstellen' }}
                     </h3>
 

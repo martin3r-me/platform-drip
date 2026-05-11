@@ -13,7 +13,7 @@
     <x-ui-page-container>
 
         {{-- Controls --}}
-        <div class="flex items-center gap-4 mb-6">
+        <div class="flex items-center gap-4 mb-8">
             <div>
                 <select wire:model.live="selectedMonth"
                         class="px-3 py-1.5 rounded-md border border-gray-200 text-[13px] text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
@@ -36,8 +36,8 @@
 
         {{-- Monatsvergleich --}}
         @if(!empty($comparison))
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-                <div class="bg-white rounded-lg border border-gray-200 p-4">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
+                <div class="bg-white rounded-2xl shadow-sm p-6">
                     <div class="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Ausgaben</div>
                     <div class="mt-1 text-xl font-bold tabular-nums text-red-600">
                         {{ number_format($comparison['debit_current'], 2, ',', '.') }} &euro;
@@ -50,7 +50,7 @@
                         </div>
                     @endif
                 </div>
-                <div class="bg-white rounded-lg border border-gray-200 p-4">
+                <div class="bg-white rounded-2xl shadow-sm p-6">
                     <div class="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Einnahmen</div>
                     <div class="mt-1 text-xl font-bold tabular-nums text-green-600">
                         {{ number_format($comparison['credit_current'], 2, ',', '.') }} &euro;
@@ -63,7 +63,7 @@
                         </div>
                     @endif
                 </div>
-                <div class="bg-white rounded-lg border border-gray-200 p-4">
+                <div class="bg-white rounded-2xl shadow-sm p-6">
                     <div class="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Netto</div>
                     <div class="mt-1 text-xl font-bold tabular-nums {{ $comparison['net_current'] >= 0 ? 'text-green-600' : 'text-red-600' }}">
                         {{ $comparison['net_current'] >= 0 ? '+' : '' }}{{ number_format($comparison['net_current'], 2, ',', '.') }} &euro;
@@ -79,8 +79,8 @@
 
         {{-- Trend (6 Monate) — Area Chart --}}
         @if(count($trend) > 0)
-            <div class="bg-white rounded-lg border border-gray-200 p-4 mb-6" wire:key="trend-{{ $selectedMonth }}-{{ $direction }}">
-                <h2 class="text-sm font-semibold text-gray-900 mb-4">Trend (6 Monate)</h2>
+            <div class="bg-white rounded-2xl shadow-sm p-6 mb-8 overflow-hidden" wire:key="trend-{{ $selectedMonth }}-{{ $direction }}">
+                <h2 class="text-xl font-bold text-gray-900 mb-4">Trend (6 Monate)</h2>
                 <div wire:ignore x-data="{
                     chart: null,
                     init() {
@@ -111,10 +111,10 @@
         @endif
 
         {{-- Top Kategorien + Counterparties --}}
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6" wire:key="details-{{ $selectedMonth }}-{{ $direction }}">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8" wire:key="details-{{ $selectedMonth }}-{{ $direction }}">
             {{-- Top Kategorien — Horizontal Bar Chart --}}
-            <div class="bg-white rounded-lg border border-gray-200 p-4">
-                <h2 class="text-sm font-semibold text-gray-900 mb-4">
+            <div class="bg-white rounded-2xl shadow-sm p-6">
+                <h2 class="text-xl font-bold text-gray-900 mb-4">
                     Top Kategorien
                     <span class="text-[11px] font-normal text-gray-400 ml-1">{{ $direction === 'debit' ? 'Ausgaben' : 'Einnahmen' }}</span>
                 </h2>
@@ -146,8 +146,8 @@
             </div>
 
             {{-- Top Counterparties — Horizontal Bar Chart --}}
-            <div class="bg-white rounded-lg border border-gray-200 p-4">
-                <h2 class="text-sm font-semibold text-gray-900 mb-4">
+            <div class="bg-white rounded-2xl shadow-sm p-6">
+                <h2 class="text-xl font-bold text-gray-900 mb-4">
                     Top {{ $direction === 'debit' ? 'Zahlungsempfaenger' : 'Einzahler' }}
                     <span class="text-[11px] font-normal text-gray-400 ml-1">{{ $direction === 'debit' ? 'Ausgaben' : 'Einnahmen' }}</span>
                 </h2>

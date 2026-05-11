@@ -11,7 +11,7 @@
     </x-slot>
 
     <x-ui-page-container>
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
             {{-- Links: Tab-Navigation + Listen --}}
             <div class="lg:col-span-2">
@@ -41,7 +41,7 @@
                 {{-- Tab: Vorschlaege --}}
                 @if($activeTab === 'suggestions')
                     <div class="flex items-center justify-between mb-3">
-                        <h3 class="text-sm font-semibold text-gray-900">Erkannte Muster</h3>
+                        <h3 class="text-xl font-bold text-gray-900">Erkannte Muster</h3>
                         <div class="flex items-center gap-2">
                             @if(count($suggestions) > 0)
                                 <button wire:click="confirmAllSuggestions" wire:confirm="Alle Vorschlaege bestaetigen?"
@@ -61,7 +61,7 @@
                     @if(count($suggestions) > 0)
                         <div class="space-y-2">
                             @foreach($suggestions as $s)
-                                <div class="bg-white rounded-lg border border-gray-200 px-4 py-3">
+                                <div class="bg-white rounded-2xl shadow-sm px-6 py-4">
                                     <div class="flex items-center justify-between">
                                         <div class="flex-1 min-w-0 mr-3">
                                             <div class="flex items-center gap-2 mb-1">
@@ -98,11 +98,11 @@
                             @endforeach
                         </div>
                     @else
-                        <div class="bg-white rounded-lg border border-gray-200 p-12 text-center">
+                        <div class="bg-white rounded-2xl shadow-sm p-12 text-center">
                             <div class="text-gray-400 mb-4">
                                 @svg('heroicon-o-light-bulb', 'w-12 h-12 mx-auto')
                             </div>
-                            <h3 class="text-sm font-semibold text-gray-900 mb-1">Keine Vorschlaege</h3>
+                            <h3 class="text-xl font-bold text-gray-900 mb-1">Keine Vorschlaege</h3>
                             <p class="text-[13px] text-gray-500">Klicke auf "Scannen", um wiederkehrende Transaktionen zu erkennen.</p>
                         </div>
                     @endif
@@ -111,9 +111,9 @@
                 {{-- Tab: Aktiv --}}
                 @if($activeTab === 'active')
                     @if(count($budgets) > 0)
-                        <div class="bg-white rounded-lg border border-gray-200">
+                        <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
                             @foreach($budgets as $index => $b)
-                                <div class="flex items-center justify-between px-4 py-3 {{ $index < count($budgets) - 1 ? 'border-b border-gray-100' : '' }} {{ $b['status'] === 'paused' ? 'opacity-50' : '' }}">
+                                <div class="flex items-center justify-between px-6 py-4 {{ $index < count($budgets) - 1 ? 'border-b border-gray-100' : '' }} {{ $b['status'] === 'paused' ? 'opacity-50' : '' }}">
                                     <div class="flex-1 min-w-0 mr-4">
                                         <div class="flex items-center gap-2 mb-1.5">
                                             <div class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: {{ $b['category_color'] }}"></div>
@@ -184,13 +184,13 @@
 
                         {{-- Periods panel --}}
                         @if($showPeriodsFor && count($periods) > 0)
-                            <div class="mt-3 bg-white rounded-lg border border-gray-200">
-                                <div class="px-4 py-2 border-b border-gray-100 bg-gray-50 rounded-t-lg">
+                            <div class="mt-4 bg-white rounded-2xl shadow-sm overflow-hidden">
+                                <div class="px-6 py-3 border-b border-gray-100 bg-gray-50">
                                     <h4 class="text-[12px] font-medium text-gray-600 uppercase tracking-wide">Perioden</h4>
                                 </div>
                                 <div class="divide-y divide-gray-100">
                                     @foreach($periods as $p)
-                                        <div class="flex items-center justify-between px-4 py-2 {{ $p['status'] === 'skipped' ? 'opacity-40 line-through' : '' }}">
+                                        <div class="flex items-center justify-between px-6 py-3 {{ $p['status'] === 'skipped' ? 'opacity-40 line-through' : '' }}">
                                             <div class="flex items-center gap-3 flex-1 min-w-0">
                                                 <span class="text-[13px] font-medium text-gray-700 w-20 shrink-0">{{ $p['period_label'] }}</span>
                                                 @if($p['expected_date'])
@@ -248,16 +248,16 @@
                                 </div>
                             </div>
                         @elseif($showPeriodsFor && count($periods) === 0)
-                            <div class="mt-3 bg-white rounded-lg border border-gray-200 p-6 text-center">
+                            <div class="mt-3 bg-white rounded-2xl shadow-sm p-6 text-center">
                                 <p class="text-[13px] text-gray-500">Keine Perioden vorhanden.</p>
                             </div>
                         @endif
                     @else
-                        <div class="bg-white rounded-lg border border-gray-200 p-12 text-center">
+                        <div class="bg-white rounded-2xl shadow-sm p-12 text-center">
                             <div class="text-gray-400 mb-4">
                                 @svg('heroicon-o-calculator', 'w-12 h-12 mx-auto')
                             </div>
-                            <h3 class="text-sm font-semibold text-gray-900 mb-1">Noch keine Budgets</h3>
+                            <h3 class="text-xl font-bold text-gray-900 mb-1">Noch keine Budgets</h3>
                             <p class="text-[13px] text-gray-500">Erstelle ein Budget oder uebernimm einen Vorschlag.</p>
                         </div>
                     @endif
@@ -271,7 +271,7 @@
                                     class="p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
                                 @svg('heroicon-o-chevron-left', 'w-4 h-4')
                             </button>
-                            <span class="text-sm font-semibold text-gray-900 w-36 text-center">{{ $historyMonthLabel }}</span>
+                            <span class="text-xl font-bold text-gray-900 w-36 text-center">{{ $historyMonthLabel }}</span>
                             <button wire:click="nextMonth"
                                     class="p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
                                 @svg('heroicon-o-chevron-right', 'w-4 h-4')
@@ -280,7 +280,7 @@
                     </div>
 
                     @if(count($historyBudgets) > 0)
-                        <div class="bg-white rounded-lg border border-gray-200">
+                        <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
                             @foreach($historyBudgets as $index => $b)
                                 @php
                                     if ($b['percent'] >= 80 && $b['percent'] <= 120) {
@@ -292,7 +292,7 @@
                                     }
                                     $histBarWidth = min($b['percent'], 100);
                                 @endphp
-                                <div class="flex items-center justify-between px-4 py-3 {{ $index < count($historyBudgets) - 1 ? 'border-b border-gray-100' : '' }}">
+                                <div class="flex items-center justify-between px-6 py-4 {{ $index < count($historyBudgets) - 1 ? 'border-b border-gray-100' : '' }}">
                                     <div class="flex-1 min-w-0 mr-4">
                                         <div class="flex items-center gap-2 mb-1.5">
                                             <div class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: {{ $b['category_color'] }}"></div>
@@ -320,7 +320,7 @@
                             @endforeach
 
                             {{-- Summary --}}
-                            <div class="px-4 py-3 border-t border-gray-200 bg-gray-50 rounded-b-lg">
+                            <div class="px-6 py-4 border-t border-gray-100 bg-gray-50">
                                 <div class="flex items-center justify-between">
                                     <span class="text-[13px] font-medium text-gray-700">Gesamt</span>
                                     <span class="text-[13px] tabular-nums font-medium text-gray-900">
@@ -333,11 +333,11 @@
                             </div>
                         </div>
                     @else
-                        <div class="bg-white rounded-lg border border-gray-200 p-12 text-center">
+                        <div class="bg-white rounded-2xl shadow-sm p-12 text-center">
                             <div class="text-gray-400 mb-4">
                                 @svg('heroicon-o-clock', 'w-12 h-12 mx-auto')
                             </div>
-                            <h3 class="text-sm font-semibold text-gray-900 mb-1">Keine Daten</h3>
+                            <h3 class="text-xl font-bold text-gray-900 mb-1">Keine Daten</h3>
                             <p class="text-[13px] text-gray-500">Fuer diesen Monat gibt es keine Budget-Daten.</p>
                         </div>
                     @endif
@@ -346,8 +346,8 @@
 
             {{-- Rechts: Formular --}}
             <div class="lg:col-span-1">
-                <div class="bg-white rounded-lg border border-gray-200 p-5">
-                    <h3 class="text-sm font-semibold text-gray-900 mb-4">
+                <div class="bg-white rounded-2xl shadow-sm p-6">
+                    <h3 class="text-xl font-bold text-gray-900 mb-4">
                         {{ $editingId ? 'Budget bearbeiten' : 'Budget erstellen' }}
                     </h3>
 

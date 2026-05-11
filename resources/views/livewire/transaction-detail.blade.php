@@ -14,7 +14,7 @@
     <x-ui-page-container>
 
         {{-- Header: Amount + Direction + Date --}}
-        <div class="bg-white rounded-lg border border-gray-200 p-6 mb-4">
+        <div class="bg-white rounded-2xl shadow-sm p-6 mb-6">
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-4">
                     <span class="text-3xl font-bold tabular-nums {{ $transaction->direction === 'credit' ? 'text-green-600' : 'text-red-600' }}">
@@ -31,7 +31,7 @@
         </div>
 
         {{-- Gegenpartei --}}
-        <div class="bg-white rounded-lg border border-gray-200 p-6 mb-4">
+        <div class="bg-white rounded-2xl shadow-sm p-6 mb-6">
             <h3 class="text-[11px] font-medium text-gray-500 uppercase tracking-wide mb-4">Gegenpartei</h3>
             @php
                 $cpName = $transaction->counterparty_name
@@ -65,7 +65,7 @@
 
         {{-- Verwendungszweck --}}
         @if($transaction->reference || $transaction->remittance_information || $transaction->remittance_information_structured || $transaction->remittance_information_unstructured)
-            <div class="bg-white rounded-lg border border-gray-200 p-6 mb-4">
+            <div class="bg-white rounded-2xl shadow-sm p-6 mb-6">
                 <h3 class="text-[11px] font-medium text-gray-500 uppercase tracking-wide mb-4">Verwendungszweck</h3>
                 <div class="space-y-3">
                     @if($transaction->reference)
@@ -98,7 +98,7 @@
 
         {{-- Zusatzinformationen --}}
         @if($transaction->additional_information || $transaction->additional_information_structured || $transaction->purpose_code || $transaction->end_to_end_id || $transaction->mandate_id || $transaction->merchant_category_code || $transaction->creditor_id)
-            <div class="bg-white rounded-lg border border-gray-200 p-6 mb-4">
+            <div class="bg-white rounded-2xl shadow-sm p-6 mb-6">
                 <h3 class="text-[11px] font-medium text-gray-500 uppercase tracking-wide mb-4">Zusatzinformationen</h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     @if($transaction->additional_information)
@@ -149,7 +149,7 @@
 
         {{-- Technische Details --}}
         @if($transaction->transaction_id || $transaction->internal_transaction_id || $transaction->entry_reference || $transaction->bank_transaction_code || $transaction->proprietary_bank_transaction_code)
-            <div class="bg-white rounded-lg border border-gray-200 p-6">
+            <div class="bg-white rounded-2xl shadow-sm p-6">
                 <h3 class="text-[11px] font-medium text-gray-500 uppercase tracking-wide mb-4">Technische Details</h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     @if($transaction->transaction_id)

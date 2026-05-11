@@ -33,7 +33,7 @@
         </div>
 
         {{-- Current Balance Card --}}
-        <div class="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+        <div class="bg-white rounded-2xl shadow-sm p-6 mb-8">
             <div class="text-[11px] font-medium text-gray-500 uppercase tracking-wide mb-1">Aktueller Kontostand</div>
             <div class="text-3xl font-bold tabular-nums {{ $plan['current_balance'] >= 0 ? 'text-gray-900' : 'text-red-600' }}">
                 {{ number_format($plan['current_balance'], 2, ',', '.') }} &euro;
@@ -48,9 +48,9 @@
                 $minBal = min($balances);
                 $maxBal = max($balances);
             @endphp
-            <div class="bg-white rounded-lg border border-gray-200 p-4 mb-6" wire:key="balance-curve-{{ $monthsAhead }}">
+            <div class="bg-white rounded-2xl shadow-sm p-6 mb-8 overflow-hidden" wire:key="balance-curve-{{ $monthsAhead }}">
                 <div class="flex items-center justify-between mb-3">
-                    <h3 class="text-sm font-semibold text-gray-900">Kontoverlauf-Prognose</h3>
+                    <h3 class="text-xl font-bold text-gray-900">Kontoverlauf-Prognose</h3>
                     <div class="flex items-center gap-3 text-[11px] text-gray-400">
                         <span>Min: {{ number_format($minBal, 0, ',', '.') }} &euro;</span>
                         <span>Max: {{ number_format($maxBal, 0, ',', '.') }} &euro;</span>
@@ -82,18 +82,18 @@
             </div>
         @endif
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
             {{-- Left: Monthly forecast table --}}
             <div class="lg:col-span-2">
-                <div class="bg-white rounded-lg border border-gray-200">
-                    <div class="px-4 py-3 border-b border-gray-100">
-                        <h3 class="text-sm font-semibold text-gray-900">Monatliche Prognose</h3>
+                <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
+                    <div class="px-6 py-4 border-b border-gray-100">
+                        <h3 class="text-xl font-bold text-gray-900">Monatliche Prognose</h3>
                     </div>
 
                     @if(count($plan['monthly_summary']) > 0)
                         {{-- Monthly Summary — Grouped Bar Chart --}}
-                        <div class="px-4 py-4 border-b border-gray-100" wire:key="monthly-bars-{{ $monthsAhead }}">
+                        <div class="px-6 py-4 border-b border-gray-100" wire:key="monthly-bars-{{ $monthsAhead }}">
                             <div wire:ignore x-data="{
                                 chart: null,
                                 init() {
@@ -124,23 +124,23 @@
                         <table class="w-full text-[13px]">
                             <thead>
                                 <tr class="border-b border-gray-100">
-                                    <th class="px-4 py-2 text-left font-medium text-gray-500">Monat</th>
-                                    <th class="px-4 py-2 text-right font-medium text-green-600">Einnahmen</th>
-                                    <th class="px-4 py-2 text-right font-medium text-red-600">Ausgaben</th>
-                                    <th class="px-4 py-2 text-right font-medium text-gray-500">Netto</th>
-                                    <th class="px-4 py-2 text-right font-medium text-gray-700">Endstand</th>
+                                    <th class="px-6 py-3 text-left font-medium text-gray-500">Monat</th>
+                                    <th class="px-6 py-3 text-right font-medium text-green-600">Einnahmen</th>
+                                    <th class="px-6 py-3 text-right font-medium text-red-600">Ausgaben</th>
+                                    <th class="px-6 py-3 text-right font-medium text-gray-500">Netto</th>
+                                    <th class="px-6 py-3 text-right font-medium text-gray-700">Endstand</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach($plan['monthly_summary'] as $ms)
                                     <tr class="border-b border-gray-50 last:border-b-0">
-                                        <td class="px-4 py-2 font-medium text-gray-700">{{ $ms['month'] }}</td>
-                                        <td class="px-4 py-2 text-right tabular-nums text-green-600">+{{ number_format($ms['credits'], 2, ',', '.') }}</td>
-                                        <td class="px-4 py-2 text-right tabular-nums text-red-600">-{{ number_format($ms['debits'], 2, ',', '.') }}</td>
-                                        <td class="px-4 py-2 text-right tabular-nums {{ $ms['net'] >= 0 ? 'text-green-600' : 'text-red-600' }}">
+                                        <td class="px-6 py-3 font-medium text-gray-700">{{ $ms['month'] }}</td>
+                                        <td class="px-6 py-3 text-right tabular-nums text-green-600">+{{ number_format($ms['credits'], 2, ',', '.') }}</td>
+                                        <td class="px-6 py-3 text-right tabular-nums text-red-600">-{{ number_format($ms['debits'], 2, ',', '.') }}</td>
+                                        <td class="px-6 py-3 text-right tabular-nums {{ $ms['net'] >= 0 ? 'text-green-600' : 'text-red-600' }}">
                                             {{ $ms['net'] >= 0 ? '+' : '' }}{{ number_format($ms['net'], 2, ',', '.') }}
                                         </td>
-                                        <td class="px-4 py-2 text-right tabular-nums font-medium {{ $ms['end_balance'] >= 0 ? 'text-gray-900' : 'text-red-600' }}">
+                                        <td class="px-6 py-3 text-right tabular-nums font-medium {{ $ms['end_balance'] >= 0 ? 'text-gray-900' : 'text-red-600' }}">
                                             {{ number_format($ms['end_balance'], 2, ',', '.') }} &euro;
                                         </td>
                                     </tr>
@@ -148,7 +148,7 @@
                             </tbody>
                         </table>
                     @else
-                        <div class="px-4 py-8 text-center">
+                        <div class="px-6 py-12 text-center">
                             <p class="text-[13px] text-gray-500">Keine Prognosedaten vorhanden.</p>
                             <p class="text-[11px] text-gray-400 mt-1">Fuehre <code class="bg-gray-100 px-1 rounded">drip:compute-liquidity</code> aus, um die Prognose zu berechnen.</p>
                         </div>
@@ -158,15 +158,15 @@
 
             {{-- Right: Upcoming items --}}
             <div class="lg:col-span-1">
-                <div class="bg-white rounded-lg border border-gray-200">
-                    <div class="px-4 py-3 border-b border-gray-100">
-                        <h3 class="text-sm font-semibold text-gray-900">Naechste geplante Posten</h3>
+                <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
+                    <div class="px-6 py-4 border-b border-gray-100">
+                        <h3 class="text-xl font-bold text-gray-900">Naechste geplante Posten</h3>
                     </div>
 
                     @if(count($plan['upcoming_items']) > 0)
                         <div class="divide-y divide-gray-50">
                             @foreach($plan['upcoming_items'] as $item)
-                                <div class="px-4 py-2.5">
+                                <div class="px-6 py-3">
                                     <div class="flex items-center justify-between mb-0.5">
                                         <span class="text-[13px] font-medium text-gray-900 truncate mr-2">{{ $item['name'] }}</span>
                                         <span class="text-[13px] tabular-nums font-medium shrink-0 {{ $item['direction'] === 'credit' ? 'text-green-600' : 'text-red-600' }}">
@@ -183,7 +183,7 @@
                             @endforeach
                         </div>
                     @else
-                        <div class="px-4 py-8 text-center">
+                        <div class="px-6 py-12 text-center">
                             <p class="text-[13px] text-gray-500">Keine geplanten Posten.</p>
                             <p class="text-[11px] text-gray-400 mt-1">Erstelle Budgets, um Prognosen zu sehen.</p>
                         </div>
