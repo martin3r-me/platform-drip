@@ -13,59 +13,253 @@
     <x-ui-page-container>
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-            {{-- Links: Budget-Liste --}}
+            {{-- Links: Tab-Navigation + Listen --}}
             <div class="lg:col-span-2">
-                @if (count($budgets) > 0)
-                    <div class="bg-white rounded-lg border border-gray-200">
-                        @foreach ($budgets as $index => $b)
-                            <div class="flex items-center justify-between px-4 py-3 {{ $index < count($budgets) - 1 ? 'border-b border-gray-100' : '' }} {{ !$b['is_active'] ? 'opacity-50' : '' }}">
-                                <div class="flex-1 min-w-0 mr-4">
-                                    <div class="flex items-center gap-2 mb-1.5">
-                                        <div class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: {{ $b['category_color'] }}"></div>
-                                        <span class="text-sm font-medium text-gray-900 truncate">{{ $b['name'] }}</span>
-                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-500 shrink-0">
-                                            {{ match($b['frequency']) { 'weekly' => 'W', 'monthly' => 'M', 'quarterly' => 'Q', 'yearly' => 'J', default => $b['frequency'] } }}
-                                        </span>
-                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium {{ $b['direction'] === 'debit' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600' }} shrink-0">
-                                            {{ $b['direction'] === 'debit' ? 'Ausgabe' : 'Einnahme' }}
-                                        </span>
-                                    </div>
-                                    {{-- Progress bar --}}
-                                    <div class="flex items-center gap-3">
-                                        <div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                                            @php
-                                                $barColor = $b['percent'] <= 100 ? 'bg-green-500' : ($b['percent'] <= 120 ? 'bg-yellow-500' : 'bg-red-500');
-                                                $barWidth = min($b['percent'], 100);
-                                            @endphp
-                                            <div class="{{ $barColor }} h-2 rounded-full transition-all" style="width: {{ $barWidth }}%"></div>
+
+                {{-- Tabs --}}
+                <div class="flex items-center gap-1 mb-4 border-b border-gray-200">
+                    <button wire:click="$set('activeTab', 'suggestions')"
+                            class="px-3 py-2 text-[13px] font-medium border-b-2 transition-colors {{ $activeTab === 'suggestions' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}">
+                        Vorschlaege
+                        @if(count($suggestions) > 0)
+                            <span class="ml-1 inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-700">{{ count($suggestions) }}</span>
+                        @endif
+                    </button>
+                    <button wire:click="$set('activeTab', 'active')"
+                            class="px-3 py-2 text-[13px] font-medium border-b-2 transition-colors {{ $activeTab === 'active' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}">
+                        Aktiv
+                        @if(count($budgets) > 0)
+                            <span class="ml-1 inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600">{{ count($budgets) }}</span>
+                        @endif
+                    </button>
+                    <button wire:click="$set('activeTab', 'history')"
+                            class="px-3 py-2 text-[13px] font-medium border-b-2 transition-colors {{ $activeTab === 'history' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}">
+                        Verlauf
+                    </button>
+                </div>
+
+                {{-- Tab: Vorschlaege --}}
+                @if($activeTab === 'suggestions')
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-sm font-semibold text-gray-900">Erkannte Muster</h3>
+                        <div class="flex items-center gap-2">
+                            @if(count($suggestions) > 0)
+                                <button wire:click="confirmAllSuggestions" wire:confirm="Alle Vorschlaege bestaetigen?"
+                                        class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-medium bg-green-50 text-green-700 hover:bg-green-100 transition-colors">
+                                    @svg('heroicon-o-check', 'w-3.5 h-3.5')
+                                    Alle bestaetigen
+                                </button>
+                            @endif
+                            <button wire:click="runDetection"
+                                    class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-medium bg-gray-50 text-gray-600 hover:bg-gray-100 transition-colors">
+                                @svg('heroicon-o-arrow-path', 'w-3.5 h-3.5')
+                                Scannen
+                            </button>
+                        </div>
+                    </div>
+
+                    @if(count($suggestions) > 0)
+                        <div class="space-y-2">
+                            @foreach($suggestions as $s)
+                                <div class="bg-white rounded-lg border border-gray-200 px-4 py-3">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex-1 min-w-0 mr-3">
+                                            <div class="flex items-center gap-2 mb-1">
+                                                <span class="text-sm font-medium text-gray-900 truncate">{{ $s['name'] }}</span>
+                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium {{ $s['direction'] === 'debit' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600' }} shrink-0">
+                                                    {{ $s['direction'] === 'debit' ? 'Ausgabe' : 'Einnahme' }}
+                                                </span>
+                                                @if($s['category_name'])
+                                                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-gray-50 text-gray-600 shrink-0">
+                                                        <span class="w-1.5 h-1.5 rounded-full" style="background-color: {{ $s['category_color'] }}"></span>
+                                                        {{ $s['category_name'] }}
+                                                    </span>
+                                                @endif
+                                            </div>
+                                            <div class="flex items-center gap-3 text-[12px] text-gray-500">
+                                                <span class="tabular-nums font-medium">~{{ number_format($s['source_avg_amount'], 2, ',', '.') }} &euro;/Monat</span>
+                                                <span>{{ $s['source_month_count'] }} Monate erkannt</span>
+                                            </div>
                                         </div>
-                                        <span class="text-[12px] tabular-nums text-gray-600 shrink-0 w-36 text-right">
-                                            {{ number_format($b['actual'], 2, ',', '.') }} / {{ number_format($b['budget'], 2, ',', '.') }} &euro;
-                                        </span>
+                                        <div class="flex items-center gap-1 shrink-0">
+                                            <button wire:click="confirmSuggestion({{ $s['id'] }})"
+                                                    class="p-1.5 rounded-md text-green-500 hover:text-green-700 hover:bg-green-50 transition-colors"
+                                                    title="Bestaetigen">
+                                                @svg('heroicon-o-check-circle', 'w-5 h-5')
+                                            </button>
+                                            <button wire:click="dismissSuggestion({{ $s['id'] }})"
+                                                    class="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                                                    title="Ablehnen">
+                                                @svg('heroicon-o-x-mark', 'w-5 h-5')
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
-                                <div class="flex items-center gap-1 shrink-0">
-                                    <button type="button" wire:click="edit({{ $b['id'] }})"
-                                            class="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
-                                        @svg('heroicon-o-pencil-square', 'w-4 h-4')
-                                    </button>
-                                    <button type="button" wire:click="delete({{ $b['id'] }})"
-                                            wire:confirm="Budget '{{ $b['name'] }}' wirklich loeschen?"
-                                            class="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors">
-                                        @svg('heroicon-o-trash', 'w-4 h-4')
-                                    </button>
+                            @endforeach
+                        </div>
+                    @else
+                        <div class="bg-white rounded-lg border border-gray-200 p-12 text-center">
+                            <div class="text-gray-400 mb-4">
+                                @svg('heroicon-o-light-bulb', 'w-12 h-12 mx-auto')
+                            </div>
+                            <h3 class="text-sm font-semibold text-gray-900 mb-1">Keine Vorschlaege</h3>
+                            <p class="text-[13px] text-gray-500">Klicke auf "Scannen", um wiederkehrende Transaktionen zu erkennen.</p>
+                        </div>
+                    @endif
+                @endif
+
+                {{-- Tab: Aktiv --}}
+                @if($activeTab === 'active')
+                    @if(count($budgets) > 0)
+                        <div class="bg-white rounded-lg border border-gray-200">
+                            @foreach($budgets as $index => $b)
+                                <div class="flex items-center justify-between px-4 py-3 {{ $index < count($budgets) - 1 ? 'border-b border-gray-100' : '' }} {{ $b['status'] === 'paused' ? 'opacity-50' : '' }}">
+                                    <div class="flex-1 min-w-0 mr-4">
+                                        <div class="flex items-center gap-2 mb-1.5">
+                                            <div class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: {{ $b['category_color'] }}"></div>
+                                            <span class="text-sm font-medium text-gray-900 truncate">{{ $b['name'] }}</span>
+                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-500 shrink-0">
+                                                {{ match($b['frequency']) { 'weekly' => 'W', 'monthly' => 'M', 'quarterly' => 'Q', 'yearly' => 'J', default => $b['frequency'] } }}
+                                            </span>
+                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium {{ $b['direction'] === 'debit' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600' }} shrink-0">
+                                                {{ $b['direction'] === 'debit' ? 'Ausgabe' : 'Einnahme' }}
+                                            </span>
+                                            @if($b['status'] === 'paused')
+                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-yellow-50 text-yellow-700 shrink-0">Pausiert</span>
+                                            @endif
+                                        </div>
+                                        {{-- Progress bar --}}
+                                        <div class="flex items-center gap-3">
+                                            <div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                                                @php
+                                                    $barColor = $b['percent'] <= 100 ? 'bg-green-500' : ($b['percent'] <= 120 ? 'bg-yellow-500' : 'bg-red-500');
+                                                    $barWidth = min($b['percent'], 100);
+                                                @endphp
+                                                <div class="{{ $barColor }} h-2 rounded-full transition-all" style="width: {{ $barWidth }}%"></div>
+                                            </div>
+                                            <span class="text-[12px] tabular-nums text-gray-600 shrink-0 w-36 text-right">
+                                                {{ number_format($b['actual'], 2, ',', '.') }} / {{ number_format($b['budget'], 2, ',', '.') }} &euro;
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-1 shrink-0">
+                                        <button type="button" wire:click="togglePause({{ $b['id'] }})"
+                                                class="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                                                title="{{ $b['status'] === 'paused' ? 'Fortsetzen' : 'Pausieren' }}">
+                                            @if($b['status'] === 'paused')
+                                                @svg('heroicon-o-play', 'w-4 h-4')
+                                            @else
+                                                @svg('heroicon-o-pause', 'w-4 h-4')
+                                            @endif
+                                        </button>
+                                        <button type="button" wire:click="edit({{ $b['id'] }})"
+                                                class="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+                                            @svg('heroicon-o-pencil-square', 'w-4 h-4')
+                                        </button>
+                                        <button type="button" wire:click="archive({{ $b['id'] }})"
+                                                wire:confirm="Budget '{{ $b['name'] }}' archivieren?"
+                                                class="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                                                title="Archivieren">
+                                            @svg('heroicon-o-archive-box', 'w-4 h-4')
+                                        </button>
+                                        <button type="button" wire:click="delete({{ $b['id'] }})"
+                                                wire:confirm="Budget '{{ $b['name'] }}' wirklich loeschen?"
+                                                class="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors">
+                                            @svg('heroicon-o-trash', 'w-4 h-4')
+                                        </button>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    @else
+                        <div class="bg-white rounded-lg border border-gray-200 p-12 text-center">
+                            <div class="text-gray-400 mb-4">
+                                @svg('heroicon-o-calculator', 'w-12 h-12 mx-auto')
+                            </div>
+                            <h3 class="text-sm font-semibold text-gray-900 mb-1">Noch keine Budgets</h3>
+                            <p class="text-[13px] text-gray-500">Erstelle ein Budget oder uebernimm einen Vorschlag.</p>
+                        </div>
+                    @endif
+                @endif
+
+                {{-- Tab: Verlauf --}}
+                @if($activeTab === 'history')
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center gap-2">
+                            <button wire:click="previousMonth"
+                                    class="p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+                                @svg('heroicon-o-chevron-left', 'w-4 h-4')
+                            </button>
+                            <span class="text-sm font-semibold text-gray-900 w-36 text-center">{{ $historyMonthLabel }}</span>
+                            <button wire:click="nextMonth"
+                                    class="p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+                                @svg('heroicon-o-chevron-right', 'w-4 h-4')
+                            </button>
+                        </div>
+                    </div>
+
+                    @if(count($historyBudgets) > 0)
+                        <div class="bg-white rounded-lg border border-gray-200">
+                            @foreach($historyBudgets as $index => $b)
+                                @php
+                                    if ($b['percent'] >= 80 && $b['percent'] <= 120) {
+                                        $histBarColor = 'bg-green-500';
+                                    } elseif (($b['percent'] >= 50 && $b['percent'] < 80) || ($b['percent'] > 120 && $b['percent'] <= 150)) {
+                                        $histBarColor = 'bg-yellow-500';
+                                    } else {
+                                        $histBarColor = 'bg-red-500';
+                                    }
+                                    $histBarWidth = min($b['percent'], 100);
+                                @endphp
+                                <div class="flex items-center justify-between px-4 py-3 {{ $index < count($historyBudgets) - 1 ? 'border-b border-gray-100' : '' }}">
+                                    <div class="flex-1 min-w-0 mr-4">
+                                        <div class="flex items-center gap-2 mb-1.5">
+                                            <div class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: {{ $b['category_color'] }}"></div>
+                                            <span class="text-sm font-medium text-gray-900 truncate">{{ $b['name'] }}</span>
+                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium {{ $b['direction'] === 'debit' ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600' }} shrink-0">
+                                                {{ $b['direction'] === 'debit' ? 'Ausgabe' : 'Einnahme' }}
+                                            </span>
+                                            @if($b['status'] === 'archived')
+                                                <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-500 shrink-0">Archiviert</span>
+                                            @endif
+                                        </div>
+                                        <div class="flex items-center gap-3">
+                                            <div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                                                <div class="{{ $histBarColor }} h-2 rounded-full transition-all" style="width: {{ $histBarWidth }}%"></div>
+                                            </div>
+                                            <span class="text-[12px] tabular-nums text-gray-600 shrink-0 w-36 text-right">
+                                                {{ number_format($b['actual'], 2, ',', '.') }} / {{ number_format($b['budget'], 2, ',', '.') }} &euro;
+                                            </span>
+                                            <span class="text-[11px] tabular-nums font-medium shrink-0 w-12 text-right {{ $b['percent'] >= 80 && $b['percent'] <= 120 ? 'text-green-600' : ($b['percent'] >= 50 && $b['percent'] <= 150 ? 'text-yellow-600' : 'text-red-600') }}">
+                                                {{ $b['percent'] }}%
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            @endforeach
+
+                            {{-- Summary --}}
+                            <div class="px-4 py-3 border-t border-gray-200 bg-gray-50 rounded-b-lg">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-[13px] font-medium text-gray-700">Gesamt</span>
+                                    <span class="text-[13px] tabular-nums font-medium text-gray-900">
+                                        {{ number_format($historyTotalActual, 2, ',', '.') }} / {{ number_format($historyTotalBudget, 2, ',', '.') }} &euro;
+                                        @if($historyTotalBudget > 0)
+                                            <span class="text-gray-500">({{ round($historyTotalActual / $historyTotalBudget * 100, 1) }}%)</span>
+                                        @endif
+                                    </span>
                                 </div>
                             </div>
-                        @endforeach
-                    </div>
-                @else
-                    <div class="bg-white rounded-lg border border-gray-200 p-12 text-center">
-                        <div class="text-gray-400 mb-4">
-                            @svg('heroicon-o-calculator', 'w-12 h-12 mx-auto')
                         </div>
-                        <h3 class="text-sm font-semibold text-gray-900 mb-1">Noch keine Budgets</h3>
-                        <p class="text-[13px] text-gray-500">Erstelle ein Budget, um Soll/Ist-Vergleiche zu sehen.</p>
-                    </div>
+                    @else
+                        <div class="bg-white rounded-lg border border-gray-200 p-12 text-center">
+                            <div class="text-gray-400 mb-4">
+                                @svg('heroicon-o-clock', 'w-12 h-12 mx-auto')
+                            </div>
+                            <h3 class="text-sm font-semibold text-gray-900 mb-1">Keine Daten</h3>
+                            <p class="text-[13px] text-gray-500">Fuer diesen Monat gibt es keine Budget-Daten.</p>
+                        </div>
+                    @endif
                 @endif
             </div>
 
@@ -149,6 +343,37 @@
                                    class="w-full px-3 py-1.5 rounded-md border border-gray-200 text-[13px] text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                                    placeholder="z.B. 15">
                             @error('formDayOfMonth')
+                                <p class="mt-1 text-[11px] text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        {{-- Startdatum --}}
+                        <div>
+                            <label for="budget-start" class="block text-[13px] font-medium text-gray-700 mb-1">Startdatum (optional)</label>
+                            <input type="date" id="budget-start" wire:model="formStartDate"
+                                   class="w-full px-3 py-1.5 rounded-md border border-gray-200 text-[13px] text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                            @error('formStartDate')
+                                <p class="mt-1 text-[11px] text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        {{-- Enddatum --}}
+                        <div>
+                            <label for="budget-end" class="block text-[13px] font-medium text-gray-700 mb-1">Enddatum (optional)</label>
+                            <input type="date" id="budget-end" wire:model="formEndDate"
+                                   class="w-full px-3 py-1.5 rounded-md border border-gray-200 text-[13px] text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                            @error('formEndDate')
+                                <p class="mt-1 text-[11px] text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
+
+                        {{-- Notizen --}}
+                        <div>
+                            <label for="budget-notes" class="block text-[13px] font-medium text-gray-700 mb-1">Notizen (optional)</label>
+                            <textarea id="budget-notes" wire:model="formNotes" rows="2"
+                                      class="w-full px-3 py-1.5 rounded-md border border-gray-200 text-[13px] text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                      placeholder="Anmerkungen..."></textarea>
+                            @error('formNotes')
                                 <p class="mt-1 text-[11px] text-red-600">{{ $message }}</p>
                             @enderror
                         </div>

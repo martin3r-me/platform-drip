@@ -162,6 +162,7 @@ class DripServiceProvider extends ServiceProvider
                 \Platform\Drip\Console\Commands\AnalyzeRawLogsCommand::class,
                 \Platform\Drip\Console\Commands\DeduplicateTransactionsCommand::class,
                 \Platform\Drip\Console\Commands\WipeTransactionsCommand::class,
+                \Platform\Drip\Console\Commands\DetectRecurringBudgetsCommand::class,
             ]);
         }
     }

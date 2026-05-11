@@ -3,13 +3,14 @@
 namespace Platform\Drip\Livewire;
 
 use Livewire\Component;
-use Platform\Drip\Models\BankTransaction;
 use Platform\Drip\Models\BankTransactionCategory;
 use Platform\Drip\Models\BudgetItem;
+use Platform\Drip\Services\RecurringDetectionService;
 
 class Budgets extends Component
 {
     public ?int $editingId = null;
+    public string $activeTab = 'active';
 
     public string $formName = '';
     public ?int $formCategoryId = null;
@@ -18,6 +19,16 @@ class Budgets extends Component
     public string $formFrequency = 'monthly';
     public ?int $formDayOfMonth = null;
     public bool $formIsActive = true;
+    public ?string $formStartDate = null;
+    public ?string $formEndDate = null;
+    public ?string $formNotes = null;
+
+    public string $historyMonth = '';
+
+    public function mount(): void
+    {
+        $this->historyMonth = now()->format('Y-m');
+    }
 
     protected function rules(): array
     {
@@ -29,6 +40,9 @@ class Budgets extends Component
             'formFrequency' => ['required', 'string', 'in:monthly,quarterly,yearly,weekly'],
             'formDayOfMonth' => ['nullable', 'integer', 'min:1', 'max:31'],
             'formIsActive' => ['boolean'],
+            'formStartDate' => ['nullable', 'date'],
+            'formEndDate' => ['nullable', 'date'],
+            'formNotes' => ['nullable', 'string', 'max:1000'],
         ];
     }
 
@@ -46,6 +60,9 @@ class Budgets extends Component
             'frequency' => $this->formFrequency,
             'day_of_month' => $this->formDayOfMonth,
             'is_active' => $this->formIsActive,
+            'start_date' => $this->formStartDate ?: null,
+            'end_date' => $this->formEndDate ?: null,
+            'notes' => $this->formNotes ?: null,
         ];
 
         if ($this->editingId) {
@@ -53,6 +70,8 @@ class Budgets extends Component
             $budget->update($data);
         } else {
             $data['team_id'] = $teamId;
+            $data['status'] = 'active';
+            $data['source_type'] = 'manual';
             BudgetItem::create($data);
         }
 
@@ -72,6 +91,10 @@ class Budgets extends Component
         $this->formFrequency = $budget->frequency;
         $this->formDayOfMonth = $budget->day_of_month;
         $this->formIsActive = $budget->is_active;
+        $this->formStartDate = $budget->start_date?->format('Y-m-d');
+        $this->formEndDate = $budget->end_date?->format('Y-m-d');
+        $this->formNotes = $budget->notes;
+        $this->activeTab = 'active';
     }
 
     public function cancel(): void
@@ -84,6 +107,9 @@ class Budgets extends Component
         $this->formFrequency = 'monthly';
         $this->formDayOfMonth = null;
         $this->formIsActive = true;
+        $this->formStartDate = null;
+        $this->formEndDate = null;
+        $this->formNotes = null;
         $this->resetValidation();
     }
 
@@ -97,63 +123,155 @@ class Budgets extends Component
         }
     }
 
+    public function confirmSuggestion(int $id): void
+    {
+        $teamId = (int) auth()->user()?->current_team_id;
+        $budget = BudgetItem::where('team_id', $teamId)->suggested()->findOrFail($id);
+        $budget->confirm();
+        $this->activeTab = 'active';
+    }
+
+    public function dismissSuggestion(int $id): void
+    {
+        $teamId = (int) auth()->user()?->current_team_id;
+        $budget = BudgetItem::where('team_id', $teamId)->where('status', 'suggested')->findOrFail($id);
+        $budget->dismiss();
+    }
+
+    public function confirmAllSuggestions(): void
+    {
+        $teamId = (int) auth()->user()?->current_team_id;
+        BudgetItem::where('team_id', $teamId)->suggested()->each(fn ($b) => $b->confirm());
+        $this->activeTab = 'active';
+    }
+
+    public function togglePause(int $id): void
+    {
+        $teamId = (int) auth()->user()?->current_team_id;
+        $budget = BudgetItem::where('team_id', $teamId)->findOrFail($id);
+
+        if ($budget->status === 'paused') {
+            $budget->resume();
+        } else {
+            $budget->pause();
+        }
+    }
+
+    public function archive(int $id): void
+    {
+        $teamId = (int) auth()->user()?->current_team_id;
+        $budget = BudgetItem::where('team_id', $teamId)->findOrFail($id);
+        $budget->archive();
+    }
+
+    public function runDetection(): void
+    {
+        $teamId = (int) auth()->user()?->current_team_id;
+        $service = app(RecurringDetectionService::class);
+        $service->createSuggestions($teamId);
+        $this->activeTab = 'suggestions';
+    }
+
+    public function previousMonth(): void
+    {
+        $this->historyMonth = \Illuminate\Support\Carbon::createFromFormat('Y-m', $this->historyMonth)
+            ->subMonth()
+            ->format('Y-m');
+    }
+
+    public function nextMonth(): void
+    {
+        $this->historyMonth = \Illuminate\Support\Carbon::createFromFormat('Y-m', $this->historyMonth)
+            ->addMonth()
+            ->format('Y-m');
+    }
+
     public function render()
     {
         $teamId = (int) auth()->user()?->current_team_id;
-
-        $budgetItems = BudgetItem::where('team_id', $teamId)
-            ->with('category')
-            ->orderBy('name')
-            ->get();
-
-        // Calculate actual amounts for current month
         $monthStart = now()->startOfMonth();
-        $monthEnd = now()->endOfMonth();
 
-        $budgets = $budgetItems->map(function (BudgetItem $item) use ($teamId, $monthStart, $monthEnd) {
-            $monthlyBudget = $item->monthlyAmount();
-
-            $actual = 0;
-            if ($item->category_id) {
-                $actual = BankTransaction::where('team_id', $teamId)
-                    ->where('category_id', $item->category_id)
-                    ->where('direction', $item->direction)
-                    ->where(function ($q) use ($monthStart, $monthEnd) {
-                        $q->where(function ($inner) use ($monthStart, $monthEnd) {
-                            $inner->whereNotNull('booked_at')
-                                ->whereBetween('booked_at', [$monthStart, $monthEnd]);
-                        })->orWhere(function ($or) use ($monthStart, $monthEnd) {
-                            $or->whereNull('booked_at')
-                                ->whereBetween('created_at', [$monthStart, $monthEnd]);
-                        });
-                    })
-                    ->get(['amount'])
-                    ->sum(fn ($t) => abs((float) $t->amount));
-            }
-
-            $percent = $monthlyBudget > 0 ? round($actual / $monthlyBudget * 100, 1) : 0;
-
-            return [
+        // Suggestions
+        $suggestions = BudgetItem::where('team_id', $teamId)
+            ->suggested()
+            ->with('category')
+            ->orderByDesc('source_avg_amount')
+            ->get()
+            ->map(fn (BudgetItem $item) => [
                 'id' => $item->id,
                 'name' => $item->name,
                 'direction' => $item->direction,
-                'frequency' => $item->frequency,
-                'day_of_month' => $item->day_of_month,
-                'is_active' => $item->is_active,
+                'source_counterparty' => $item->source_counterparty,
+                'source_avg_amount' => (float) $item->source_avg_amount,
+                'source_month_count' => $item->source_month_count,
                 'category_name' => $item->category?->name,
                 'category_color' => $item->category?->color ?? '#6B7280',
-                'budget' => $monthlyBudget,
-                'actual' => $actual,
-                'percent' => $percent,
-            ];
-        })->toArray();
+                'suggested_at' => $item->suggested_at,
+            ])
+            ->toArray();
+
+        // Active budgets with fulfillment for current month
+        $activeBudgets = BudgetItem::where('team_id', $teamId)
+            ->whereIn('status', ['active', 'paused'])
+            ->with('category')
+            ->orderBy('name')
+            ->get()
+            ->map(function (BudgetItem $item) use ($teamId, $monthStart) {
+                $fulfillment = $item->fulfillmentForMonth($monthStart, $teamId);
+                return [
+                    'id' => $item->id,
+                    'name' => $item->name,
+                    'direction' => $item->direction,
+                    'frequency' => $item->frequency,
+                    'day_of_month' => $item->day_of_month,
+                    'is_active' => $item->is_active,
+                    'status' => $item->status,
+                    'category_name' => $item->category?->name,
+                    'category_color' => $item->category?->color ?? '#6B7280',
+                    'budget' => $fulfillment['budget'],
+                    'actual' => $fulfillment['actual'],
+                    'percent' => $fulfillment['percent'],
+                ];
+            })
+            ->toArray();
+
+        // History: fulfillment for selected month
+        $historyMonthStart = \Illuminate\Support\Carbon::createFromFormat('Y-m', $this->historyMonth)->startOfMonth();
+        $historyBudgets = BudgetItem::where('team_id', $teamId)
+            ->whereIn('status', ['active', 'paused', 'archived'])
+            ->with('category')
+            ->orderBy('name')
+            ->get()
+            ->map(function (BudgetItem $item) use ($teamId, $historyMonthStart) {
+                $fulfillment = $item->fulfillmentForMonth($historyMonthStart, $teamId);
+                return [
+                    'id' => $item->id,
+                    'name' => $item->name,
+                    'direction' => $item->direction,
+                    'status' => $item->status,
+                    'category_name' => $item->category?->name,
+                    'category_color' => $item->category?->color ?? '#6B7280',
+                    'budget' => $fulfillment['budget'],
+                    'actual' => $fulfillment['actual'],
+                    'percent' => $fulfillment['percent'],
+                ];
+            })
+            ->toArray();
+
+        $historyTotalBudget = array_sum(array_column($historyBudgets, 'budget'));
+        $historyTotalActual = array_sum(array_column($historyBudgets, 'actual'));
 
         $categories = BankTransactionCategory::where('team_id', $teamId)
             ->orderBy('name')
             ->get(['id', 'name', 'color']);
 
         return view('drip::livewire.budgets', [
-            'budgets' => $budgets,
+            'suggestions' => $suggestions,
+            'budgets' => $activeBudgets,
+            'historyBudgets' => $historyBudgets,
+            'historyTotalBudget' => $historyTotalBudget,
+            'historyTotalActual' => $historyTotalActual,
+            'historyMonthLabel' => $historyMonthStart->translatedFormat('F Y'),
             'categories' => $categories,
         ])->layout('platform::layouts.app');
     }

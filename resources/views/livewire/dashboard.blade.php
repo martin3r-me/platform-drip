@@ -126,7 +126,12 @@
             <div class="bg-white rounded-lg border border-gray-200 p-4 mb-6">
                 <div class="flex items-center justify-between mb-4">
                     <h2 class="text-sm font-semibold text-gray-900">Budget-Status</h2>
-                    <a href="{{ route('drip.budgets') }}" wire:navigate class="text-[11px] text-blue-600 hover:text-blue-700">Alle Budgets</a>
+                    <a href="{{ route('drip.budgets') }}" wire:navigate class="text-[11px] text-blue-600 hover:text-blue-700">
+                        Alle Budgets
+                        @if($budgetSuggestionsCount > 0)
+                            <span class="ml-1 inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-700">{{ $budgetSuggestionsCount }} {{ $budgetSuggestionsCount === 1 ? 'Vorschlag' : 'Vorschlaege' }}</span>
+                        @endif
+                    </a>
                 </div>
                 <div class="space-y-2.5">
                     @foreach($budgetOverview as $b)

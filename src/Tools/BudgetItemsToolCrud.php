@@ -6,8 +6,8 @@ use Platform\Core\Contracts\ToolContract;
 use Platform\Core\Contracts\ToolContext;
 use Platform\Core\Contracts\ToolMetadataContract;
 use Platform\Core\Contracts\ToolResult;
-use Platform\Drip\Models\BankTransaction;
 use Platform\Drip\Models\BudgetItem;
+use Platform\Drip\Services\RecurringDetectionService;
 use Platform\Drip\Tools\Concerns\ResolvesDripTeam;
 
 class BudgetItemsToolCrud implements ToolContract, ToolMetadataContract
@@ -21,7 +21,7 @@ class BudgetItemsToolCrud implements ToolContract, ToolMetadataContract
 
     public function getDescription(): string
     {
-        return 'CRUD /drip/budgets - Verwaltet Budget-Items (Soll/Ist pro Kategorie). action=list (default, inkl. Ist-Werte), action=create (name + amount + direction + frequency required), action=update (budget_id + optionale Felder), action=delete (budget_id).';
+        return 'CRUD /drip/budgets - Verwaltet Budget-Items (Soll/Ist pro Kategorie). action=list (default, inkl. Ist-Werte, optional month=YYYY-MM, status=active|suggested|paused|archived), action=create, action=update, action=delete, action=suggestions (offene Vorschlaege), action=confirm (budget_id), action=dismiss (budget_id), action=detect (erkennt wiederkehrende Muster).';
     }
 
     public function getSchema(): array
@@ -31,12 +31,12 @@ class BudgetItemsToolCrud implements ToolContract, ToolMetadataContract
             'properties' => [
                 'action' => [
                     'type' => 'string',
-                    'enum' => ['list', 'create', 'update', 'delete'],
-                    'description' => 'Aktion: list, create, update, delete. Default: list.',
+                    'enum' => ['list', 'create', 'update', 'delete', 'suggestions', 'confirm', 'dismiss', 'detect'],
+                    'description' => 'Aktion: list, create, update, delete, suggestions, confirm, dismiss, detect. Default: list.',
                 ],
                 'budget_id' => [
                     'type' => 'integer',
-                    'description' => 'Budget-Item-ID (fuer update/delete).',
+                    'description' => 'Budget-Item-ID (fuer update/delete/confirm/dismiss).',
                 ],
                 'name' => [
                     'type' => 'string',
@@ -72,6 +72,15 @@ class BudgetItemsToolCrud implements ToolContract, ToolMetadataContract
                     'type' => 'string',
                     'description' => 'Notizen (optional).',
                 ],
+                'month' => [
+                    'type' => 'string',
+                    'description' => 'Monat fuer historische Fulfillment-Daten (YYYY-MM, fuer list).',
+                ],
+                'status' => [
+                    'type' => 'string',
+                    'enum' => ['active', 'suggested', 'paused', 'archived'],
+                    'description' => 'Status-Filter (fuer list).',
+                ],
                 'team_id' => [
                     'type' => 'integer',
                     'description' => 'Optional: Team-ID.',
@@ -95,45 +104,36 @@ class BudgetItemsToolCrud implements ToolContract, ToolMetadataContract
                 'create' => $this->create($arguments, $teamId, $context),
                 'update' => $this->update($arguments, $teamId),
                 'delete' => $this->delete($arguments, $teamId),
-                default => $this->list($teamId),
+                'suggestions' => $this->suggestions($teamId),
+                'confirm' => $this->confirm($arguments, $teamId),
+                'dismiss' => $this->dismiss($arguments, $teamId),
+                'detect' => $this->detect($teamId),
+                default => $this->list($arguments, $teamId),
             };
         } catch (\Throwable $e) {
             return ToolResult::error('EXECUTION_ERROR', $e->getMessage());
         }
     }
 
-    protected function list(int $teamId): ToolResult
+    protected function list(array $arguments, int $teamId): ToolResult
     {
-        $items = BudgetItem::where('team_id', $teamId)
-            ->with('category')
-            ->orderBy('name')
-            ->get();
+        $query = BudgetItem::where('team_id', $teamId)->with('category');
 
-        $monthStart = now()->startOfMonth();
-        $monthEnd = now()->endOfMonth();
+        if (isset($arguments['status'])) {
+            $query->where('status', $arguments['status']);
+        }
 
-        $data = $items->map(function (BudgetItem $item) use ($teamId, $monthStart, $monthEnd) {
-            $monthlyBudget = $item->monthlyAmount();
-            $actual = 0;
+        $items = $query->orderBy('name')->get();
 
-            if ($item->category_id) {
-                $actual = BankTransaction::where('team_id', $teamId)
-                    ->where('category_id', $item->category_id)
-                    ->where('direction', $item->direction)
-                    ->where(function ($q) use ($monthStart, $monthEnd) {
-                        $q->where(function ($inner) use ($monthStart, $monthEnd) {
-                            $inner->whereNotNull('booked_at')
-                                ->whereBetween('booked_at', [$monthStart, $monthEnd]);
-                        })->orWhere(function ($or) use ($monthStart, $monthEnd) {
-                            $or->whereNull('booked_at')
-                                ->whereBetween('created_at', [$monthStart, $monthEnd]);
-                        });
-                    })
-                    ->get(['amount'])
-                    ->sum(fn ($t) => abs((float) $t->amount));
-            }
+        // Determine which month to use for fulfillment
+        if (isset($arguments['month'])) {
+            $monthStart = \Illuminate\Support\Carbon::createFromFormat('Y-m', $arguments['month'])->startOfMonth();
+        } else {
+            $monthStart = now()->startOfMonth();
+        }
 
-            $percent = $monthlyBudget > 0 ? round($actual / $monthlyBudget * 100, 1) : 0;
+        $data = $items->map(function (BudgetItem $item) use ($teamId, $monthStart) {
+            $fulfillment = $item->fulfillmentForMonth($monthStart, $teamId);
 
             return [
                 'id' => $item->id,
@@ -141,11 +141,12 @@ class BudgetItemsToolCrud implements ToolContract, ToolMetadataContract
                 'direction' => $item->direction,
                 'amount' => (float) $item->amount,
                 'frequency' => $item->frequency,
-                'monthly_budget' => $monthlyBudget,
-                'actual_this_month' => $actual,
-                'percent' => $percent,
+                'monthly_budget' => $fulfillment['budget'],
+                'actual_this_month' => $fulfillment['actual'],
+                'percent' => $fulfillment['percent'],
                 'day_of_month' => $item->day_of_month,
                 'is_active' => $item->is_active,
+                'status' => $item->status,
                 'category' => $item->category ? [
                     'id' => $item->category->id,
                     'name' => $item->category->name,
@@ -158,6 +159,7 @@ class BudgetItemsToolCrud implements ToolContract, ToolMetadataContract
         return ToolResult::success([
             'data' => $data,
             'total' => count($data),
+            'month' => $monthStart->format('Y-m'),
             'team_id' => $teamId,
         ]);
     }
@@ -190,6 +192,8 @@ class BudgetItemsToolCrud implements ToolContract, ToolMetadataContract
             'notes' => $arguments['notes'] ?? null,
             'team_id' => $teamId,
             'user_id' => $context->user?->id,
+            'status' => 'active',
+            'source_type' => 'manual',
         ]);
 
         return ToolResult::success([
@@ -257,6 +261,85 @@ class BudgetItemsToolCrud implements ToolContract, ToolMetadataContract
         $item->delete();
 
         return ToolResult::success(['message' => "Budget '{$name}' geloescht."]);
+    }
+
+    protected function suggestions(int $teamId): ToolResult
+    {
+        $items = BudgetItem::where('team_id', $teamId)
+            ->suggested()
+            ->with('category')
+            ->orderByDesc('source_avg_amount')
+            ->get();
+
+        $data = $items->map(fn (BudgetItem $item) => [
+            'id' => $item->id,
+            'name' => $item->name,
+            'direction' => $item->direction,
+            'source_counterparty' => $item->source_counterparty,
+            'source_iban' => $item->source_iban,
+            'source_avg_amount' => (float) $item->source_avg_amount,
+            'source_month_count' => $item->source_month_count,
+            'amount' => (float) $item->amount,
+            'frequency' => $item->frequency,
+            'category' => $item->category ? [
+                'id' => $item->category->id,
+                'name' => $item->category->name,
+            ] : null,
+            'suggested_at' => $item->suggested_at?->toIso8601String(),
+        ])->toArray();
+
+        return ToolResult::success([
+            'data' => $data,
+            'total' => count($data),
+            'team_id' => $teamId,
+        ]);
+    }
+
+    protected function confirm(array $arguments, int $teamId): ToolResult
+    {
+        $id = $arguments['budget_id'] ?? null;
+        if (!$id) {
+            return ToolResult::error('VALIDATION_ERROR', 'budget_id ist erforderlich.');
+        }
+
+        $item = BudgetItem::where('team_id', $teamId)->where('status', 'suggested')->findOrFail($id);
+        $item->confirm();
+
+        return ToolResult::success([
+            'message' => "Vorschlag '{$item->name}' bestaetigt und aktiviert.",
+            'budget' => [
+                'id' => $item->id,
+                'name' => $item->name,
+                'status' => $item->status,
+            ],
+        ]);
+    }
+
+    protected function dismiss(array $arguments, int $teamId): ToolResult
+    {
+        $id = $arguments['budget_id'] ?? null;
+        if (!$id) {
+            return ToolResult::error('VALIDATION_ERROR', 'budget_id ist erforderlich.');
+        }
+
+        $item = BudgetItem::where('team_id', $teamId)->where('status', 'suggested')->findOrFail($id);
+        $item->dismiss();
+
+        return ToolResult::success([
+            'message' => "Vorschlag '{$item->name}' abgelehnt.",
+        ]);
+    }
+
+    protected function detect(int $teamId): ToolResult
+    {
+        $service = app(RecurringDetectionService::class);
+        $created = $service->createSuggestions($teamId);
+
+        return ToolResult::success([
+            'message' => "{$created} neue Vorschlaege erstellt.",
+            'suggestions_created' => $created,
+            'team_id' => $teamId,
+        ]);
     }
 
     public function getMetadata(): array
