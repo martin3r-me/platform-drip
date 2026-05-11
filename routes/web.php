@@ -8,6 +8,7 @@ Route::get('/banks', Platform\Drip\Livewire\Banks::class)->name('drip.banks');
 Route::get('/groups/{group}', Platform\Drip\Livewire\GroupTransactions::class)->name('drip.groups.show');
 Route::get('/categories', Platform\Drip\Livewire\Categories::class)->name('drip.categories');
 Route::get('/rules', Platform\Drip\Livewire\Rules::class)->name('drip.rules');
+Route::get('/budgets', Platform\Drip\Livewire\Budgets::class)->name('drip.budgets');
 Route::get('/transactions/{transaction}', Platform\Drip\Livewire\TransactionDetail::class)->name('drip.transactions.show');
 
 // GoCardless Callback

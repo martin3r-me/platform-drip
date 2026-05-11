@@ -8,6 +8,7 @@ use Platform\Drip\Models\BankAccountBalance;
 use Platform\Drip\Models\BankAccountGroup;
 use Platform\Drip\Models\BankTransaction;
 use Platform\Drip\Models\BankTransactionCategory;
+use Platform\Drip\Models\BudgetItem;
 use Illuminate\Support\Carbon;
 
 class Dashboard extends Component
@@ -25,6 +26,7 @@ class Dashboard extends Component
 
     public array $monthlyFlow = [];
     public array $categoryBreakdown = [];
+    public array $budgetOverview = [];
 
     public $groups = [];
     public $recentTransactions = [];
@@ -127,6 +129,43 @@ class Dashboard extends Component
                 return $item;
             }, array_slice($breakdown, 0, 10));
         }
+
+        // Budget overview
+        $budgetItems = BudgetItem::where('team_id', $teamId)->active()->with('category')->get();
+        $budgetMonthStart = now()->startOfMonth();
+        $budgetMonthEnd = now()->endOfMonth();
+
+        $this->budgetOverview = $budgetItems->map(function (BudgetItem $item) use ($teamId, $budgetMonthStart, $budgetMonthEnd) {
+            $monthlyBudget = $item->monthlyAmount();
+            $actual = 0;
+
+            if ($item->category_id) {
+                $actual = BankTransaction::where('team_id', $teamId)
+                    ->where('category_id', $item->category_id)
+                    ->where('direction', $item->direction)
+                    ->where(function ($q) use ($budgetMonthStart, $budgetMonthEnd) {
+                        $q->where(function ($inner) use ($budgetMonthStart, $budgetMonthEnd) {
+                            $inner->whereNotNull('booked_at')
+                                ->whereBetween('booked_at', [$budgetMonthStart, $budgetMonthEnd]);
+                        })->orWhere(function ($or) use ($budgetMonthStart, $budgetMonthEnd) {
+                            $or->whereNull('booked_at')
+                                ->whereBetween('created_at', [$budgetMonthStart, $budgetMonthEnd]);
+                        });
+                    })
+                    ->get(['amount'])
+                    ->sum(fn ($t) => abs((float) $t->amount));
+            }
+
+            $percent = $monthlyBudget > 0 ? round($actual / $monthlyBudget * 100, 1) : 0;
+
+            return [
+                'name' => $item->name,
+                'category_color' => $item->category?->color ?? '#6B7280',
+                'budget' => $monthlyBudget,
+                'actual' => $actual,
+                'percent' => $percent,
+            ];
+        })->toArray();
 
         // Monthly cashflow (last 6 months)
         $sixMonthsAgo = $now->copy()->startOfMonth()->subMonths(5);

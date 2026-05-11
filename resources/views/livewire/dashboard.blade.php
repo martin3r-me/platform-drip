@@ -121,6 +121,34 @@
             </div>
         @endif
 
+        {{-- Budget-Status --}}
+        @if(count($budgetOverview) > 0)
+            <div class="bg-white rounded-lg border border-gray-200 p-4 mb-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-sm font-semibold text-gray-900">Budget-Status</h2>
+                    <a href="{{ route('drip.budgets') }}" wire:navigate class="text-[11px] text-blue-600 hover:text-blue-700">Alle Budgets</a>
+                </div>
+                <div class="space-y-2.5">
+                    @foreach($budgetOverview as $b)
+                        @php
+                            $barColor = $b['percent'] <= 100 ? 'bg-green-500' : ($b['percent'] <= 120 ? 'bg-yellow-500' : 'bg-red-500');
+                            $barWidth = min($b['percent'], 100);
+                        @endphp
+                        <div class="flex items-center gap-3">
+                            <div class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: {{ $b['category_color'] }}"></div>
+                            <div class="w-28 text-[13px] text-gray-700 truncate shrink-0">{{ $b['name'] }}</div>
+                            <div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                                <div class="{{ $barColor }} h-2 rounded-full" style="width: {{ $barWidth }}%"></div>
+                            </div>
+                            <div class="text-[12px] font-medium tabular-nums text-gray-600 shrink-0 w-32 text-right">
+                                {{ number_format($b['actual'], 0, ',', '.') }} / {{ number_format($b['budget'], 0, ',', '.') }} &euro;
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        @endif
+
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {{-- Letzte Transaktionen --}}
             <div class="bg-white rounded-lg border border-gray-200">
