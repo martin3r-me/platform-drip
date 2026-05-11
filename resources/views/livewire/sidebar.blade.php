@@ -5,12 +5,30 @@
         Drip
     </div>
 
-    {{-- Abschnitt: Allgemein (über UI-Komponenten) --}}
-    <x-ui-sidebar-list label="Allgemein">
+    {{-- Expanded --}}
+    <x-ui-sidebar-list label="Uebersicht">
         <x-ui-sidebar-item :href="route('drip.dashboard')">
             @svg('heroicon-o-chart-bar', 'w-4 h-4 text-[var(--ui-secondary)]')
             <span class="ml-2 text-sm">Dashboard</span>
         </x-ui-sidebar-item>
+    </x-ui-sidebar-list>
+
+    <x-ui-sidebar-list label="Analyse">
+        <x-ui-sidebar-item :href="route('drip.cashflow')">
+            @svg('heroicon-o-arrow-trending-down', 'w-4 h-4 text-[var(--ui-secondary)]')
+            <span class="ml-2 text-sm">Cashflow</span>
+        </x-ui-sidebar-item>
+        <x-ui-sidebar-item :href="route('drip.budgets')">
+            @svg('heroicon-o-calculator', 'w-4 h-4 text-[var(--ui-secondary)]')
+            <span class="ml-2 text-sm">Budgets</span>
+        </x-ui-sidebar-item>
+        <x-ui-sidebar-item :href="route('drip.liquidity')">
+            @svg('heroicon-o-chart-bar-square', 'w-4 h-4 text-[var(--ui-secondary)]')
+            <span class="ml-2 text-sm">Liquiditaet</span>
+        </x-ui-sidebar-item>
+    </x-ui-sidebar-list>
+
+    <x-ui-sidebar-list label="Einstellungen">
         <x-ui-sidebar-item :href="route('drip.categories')">
             @svg('heroicon-o-tag', 'w-4 h-4 text-[var(--ui-secondary)]')
             <span class="ml-2 text-sm">Kategorien</span>
@@ -19,44 +37,38 @@
             @svg('heroicon-o-funnel', 'w-4 h-4 text-[var(--ui-secondary)]')
             <span class="ml-2 text-sm">Regeln</span>
         </x-ui-sidebar-item>
-        <x-ui-sidebar-item :href="route('drip.budgets')">
-            @svg('heroicon-o-calculator', 'w-4 h-4 text-[var(--ui-secondary)]')
-            <span class="ml-2 text-sm">Budgets</span>
-        </x-ui-sidebar-item>
-        <x-ui-sidebar-item :href="route('drip.cashflow')">
-            @svg('heroicon-o-arrow-trending-down', 'w-4 h-4 text-[var(--ui-secondary)]')
-            <span class="ml-2 text-sm">Cashflow</span>
-        </x-ui-sidebar-item>
-        <x-ui-sidebar-item :href="route('drip.liquidity')">
-            @svg('heroicon-o-chart-bar-square', 'w-4 h-4 text-[var(--ui-secondary)]')
-            <span class="ml-2 text-sm">Liquiditaet</span>
-        </x-ui-sidebar-item>
         <x-ui-sidebar-item :href="route('drip.banks')">
             @svg('heroicon-o-building-library', 'w-4 h-4 text-[var(--ui-secondary)]')
             <span class="ml-2 text-sm">Banken</span>
         </x-ui-sidebar-item>
     </x-ui-sidebar-list>
 
-    {{-- Collapsed: Icons-only für Allgemein --}}
+    {{-- Collapsed: Icons-only --}}
     <div x-show="collapsed" class="px-2 py-2 border-b border-[var(--ui-border)]">
         <div class="flex flex-col gap-2">
             <a href="{{ route('drip.dashboard') }}" wire:navigate class="flex items-center justify-center p-2 rounded-md text-[var(--ui-secondary)] hover:bg-[var(--ui-muted-5)]">
                 @svg('heroicon-o-chart-bar', 'w-5 h-5')
             </a>
+
+            <div class="border-t border-[var(--ui-border)] my-1"></div>
+
+            <a href="{{ route('drip.cashflow') }}" wire:navigate class="flex items-center justify-center p-2 rounded-md text-[var(--ui-secondary)] hover:bg-[var(--ui-muted-5)]">
+                @svg('heroicon-o-arrow-trending-down', 'w-5 h-5')
+            </a>
+            <a href="{{ route('drip.budgets') }}" wire:navigate class="flex items-center justify-center p-2 rounded-md text-[var(--ui-secondary)] hover:bg-[var(--ui-muted-5)]">
+                @svg('heroicon-o-calculator', 'w-5 h-5')
+            </a>
+            <a href="{{ route('drip.liquidity') }}" wire:navigate class="flex items-center justify-center p-2 rounded-md text-[var(--ui-secondary)] hover:bg-[var(--ui-muted-5)]">
+                @svg('heroicon-o-chart-bar-square', 'w-5 h-5')
+            </a>
+
+            <div class="border-t border-[var(--ui-border)] my-1"></div>
+
             <a href="{{ route('drip.categories') }}" wire:navigate class="flex items-center justify-center p-2 rounded-md text-[var(--ui-secondary)] hover:bg-[var(--ui-muted-5)]">
                 @svg('heroicon-o-tag', 'w-5 h-5')
             </a>
             <a href="{{ route('drip.rules') }}" wire:navigate class="flex items-center justify-center p-2 rounded-md text-[var(--ui-secondary)] hover:bg-[var(--ui-muted-5)]">
                 @svg('heroicon-o-funnel', 'w-5 h-5')
-            </a>
-            <a href="{{ route('drip.budgets') }}" wire:navigate class="flex items-center justify-center p-2 rounded-md text-[var(--ui-secondary)] hover:bg-[var(--ui-muted-5)]">
-                @svg('heroicon-o-calculator', 'w-5 h-5')
-            </a>
-            <a href="{{ route('drip.cashflow') }}" wire:navigate class="flex items-center justify-center p-2 rounded-md text-[var(--ui-secondary)] hover:bg-[var(--ui-muted-5)]">
-                @svg('heroicon-o-arrow-trending-down', 'w-5 h-5')
-            </a>
-            <a href="{{ route('drip.liquidity') }}" wire:navigate class="flex items-center justify-center p-2 rounded-md text-[var(--ui-secondary)] hover:bg-[var(--ui-muted-5)]">
-                @svg('heroicon-o-chart-bar-square', 'w-5 h-5')
             </a>
             <a href="{{ route('drip.banks') }}" wire:navigate class="flex items-center justify-center p-2 rounded-md text-[var(--ui-secondary)] hover:bg-[var(--ui-muted-5)]">
                 @svg('heroicon-o-building-library', 'w-5 h-5')
