@@ -95,7 +95,7 @@
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
                 {{-- Top Kategorien — Donut Chart --}}
                 @if(count($categoryBreakdown) > 0)
-                    <div class="bg-white rounded-2xl shadow-sm p-6">
+                    <div class="bg-white rounded-2xl shadow-sm p-6 overflow-hidden">
                         <div class="flex items-center justify-between mb-4">
                             <h2 class="text-xl font-bold text-gray-900">Top Kategorien</h2>
                             <a href="{{ route('drip.cashflow') }}" wire:navigate class="text-[11px] text-blue-600 hover:text-blue-700">Details</a>
@@ -125,7 +125,7 @@
 
                 {{-- Top Counterparties — Horizontal Bar Chart --}}
                 @if(count($topCounterparties) > 0)
-                    <div class="bg-white rounded-2xl shadow-sm p-6">
+                    <div class="bg-white rounded-2xl shadow-sm p-6 overflow-hidden">
                         <div class="flex items-center justify-between mb-4">
                             <h2 class="text-xl font-bold text-gray-900">Top Zahlungsempfaenger</h2>
                             <a href="{{ route('drip.cashflow') }}" wire:navigate class="text-[11px] text-blue-600 hover:text-blue-700">Details</a>

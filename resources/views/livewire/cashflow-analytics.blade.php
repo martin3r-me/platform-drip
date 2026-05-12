@@ -114,7 +114,7 @@
         {{-- Top Kategorien + Counterparties --}}
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8" wire:key="details-{{ $selectedMonth }}-{{ $direction }}">
             {{-- Top Kategorien — Horizontal Bar Chart --}}
-            <div class="bg-white rounded-2xl shadow-sm p-6">
+            <div class="bg-white rounded-2xl shadow-sm p-6 overflow-hidden">
                 <h2 class="text-xl font-bold text-gray-900 mb-4">
                     Top Kategorien
                     <span class="text-[11px] font-normal text-gray-400 ml-1">{{ $direction === 'debit' ? 'Ausgaben' : 'Einnahmen' }}</span>
@@ -147,7 +147,7 @@
             </div>
 
             {{-- Top Counterparties — Horizontal Bar Chart --}}
-            <div class="bg-white rounded-2xl shadow-sm p-6">
+            <div class="bg-white rounded-2xl shadow-sm p-6 overflow-hidden">
                 <h2 class="text-xl font-bold text-gray-900 mb-4">
                     Top {{ $direction === 'debit' ? 'Zahlungsempfaenger' : 'Einzahler' }}
                     <span class="text-[11px] font-normal text-gray-400 ml-1">{{ $direction === 'debit' ? 'Ausgaben' : 'Einnahmen' }}</span>
