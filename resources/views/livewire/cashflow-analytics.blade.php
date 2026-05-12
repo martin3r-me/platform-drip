@@ -1,4 +1,5 @@
 <x-ui-page>
+    @include('drip::partials.styles')
     <x-slot name="navbar">
         <x-ui-page-navbar title="Cashflow-Analyse" />
     </x-slot>
