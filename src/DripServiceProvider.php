@@ -158,9 +158,9 @@ class DripServiceProvider extends ServiceProvider
     protected function registerSchedule(): void
     {
         $this->callAfterResolving(Schedule::class, function (Schedule $schedule) {
-            // Nächtlicher Delta-Sync (ohne Account-Details) um 03:00 Uhr
+            // Bank-Sync: morgens 03:00 (Nacht-Buchungen) + nachmittags 14:00 (Tages-Buchungen)
             $schedule->command('drip:update-bank-data --skip-details')
-                ->dailyAt('03:00')
+                ->twiceDaily(3, 14)
                 ->withoutOverlapping()
                 ->onOneServer();
 
@@ -170,15 +170,15 @@ class DripServiceProvider extends ServiceProvider
                 ->withoutOverlapping()
                 ->onOneServer();
 
-            // Liquiditätsforecast täglich um 04:00 Uhr
+            // Liquiditätsforecast: nach jedem Bank-Sync (03:30 + 14:30)
             $schedule->command('drip:compute-liquidity')
-                ->dailyAt('04:00')
+                ->twiceDailyAt(3, 14, 30)
                 ->withoutOverlapping()
                 ->onOneServer();
 
-            // Cashflow-Signals täglich um 04:15 Uhr
+            // Cashflow-Signals: 1x täglich um 04:00 Uhr
             $schedule->command('drip:sync-signals')
-                ->dailyAt('04:15')
+                ->dailyAt('04:00')
                 ->withoutOverlapping()
                 ->onOneServer();
         });
