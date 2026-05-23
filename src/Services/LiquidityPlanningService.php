@@ -119,12 +119,16 @@ class LiquidityPlanningService
             ->orderBy('forecast_date')
             ->get();
 
+        // Historical daily balances for actual vs. forecast overlay
+        $historicalBalances = $this->getHistoricalDailyBalances($teamId, 60);
+
         // If no forecasts computed yet, return empty structure
         if ($forecasts->isEmpty()) {
             return [
                 'current_balance' => round($currentBalance, 2),
                 'computed_at' => null,
                 'daily_forecast' => [],
+                'historical_balances' => $historicalBalances,
                 'monthly_summary' => [],
                 'upcoming_items' => $this->getUpcomingItems($teamId, $monthsAhead),
             ];
@@ -161,6 +165,7 @@ class LiquidityPlanningService
             'current_balance' => round($currentBalance, 2),
             'computed_at' => $forecasts->first()->computed_at?->toIso8601String(),
             'daily_forecast' => $dailyForecast,
+            'historical_balances' => $historicalBalances,
             'monthly_summary' => $monthlySummary,
             'upcoming_items' => $this->getUpcomingItems($teamId, $monthsAhead),
         ];
@@ -172,6 +177,45 @@ class LiquidityPlanningService
     public function buildPlan(int $teamId, int $monthsAhead = 6): array
     {
         return $this->getPlan($teamId, $monthsAhead);
+    }
+
+    public function getHistoricalDailyBalances(int $teamId, int $days = 60): array
+    {
+        $since = now()->subDays($days)->startOfDay();
+
+        $balances = BankAccountBalance::where('team_id', $teamId)
+            ->where(function ($q) use ($since) {
+                $q->where('as_of_date', '>=', $since)
+                    ->orWhere(function ($inner) use ($since) {
+                        $inner->whereNull('as_of_date')
+                            ->where('retrieved_at', '>=', $since);
+                    });
+            })
+            ->get();
+
+        if ($balances->isEmpty()) {
+            return [];
+        }
+
+        // Group by date, then by account — take latest per account per day
+        $grouped = $balances->groupBy(function ($b) {
+            return ($b->as_of_date ?? $b->retrieved_at->startOfDay())->format('Y-m-d');
+        });
+
+        $dailyTotals = [];
+        foreach ($grouped as $date => $dayBalances) {
+            $total = $dayBalances
+                ->groupBy('bank_account_id')
+                ->map(fn ($acctBalances) => $acctBalances->sortByDesc('retrieved_at')->first())
+                ->sum(fn ($b) => (float) ($b->amount ?? $b->balance ?? 0));
+
+            $dailyTotals[] = ['date' => $date, 'balance' => round($total, 2)];
+        }
+
+        // Sort by date
+        usort($dailyTotals, fn ($a, $b) => strcmp($a['date'], $b['date']));
+
+        return $dailyTotals;
     }
 
     protected function getCurrentBalance(int $teamId): float

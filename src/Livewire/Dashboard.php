@@ -35,6 +35,9 @@ class Dashboard extends Component
     public array $budgetSummary = [];
     public array $alerts = [];
 
+    public array $cashRunway = [];
+    public array $waterfallData = [];
+
     public $groups = [];
     public $recentTransactions = [];
 
@@ -93,6 +96,12 @@ class Dashboard extends Component
 
         // Budget Summary
         $this->budgetSummary = $this->loadBudgetSummary($this->budgetOverview);
+
+        // Cash Runway
+        $this->cashRunway = $this->loadCashRunway($teamId);
+
+        // Waterfall Chart
+        $this->waterfallData = $this->loadWaterfallData($teamId);
 
         // Alerts
         $this->alerts = $this->loadAlerts($teamId);
@@ -339,6 +348,120 @@ class Dashboard extends Component
         }
 
         return $alerts;
+    }
+
+    protected function loadCashRunway(int $teamId): array
+    {
+        $forecasts = LiquidityForecast::where('team_id', $teamId)
+            ->where('forecast_date', '>=', now()->startOfDay())
+            ->orderBy('forecast_date')
+            ->get(['forecast_date', 'projected_balance']);
+
+        if ($forecasts->isEmpty()) {
+            return ['days' => null, 'label' => '-', 'color' => 'gray', 'percent' => 0];
+        }
+
+        $negativeDay = $forecasts->first(fn ($f) => (float) $f->projected_balance <= 0);
+
+        if (!$negativeDay) {
+            return ['days' => null, 'label' => '∞', 'color' => 'green', 'percent' => 100];
+        }
+
+        $days = (int) now()->startOfDay()->diffInDays($negativeDay->forecast_date);
+
+        if ($days > 180) {
+            return ['days' => $days, 'label' => '>6 Monate', 'color' => 'green', 'percent' => 100];
+        }
+
+        $color = $days >= 180 ? 'green' : ($days >= 90 ? 'yellow' : 'red');
+        $percent = min(round($days / 180 * 100), 100);
+
+        return ['days' => $days, 'label' => $days . ' Tage', 'color' => $color, 'percent' => $percent];
+    }
+
+    protected function loadWaterfallData(int $teamId): array
+    {
+        $monthStart = now()->startOfMonth();
+        $monthKey = now()->format('Y-m');
+
+        // Start balance: latest balance per account before month start
+        $startBalance = BankAccountBalance::where('team_id', $teamId)
+            ->where(function ($q) use ($monthStart) {
+                $q->where('as_of_date', '<', $monthStart)
+                    ->orWhere(function ($inner) use ($monthStart) {
+                        $inner->whereNull('as_of_date')
+                            ->where('retrieved_at', '<', $monthStart);
+                    });
+            })
+            ->get()
+            ->groupBy('bank_account_id')
+            ->map(fn ($balances) => $balances->sortByDesc('retrieved_at')->first())
+            ->sum(fn ($b) => (float) ($b->amount ?? $b->balance ?? 0));
+
+        // If no historical balance, use current balance minus net flow
+        if ($startBalance == 0 && $this->totalBalance != 0) {
+            $startBalance = $this->totalBalance;
+        }
+
+        // Load category-level cashflow snapshots for current month
+        $snapshots = CashflowSnapshot::forTeam($teamId)
+            ->monthly()
+            ->teamWide()
+            ->where('period_key', $monthKey)
+            ->where('category_id', '!=', CashflowSnapshot::SENTINEL_ALL)
+            ->where('counterparty_hash', CashflowSnapshot::SENTINEL_HASH_ALL)
+            ->where('total_amount', '>', 0)
+            ->orderByDesc('total_amount')
+            ->get();
+
+        if ($snapshots->isEmpty()) {
+            return [];
+        }
+
+        $categoryIds = $snapshots->pluck('category_id')->filter()->unique();
+        $categories = BankTransactionCategory::whereIn('id', $categoryIds)
+            ->get(['id', 'name'])
+            ->keyBy('id');
+
+        $incomeItems = $snapshots->where('direction', 'credit')->values();
+        $expenseItems = $snapshots->where('direction', 'debit')->values();
+
+        $bars = [];
+        $running = $startBalance;
+
+        // Start bar
+        $bars[] = ['x' => 'Anfang', 'y' => [0, round($startBalance, 2)], 'type' => 'neutral'];
+
+        // Top 5 income categories, rest as "Sonstige"
+        foreach ($incomeItems->take(5) as $item) {
+            $name = $categories[$item->category_id]?->name ?? 'Einnahmen';
+            $amount = (float) $item->total_amount;
+            $bars[] = ['x' => $name, 'y' => [round($running, 2), round($running + $amount, 2)], 'type' => 'income'];
+            $running += $amount;
+        }
+        $restIncome = $incomeItems->skip(5)->sum(fn ($i) => (float) $i->total_amount);
+        if ($restIncome > 0) {
+            $bars[] = ['x' => 'Sonst. Einnahmen', 'y' => [round($running, 2), round($running + $restIncome, 2)], 'type' => 'income'];
+            $running += $restIncome;
+        }
+
+        // Top 5 expense categories, rest as "Sonstige"
+        foreach ($expenseItems->take(5) as $item) {
+            $name = $categories[$item->category_id]?->name ?? 'Ausgaben';
+            $amount = (float) $item->total_amount;
+            $bars[] = ['x' => $name, 'y' => [round($running - $amount, 2), round($running, 2)], 'type' => 'expense'];
+            $running -= $amount;
+        }
+        $restExpense = $expenseItems->skip(5)->sum(fn ($i) => (float) $i->total_amount);
+        if ($restExpense > 0) {
+            $bars[] = ['x' => 'Sonst. Ausgaben', 'y' => [round($running - $restExpense, 2), round($running, 2)], 'type' => 'expense'];
+            $running -= $restExpense;
+        }
+
+        // End bar
+        $bars[] = ['x' => 'Aktuell', 'y' => [0, round($running, 2)], 'type' => 'neutral'];
+
+        return $bars;
     }
 
     public function render()

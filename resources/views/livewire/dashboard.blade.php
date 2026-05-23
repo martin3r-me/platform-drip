@@ -84,6 +84,45 @@
             </div>
         @endif
 
+        {{-- Cash Runway Card --}}
+        @if(!empty($cashRunway) && $cashRunway['label'] !== '-')
+            @php
+                $runwayColors = match($cashRunway['color']) {
+                    'green' => ['bg' => 'bg-green-50', 'text' => 'text-green-600', 'bar' => 'bg-green-500', 'ring' => 'ring-green-200'],
+                    'yellow' => ['bg' => 'bg-yellow-50', 'text' => 'text-yellow-600', 'bar' => 'bg-yellow-500', 'ring' => 'ring-yellow-200'],
+                    'red' => ['bg' => 'bg-red-50', 'text' => 'text-red-600', 'bar' => 'bg-red-500', 'ring' => 'ring-red-200'],
+                    default => ['bg' => 'bg-gray-50', 'text' => 'text-gray-600', 'bar' => 'bg-gray-400', 'ring' => 'ring-gray-200'],
+                };
+            @endphp
+            <div class="{{ $runwayColors['bg'] }} rounded-2xl shadow-sm p-6 mb-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <div class="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Cash Runway</div>
+                        <div class="mt-1 text-4xl font-bold tabular-nums {{ $runwayColors['text'] }}">
+                            {{ $cashRunway['label'] }}
+                        </div>
+                        <div class="mt-1 text-[11px] text-gray-500">
+                            @if($cashRunway['days'] === null && $cashRunway['label'] === '∞')
+                                Kein Negativsaldo im Prognosezeitraum
+                            @elseif($cashRunway['days'] !== null)
+                                bis projizierter Saldo &le; 0 &euro;
+                            @endif
+                        </div>
+                    </div>
+                    <div class="shrink-0">
+                        {{-- Circular progress indicator --}}
+                        <svg class="w-16 h-16" viewBox="0 0 36 36">
+                            <path class="text-gray-200" stroke="currentColor" stroke-width="3" fill="none"
+                                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                            <path class="{{ str_replace('bg-', 'text-', $runwayColors['bar']) }}" stroke="currentColor" stroke-width="3" fill="none"
+                                  stroke-dasharray="{{ $cashRunway['percent'] }}, 100" stroke-linecap="round"
+                                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        @endif
+
         {{-- Stat Cards --}}
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             {{-- Kontostand --}}
@@ -154,6 +193,77 @@
                             grid: { borderColor: '#F3F4F6' }
                         });
                         this.chart.render();
+                    },
+                    destroy() { this.chart?.destroy(); }
+                }">
+                    <div x-ref="el"></div>
+                </div>
+            </div>
+        @endif
+
+        {{-- Waterfall Chart — Cashflow Bridge --}}
+        @if(count($waterfallData) > 2)
+            <div class="bg-white rounded-2xl shadow-sm p-6 mb-6 overflow-hidden">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-bold text-gray-900">Cashflow Bridge ({{ now()->translatedFormat('F Y') }})</h2>
+                </div>
+                <div wire:ignore x-data="{
+                    chart: null,
+                    init() {
+                        const bars = {{ Js::from($waterfallData) }};
+                        const categories = bars.map(b => b.x);
+                        const data = bars.map(b => ({ x: b.x, y: b.y }));
+                        const colors = bars.map(b => b.type === 'income' ? '#22C55E' : (b.type === 'expense' ? '#EF4444' : '#6B7280'));
+
+                        this.chart = new ApexCharts(this.$refs.el, {
+                            chart: { type: 'rangeBar', height: 300, toolbar: { show: false }, fontFamily: 'inherit' },
+                            series: [{ data: data }],
+                            plotOptions: {
+                                bar: {
+                                    horizontal: false,
+                                    columnWidth: '60%',
+                                    borderRadius: 3,
+                                    colors: {
+                                        ranges: bars.map((b, i) => ({
+                                            from: b.y[0],
+                                            to: b.y[1],
+                                            color: colors[i]
+                                        }))
+                                    }
+                                }
+                            },
+                            colors: colors,
+                            fill: { type: 'solid' },
+                            xaxis: {
+                                categories: categories,
+                                labels: { style: { fontSize: '10px', colors: '#6B7280' }, rotate: -45, rotateAlways: categories.length > 6 }
+                            },
+                            yaxis: {
+                                labels: { style: { fontSize: '11px', colors: '#6B7280' }, formatter: v => new Intl.NumberFormat('de-DE').format(Math.round(v)) + ' \u20AC' }
+                            },
+                            tooltip: {
+                                custom: function({ seriesIndex, dataPointIndex, w }) {
+                                    const bar = bars[dataPointIndex];
+                                    const diff = bar.y[1] - bar.y[0];
+                                    const fmt = v => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(v);
+                                    let label = bar.type === 'income' ? '+' + fmt(diff) : (bar.type === 'expense' ? '-' + fmt(Math.abs(diff)) : fmt(bar.y[1]));
+                                    return '<div class=\"px-3 py-2 text-[12px]\"><strong>' + bar.x + '</strong><br>' + label + '</div>';
+                                }
+                            },
+                            dataLabels: { enabled: false },
+                            grid: { borderColor: '#F3F4F6' },
+                            legend: { show: false },
+                            states: { hover: { filter: { type: 'darken', value: 0.9 } } }
+                        });
+                        this.chart.render();
+
+                        // Apply individual bar colors via post-render
+                        this.$nextTick(() => {
+                            const rects = this.$refs.el.querySelectorAll('.apexcharts-rangebar-area');
+                            rects.forEach((rect, i) => {
+                                if (i < colors.length) rect.style.fill = colors[i];
+                            });
+                        });
                     },
                     destroy() { this.chart?.destroy(); }
                 }">

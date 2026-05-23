@@ -55,18 +55,29 @@
             </div>
         </div>
 
-        {{-- Daily Balance Curve — Area Chart --}}
+        {{-- Daily Balance Curve — Actual vs. Forecast Overlay --}}
         @if(count($plan['daily_forecast']) > 1)
             @php
                 $dailyData = $plan['daily_forecast'];
-                $balances = array_column($dailyData, 'balance');
-                $minBal = min($balances);
-                $maxBal = max($balances);
+                $historicalData = $plan['historical_balances'] ?? [];
+                $allBalances = array_merge(
+                    array_column($dailyData, 'balance'),
+                    array_column($historicalData, 'balance')
+                );
+                $minBal = !empty($allBalances) ? min($allBalances) : 0;
+                $maxBal = !empty($allBalances) ? max($allBalances) : 0;
+                $todayStr = now()->format('Y-m-d');
             @endphp
             <div class="bg-white rounded-2xl shadow-sm p-6 mb-8 overflow-hidden" wire:key="balance-curve-{{ $monthsAhead }}">
                 <div class="flex items-center justify-between mb-3">
-                    <h3 class="text-xl font-bold text-gray-900">Kontoverlauf-Prognose</h3>
-                    <div class="flex items-center gap-3 text-[11px] text-gray-400">
+                    <h3 class="text-xl font-bold text-gray-900">Kontoverlauf</h3>
+                    <div class="flex items-center gap-4 text-[11px] text-gray-400">
+                        <span class="flex items-center gap-1">
+                            <span class="inline-block w-4 h-0.5 bg-blue-600 rounded"></span> Ist
+                        </span>
+                        <span class="flex items-center gap-1">
+                            <span class="inline-block w-4 h-0.5 bg-blue-300 rounded" style="border-top: 2px dashed #93C5FD;"></span> Prognose
+                        </span>
                         <span>Min: {{ number_format($minBal, 0, ',', '.') }} &euro;</span>
                         <span>Max: {{ number_format($maxBal, 0, ',', '.') }} &euro;</span>
                     </div>
@@ -74,19 +85,37 @@
                 <div wire:ignore x-data="{
                     chart: null,
                     init() {
-                        const data = {{ Js::from(collect($dailyData)->map(fn($d) => ['x' => $d['date'], 'y' => round($d['balance'], 2)])->values()) }};
+                        const forecastData = {{ Js::from(collect($dailyData)->map(fn($d) => ['x' => $d['date'], 'y' => round($d['balance'], 2)])->values()) }};
+                        const actualData = {{ Js::from(collect($historicalData)->map(fn($d) => ['x' => $d['date'], 'y' => round($d['balance'], 2)])->values()) }};
+                        const today = '{{ $todayStr }}';
+
                         this.chart = new ApexCharts(this.$refs.el, {
-                            chart: { type: 'area', height: 300, toolbar: { show: true, tools: { download: false, selection: true, zoom: true, zoomin: true, zoomout: true, pan: true, reset: true } }, fontFamily: 'inherit', zoom: { enabled: true } },
-                            series: [{ name: 'Kontostand', data: data }],
-                            colors: ['#3B82F6'],
-                            stroke: { curve: 'smooth', width: 2 },
-                            fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.35, opacityTo: 0.05, stops: [0, 100] } },
+                            chart: { type: 'line', height: 300, toolbar: { show: true, tools: { download: false, selection: true, zoom: true, zoomin: true, zoomout: true, pan: true, reset: true } }, fontFamily: 'inherit', zoom: { enabled: true } },
+                            series: [
+                                { name: 'Ist-Saldo', data: actualData },
+                                { name: 'Prognose', data: forecastData }
+                            ],
+                            colors: ['#3B82F6', '#93C5FD'],
+                            stroke: { curve: 'smooth', width: [3, 2], dashArray: [0, 5] },
+                            fill: {
+                                type: ['solid', 'gradient'],
+                                gradient: { shadeIntensity: 1, opacityFrom: 0.25, opacityTo: 0.05, stops: [0, 100] }
+                            },
                             xaxis: { type: 'datetime', labels: { style: { fontSize: '11px', colors: '#6B7280' }, datetimeFormatter: { month: 'MMM', day: 'dd. MMM' } } },
                             yaxis: { labels: { style: { fontSize: '11px', colors: '#6B7280' }, formatter: v => new Intl.NumberFormat('de-DE').format(Math.round(v)) + ' \u20AC' } },
-                            tooltip: { x: { format: 'dd.MM.yyyy' }, y: { formatter: v => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(v) } },
-                            annotations: { yaxis: [{ y: 0, borderColor: '#EF4444', strokeDashArray: 4, opacity: 0.5, label: { text: '0 \u20AC', style: { color: '#EF4444', fontSize: '10px', background: 'transparent' } } }] },
+                            tooltip: { x: { format: 'dd.MM.yyyy' }, y: { formatter: v => v !== null ? new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(v) : '-' } },
+                            annotations: {
+                                xaxis: [{
+                                    x: new Date(today).getTime(),
+                                    borderColor: '#6B7280',
+                                    strokeDashArray: 4,
+                                    label: { text: 'Heute', orientation: 'vertical', style: { color: '#6B7280', fontSize: '10px', background: '#F9FAFB', padding: { left: 4, right: 4, top: 2, bottom: 2 } } }
+                                }],
+                                yaxis: [{ y: 0, borderColor: '#EF4444', strokeDashArray: 4, opacity: 0.5, label: { text: '0 \u20AC', style: { color: '#EF4444', fontSize: '10px', background: 'transparent' } } }]
+                            },
                             dataLabels: { enabled: false },
-                            grid: { borderColor: '#F3F4F6' }
+                            grid: { borderColor: '#F3F4F6' },
+                            legend: { fontSize: '11px', labels: { colors: '#6B7280' } }
                         });
                         this.chart.render();
                     },
