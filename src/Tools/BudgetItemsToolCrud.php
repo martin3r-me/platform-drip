@@ -93,7 +93,12 @@ class BudgetItemsToolCrud implements ToolContract, ToolMetadataContract
                 ],
                 'day_of_month' => [
                     'type' => 'integer',
-                    'description' => 'Tag im Monat (1-31, optional).',
+                    'description' => 'Tag im Monat (1-31). Bei day_mode=business_day/last_business_day: der n-te (letzte) Werktag.',
+                ],
+                'day_mode' => [
+                    'type' => 'string',
+                    'enum' => ['fixed', 'business_day', 'last_business_day'],
+                    'description' => 'Modus: fixed (Kalendertag, default), business_day (n-ter Werktag), last_business_day (n-ter letzter Werktag).',
                 ],
                 'is_active' => [
                     'type' => 'boolean',
@@ -180,6 +185,7 @@ class BudgetItemsToolCrud implements ToolContract, ToolMetadataContract
                 'actual_this_month' => $fulfillment['actual'],
                 'percent' => $fulfillment['percent'],
                 'day_of_month' => $item->day_of_month,
+                'day_mode' => $item->day_mode ?? 'fixed',
                 'is_active' => $item->is_active,
                 'status' => $item->status,
                 'category' => $item->category ? [
@@ -232,6 +238,7 @@ class BudgetItemsToolCrud implements ToolContract, ToolMetadataContract
             'category_id' => $arguments['category_id'] ?? null,
             'bank_account_id' => $arguments['bank_account_id'] ?? null,
             'day_of_month' => $arguments['day_of_month'] ?? null,
+            'day_mode' => $arguments['day_mode'] ?? 'fixed',
             'planned_date' => $arguments['planned_date'] ?? null,
             'is_active' => $arguments['is_active'] ?? true,
             'notes' => $arguments['notes'] ?? null,
@@ -272,6 +279,7 @@ class BudgetItemsToolCrud implements ToolContract, ToolMetadataContract
             'direction' => $arguments['direction'] ?? null,
             'frequency' => $arguments['frequency'] ?? null,
             'day_of_month' => array_key_exists('day_of_month', $arguments) ? $arguments['day_of_month'] : null,
+            'day_mode' => $arguments['day_mode'] ?? null,
             'notes' => array_key_exists('notes', $arguments) ? $arguments['notes'] : null,
         ], fn ($v) => $v !== null);
 

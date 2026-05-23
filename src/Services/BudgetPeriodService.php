@@ -21,11 +21,13 @@ class BudgetPeriodService
             $horizon = $endDate;
         }
 
+        $dayMode = $item->day_mode ?? 'fixed';
+
         $periods = match ($item->frequency) {
             'once' => $this->buildOncePeriods($item, $amount),
             'weekly' => $this->buildWeeklyPeriods($startDate, $horizon, $amount, $item->day_of_month),
-            'monthly' => $this->buildMonthlyPeriods($startDate, $horizon, $amount, $item->day_of_month),
-            'quarterly' => $this->buildQuarterlyPeriods($startDate, $horizon, $amount, $item->day_of_month),
+            'monthly' => $this->buildMonthlyPeriods($startDate, $horizon, $amount, $item->day_of_month, $dayMode),
+            'quarterly' => $this->buildQuarterlyPeriods($startDate, $horizon, $amount, $item->day_of_month, $dayMode),
             'yearly' => $this->buildYearlyPeriods($startDate, $horizon, $amount, $item->day_of_month),
             default => [],
         };
@@ -126,7 +128,7 @@ class BudgetPeriodService
         return $periods;
     }
 
-    protected function buildMonthlyPeriods(Carbon $start, Carbon $horizon, float $amount, ?int $dayOfMonth): array
+    protected function buildMonthlyPeriods(Carbon $start, Carbon $horizon, float $amount, ?int $dayOfMonth, string $dayMode = 'fixed'): array
     {
         $periods = [];
         $cursor = $start->copy()->startOfMonth();
@@ -137,8 +139,7 @@ class BudgetPeriodService
             $expectedDate = null;
 
             if ($dayOfMonth) {
-                $day = min($dayOfMonth, $periodEnd->day);
-                $expectedDate = $periodStart->copy()->day($day);
+                $expectedDate = $this->resolveExpectedDate($periodStart, $periodEnd, $dayOfMonth, $dayMode);
             }
 
             if ($periodEnd->gte($start)) {
@@ -156,7 +157,7 @@ class BudgetPeriodService
         return $periods;
     }
 
-    protected function buildQuarterlyPeriods(Carbon $start, Carbon $horizon, float $amount, ?int $dayOfMonth): array
+    protected function buildQuarterlyPeriods(Carbon $start, Carbon $horizon, float $amount, ?int $dayOfMonth, string $dayMode = 'fixed'): array
     {
         $periods = [];
         $cursor = $start->copy()->startOfQuarter();
@@ -167,8 +168,9 @@ class BudgetPeriodService
             $expectedDate = null;
 
             if ($dayOfMonth) {
-                $day = min($dayOfMonth, $periodStart->copy()->endOfMonth()->day);
-                $expectedDate = $periodStart->copy()->day($day);
+                // For quarterly, resolve within the first month of the quarter
+                $firstMonthEnd = $periodStart->copy()->endOfMonth();
+                $expectedDate = $this->resolveExpectedDate($periodStart, $firstMonthEnd, $dayOfMonth, $dayMode);
             }
 
             if ($periodEnd->gte($start)) {
@@ -215,5 +217,63 @@ class BudgetPeriodService
         }
 
         return $periods;
+    }
+
+    /**
+     * Resolve expected date based on day_mode.
+     *
+     * - fixed: calendar day (capped to month end)
+     * - business_day: nth business day from start of month
+     * - last_business_day: nth business day from end of month (counting backwards)
+     */
+    protected function resolveExpectedDate(Carbon $monthStart, Carbon $monthEnd, int $dayNumber, string $dayMode): Carbon
+    {
+        return match ($dayMode) {
+            'business_day' => $this->nthBusinessDay($monthStart, $dayNumber),
+            'last_business_day' => $this->nthLastBusinessDay($monthEnd, $dayNumber),
+            default => $monthStart->copy()->day(min($dayNumber, $monthEnd->day)),
+        };
+    }
+
+    /**
+     * Find the nth business day (Mon-Fri) from the start of the month.
+     */
+    protected function nthBusinessDay(Carbon $monthStart, int $n): Carbon
+    {
+        $cursor = $monthStart->copy()->startOfMonth();
+        $count = 0;
+
+        while ($count < $n) {
+            if ($cursor->isWeekday()) {
+                $count++;
+                if ($count === $n) {
+                    return $cursor->copy();
+                }
+            }
+            $cursor->addDay();
+        }
+
+        return $cursor->copy();
+    }
+
+    /**
+     * Find the nth last business day (Mon-Fri) from the end of the month.
+     */
+    protected function nthLastBusinessDay(Carbon $monthEnd, int $n): Carbon
+    {
+        $cursor = $monthEnd->copy()->endOfMonth()->startOfDay();
+        $count = 0;
+
+        while ($count < $n) {
+            if ($cursor->isWeekday()) {
+                $count++;
+                if ($count === $n) {
+                    return $cursor->copy();
+                }
+            }
+            $cursor->subDay();
+        }
+
+        return $cursor->copy();
     }
 }

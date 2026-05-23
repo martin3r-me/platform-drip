@@ -20,7 +20,7 @@ class BudgetItem extends Model
     protected $fillable = [
         'uuid', 'team_id', 'user_id', 'category_id', 'bank_account_id',
         'name', 'direction', 'amount', 'frequency',
-        'day_of_month', 'start_date', 'end_date', 'planned_date',
+        'day_of_month', 'day_mode', 'start_date', 'end_date', 'planned_date',
         'is_active', 'notes',
         'status', 'source_type', 'source_counterparty', 'source_iban',
         'source_month_count', 'source_avg_amount',
