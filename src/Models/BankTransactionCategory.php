@@ -18,7 +18,7 @@ class BankTransactionCategory extends Model
 
     protected $fillable = [
         'uuid', 'team_id', 'user_id', 'parent_id',
-        'name', 'slug', 'color', 'metadata',
+        'name', 'slug', 'color', 'direction', 'metadata',
     ];
 
     protected $casts = [

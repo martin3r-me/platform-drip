@@ -64,6 +64,11 @@ class CategoriesToolCrud implements ToolContract, ToolMetadataContract
                     'type' => 'integer',
                     'description' => 'ID der Eltern-Kategorie (für create/update, null = Root).',
                 ],
+                'direction' => [
+                    'type' => 'string',
+                    'enum' => ['credit', 'debit', 'both'],
+                    'description' => 'Richtung: credit (Einnahmen), debit (Ausgaben), both (beides). Default: debit.',
+                ],
                 'team_id' => [
                     'type' => 'integer',
                     'description' => 'Optional: Team-ID.',
@@ -110,12 +115,14 @@ class CategoriesToolCrud implements ToolContract, ToolMetadataContract
                 'name' => $cat->name,
                 'slug' => $cat->slug,
                 'color' => $cat->color,
+                'direction' => $cat->direction,
                 'transactions_count' => $cat->transactions_count,
                 'children' => $cat->children->map(fn ($c) => [
                     'id' => $c->id,
                     'name' => $c->name,
                     'slug' => $c->slug,
                     'color' => $c->color,
+                    'direction' => $c->direction,
                     'parent_id' => $c->parent_id,
                     'transactions_count' => $c->transactions_count,
                 ])->toArray(),
@@ -140,6 +147,7 @@ class CategoriesToolCrud implements ToolContract, ToolMetadataContract
             'name' => $name,
             'slug' => Str::slug($name),
             'color' => $arguments['color'] ?? null,
+            'direction' => $arguments['direction'] ?? 'debit',
             'parent_id' => $arguments['parent_id'] ?? null,
             'team_id' => $teamId,
             'user_id' => $context->user?->id,
@@ -152,6 +160,7 @@ class CategoriesToolCrud implements ToolContract, ToolMetadataContract
                 'name' => $category->name,
                 'slug' => $category->slug,
                 'color' => $category->color,
+                'direction' => $category->direction,
                 'parent_id' => $category->parent_id,
             ],
         ]);
@@ -169,6 +178,7 @@ class CategoriesToolCrud implements ToolContract, ToolMetadataContract
         $data = array_filter([
             'name' => $arguments['name'] ?? null,
             'color' => $arguments['color'] ?? null,
+            'direction' => $arguments['direction'] ?? null,
             'parent_id' => array_key_exists('parent_id', $arguments) ? $arguments['parent_id'] : null,
         ], fn ($v) => $v !== null);
 
@@ -185,6 +195,7 @@ class CategoriesToolCrud implements ToolContract, ToolMetadataContract
                 'name' => $category->name,
                 'slug' => $category->slug,
                 'color' => $category->color,
+                'direction' => $category->direction,
                 'parent_id' => $category->parent_id,
             ],
         ]);
