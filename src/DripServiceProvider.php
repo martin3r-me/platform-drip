@@ -2,6 +2,7 @@
 
 namespace Platform\Drip;
 
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -86,6 +87,9 @@ class DripServiceProvider extends ServiceProvider
 
         // Schritt 8: MCP Tools
         $this->registerTools();
+
+        // Schritt 9: Scheduling
+        $this->registerSchedule();
     }
 
     protected function registerLivewireComponents(): void
@@ -149,6 +153,35 @@ class DripServiceProvider extends ServiceProvider
         } catch (\Throwable $e) {
             \Log::warning('Drip: Tool-Registrierung fehlgeschlagen', ['error' => $e->getMessage()]);
         }
+    }
+
+    protected function registerSchedule(): void
+    {
+        $this->callAfterResolving(Schedule::class, function (Schedule $schedule) {
+            // Nächtlicher Delta-Sync (ohne Account-Details) um 03:00 Uhr
+            $schedule->command('drip:update-bank-data --skip-details')
+                ->dailyAt('03:00')
+                ->withoutOverlapping()
+                ->onOneServer();
+
+            // Monatliches Cleanup abgelaufener Requisitions (letzter Tag 03:30 Uhr)
+            $schedule->command('drip:update-bank-data --cleanup')
+                ->lastDayOfMonth('03:30')
+                ->withoutOverlapping()
+                ->onOneServer();
+
+            // Liquiditätsforecast täglich um 04:00 Uhr
+            $schedule->command('drip:compute-liquidity')
+                ->dailyAt('04:00')
+                ->withoutOverlapping()
+                ->onOneServer();
+
+            // Cashflow-Signals täglich um 04:15 Uhr
+            $schedule->command('drip:sync-signals')
+                ->dailyAt('04:15')
+                ->withoutOverlapping()
+                ->onOneServer();
+        });
     }
 
     protected function registerCommands(): void
