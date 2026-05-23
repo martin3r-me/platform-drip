@@ -10,6 +10,7 @@ use Platform\Drip\Models\BankTransaction;
 use Platform\Drip\Models\BankTransactionCategory;
 use Platform\Drip\Models\BudgetItem;
 use Platform\Drip\Models\CashflowSnapshot;
+use Platform\Drip\Models\LiquidityForecast;
 use Illuminate\Support\Carbon;
 
 class Dashboard extends Component
@@ -30,6 +31,9 @@ class Dashboard extends Component
     public array $topCounterparties = [];
     public array $budgetOverview = [];
     public int $budgetSuggestionsCount = 0;
+
+    public array $budgetSummary = [];
+    public array $alerts = [];
 
     public $groups = [];
     public $recentTransactions = [];
@@ -58,7 +62,6 @@ class Dashboard extends Component
         // Stat cards: rolling 30-day windows (kept as live scan for precision)
         $now = now();
         $currentMonth = $now->format('Y-m');
-        $prevMonth = $now->copy()->subMonth()->format('Y-m');
 
         $this->loadStatCards($teamId, $now);
 
@@ -87,6 +90,12 @@ class Dashboard extends Component
         })->toArray();
 
         $this->budgetSuggestionsCount = BudgetItem::where('team_id', $teamId)->suggested()->count();
+
+        // Budget Summary
+        $this->budgetSummary = $this->loadBudgetSummary($this->budgetOverview);
+
+        // Alerts
+        $this->alerts = $this->loadAlerts($teamId);
 
         $this->lastSyncAt = BankAccount::where('team_id', $teamId)
             ->max('last_transactions_synced_at');
@@ -228,6 +237,108 @@ class Dashboard extends Component
             'amount' => (float) $row->total_amount,
             'count' => (int) $row->transaction_count,
         ])->toArray();
+    }
+
+    protected function loadBudgetSummary(array $budgetOverview): array
+    {
+        if (empty($budgetOverview)) {
+            return [];
+        }
+
+        $total = array_sum(array_column($budgetOverview, 'budget'));
+        $actual = array_sum(array_column($budgetOverview, 'actual'));
+        $remaining = $total - $actual;
+        $percent = $total > 0 ? round($actual / $total * 100, 1) : 0;
+        $atRisk = count(array_filter($budgetOverview, fn ($b) => $b['percent'] >= 80 && $b['percent'] < 100));
+        $exceeded = count(array_filter($budgetOverview, fn ($b) => $b['percent'] >= 100));
+
+        return [
+            'total' => $total,
+            'actual' => $actual,
+            'remaining' => $remaining,
+            'percent' => $percent,
+            'at_risk' => $atRisk,
+            'exceeded' => $exceeded,
+        ];
+    }
+
+    protected function loadAlerts(int $teamId): array
+    {
+        $alerts = [];
+
+        // Budget alerts from overview
+        $over80 = count(array_filter($this->budgetOverview, fn ($b) => $b['percent'] >= 80 && $b['percent'] < 100));
+        $exceeded = count(array_filter($this->budgetOverview, fn ($b) => $b['percent'] >= 100));
+
+        if ($exceeded > 0) {
+            $alerts[] = [
+                'type' => 'danger',
+                'icon' => 'exclamation-triangle',
+                'message' => $exceeded . ' ' . ($exceeded === 1 ? 'Budget ueberschritten' : 'Budgets ueberschritten'),
+                'link' => route('drip.budgets'),
+            ];
+        }
+
+        if ($over80 > 0) {
+            $alerts[] = [
+                'type' => 'warning',
+                'icon' => 'exclamation-triangle',
+                'message' => $over80 . ' ' . ($over80 === 1 ? 'Budget' : 'Budgets') . ' ueber 80%',
+                'link' => route('drip.budgets'),
+            ];
+        }
+
+        // Uncategorized transactions (last 30 days)
+        $uncategorized = BankTransaction::where('team_id', $teamId)
+            ->whereNull('category_id')
+            ->where(function ($q) {
+                $q->where(function ($inner) {
+                    $inner->whereNotNull('booked_at')
+                        ->where('booked_at', '>=', now()->subDays(30));
+                })->orWhere(function ($or) {
+                    $or->whereNull('booked_at')
+                        ->where('created_at', '>=', now()->subDays(30));
+                });
+            })
+            ->count();
+
+        if ($uncategorized > 0) {
+            $alerts[] = [
+                'type' => 'info',
+                'icon' => 'tag',
+                'message' => $uncategorized . ' unkategorisierte ' . ($uncategorized === 1 ? 'Transaktion' : 'Transaktionen'),
+                'link' => route('drip.categories'),
+            ];
+        }
+
+        // Unconfirmed suggestions
+        if ($this->budgetSuggestionsCount > 0) {
+            $alerts[] = [
+                'type' => 'primary',
+                'icon' => 'light-bulb',
+                'message' => $this->budgetSuggestionsCount . ' unbestaetigte ' . ($this->budgetSuggestionsCount === 1 ? 'Vorschlag' : 'Vorschlaege'),
+                'link' => route('drip.budgets'),
+            ];
+        }
+
+        // Liquidity warning: projected balance < 0 in next 30 days
+        $negativeDay = LiquidityForecast::where('team_id', $teamId)
+            ->where('forecast_date', '>=', now()->startOfDay())
+            ->where('forecast_date', '<=', now()->addDays(30))
+            ->where('projected_balance', '<', 0)
+            ->orderBy('forecast_date')
+            ->first();
+
+        if ($negativeDay) {
+            $alerts[] = [
+                'type' => 'danger',
+                'icon' => 'arrow-trending-down',
+                'message' => 'Negativsaldo am ' . $negativeDay->forecast_date->format('d.m.Y') . ' prognostiziert',
+                'link' => route('drip.liquidity'),
+            ];
+        }
+
+        return $alerts;
     }
 
     public function render()

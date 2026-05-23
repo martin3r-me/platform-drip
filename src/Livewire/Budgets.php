@@ -268,6 +268,9 @@ class Budgets extends Component
         $teamId = (int) auth()->user()?->current_team_id;
         $monthStart = now()->startOfMonth();
 
+        // Budget chart data: grouped bar (Budget vs. Actual per category)
+        $budgetChartData = $this->loadBudgetChartData($teamId, $monthStart);
+
         // Suggestions
         $suggestions = BudgetItem::where('team_id', $teamId)
             ->suggested()
@@ -378,6 +381,30 @@ class Budgets extends Component
             'periods' => $periods,
             'categories' => $categories,
             'bankAccounts' => $bankAccounts,
+            'budgetChartData' => $budgetChartData,
         ])->layout('platform::layouts.app');
+    }
+
+    protected function loadBudgetChartData(int $teamId, \Illuminate\Support\Carbon $monthStart): array
+    {
+        $items = BudgetItem::where('team_id', $teamId)
+            ->active()
+            ->with('category')
+            ->get();
+
+        if ($items->isEmpty()) {
+            return [];
+        }
+
+        return $items->map(function (BudgetItem $item) use ($teamId, $monthStart) {
+            $fulfillment = $item->fulfillmentForMonth($monthStart, $teamId);
+            return [
+                'name' => $item->name,
+                'category' => $item->category?->name ?? 'Ohne Kategorie',
+                'color' => $item->category?->color ?? '#6B7280',
+                'budget' => $fulfillment['budget'],
+                'actual' => $fulfillment['actual'],
+            ];
+        })->toArray();
     }
 }

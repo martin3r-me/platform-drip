@@ -12,6 +12,38 @@
     </x-slot>
 
     <x-ui-page-container>
+
+        {{-- Budget vs. Actual Grouped Bar Chart --}}
+        @if(count($budgetChartData) > 0)
+            <div class="bg-white rounded-2xl shadow-sm p-6 mb-8 overflow-hidden">
+                <h2 class="text-xl font-bold text-gray-900 mb-4">Budget vs. Ist (aktueller Monat)</h2>
+                <div wire:ignore x-data="{
+                    chart: null,
+                    init() {
+                        this.chart = new ApexCharts(this.$refs.el, {
+                            chart: { type: 'bar', height: {{ max(200, count($budgetChartData) * 40) }}, toolbar: { show: false }, fontFamily: 'inherit' },
+                            series: [
+                                { name: 'Budget', data: {{ json_encode(collect($budgetChartData)->pluck('budget')->values()) }} },
+                                { name: 'Ist', data: {{ json_encode(collect($budgetChartData)->pluck('actual')->values()) }} }
+                            ],
+                            colors: ['#93C5FD', '#3B82F6'],
+                            plotOptions: { bar: { horizontal: true, borderRadius: 3, barHeight: '60%' } },
+                            xaxis: { categories: {{ json_encode(collect($budgetChartData)->pluck('name')->values()) }}, labels: { style: { fontSize: '11px', colors: '#6B7280' }, formatter: v => new Intl.NumberFormat('de-DE').format(Math.round(v)) } },
+                            yaxis: { labels: { style: { fontSize: '11px', colors: '#374151' }, maxWidth: 140 } },
+                            tooltip: { y: { formatter: v => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(v) } },
+                            dataLabels: { enabled: false },
+                            legend: { fontSize: '11px', labels: { colors: '#6B7280' } },
+                            grid: { borderColor: '#F3F4F6' }
+                        });
+                        this.chart.render();
+                    },
+                    destroy() { this.chart?.destroy(); }
+                }">
+                    <div x-ref="el"></div>
+                </div>
+            </div>
+        @endif
+
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
             {{-- Links: Tab-Navigation + Listen --}}

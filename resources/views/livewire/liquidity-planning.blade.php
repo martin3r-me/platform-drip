@@ -33,6 +33,20 @@
             </div>
         </div>
 
+        {{-- Negative balance warning --}}
+        @php
+            $negativeDay = collect($plan['daily_forecast'])->first(fn ($d) => $d['balance'] < 0);
+        @endphp
+        @if($negativeDay)
+            <div class="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-6 flex items-center gap-2">
+                @svg('heroicon-o-exclamation-triangle', 'w-4 h-4 text-red-500 shrink-0')
+                <span class="text-[12px] font-medium text-red-700">
+                    Negativsaldo ab {{ \Illuminate\Support\Carbon::parse($negativeDay['date'])->format('d.m.Y') }} prognostiziert
+                    ({{ number_format($negativeDay['balance'], 2, ',', '.') }} &euro;)
+                </span>
+            </div>
+        @endif
+
         {{-- Current Balance Card --}}
         <div class="bg-white rounded-2xl shadow-sm p-6 mb-8">
             <div class="text-[11px] font-medium text-gray-500 uppercase tracking-wide mb-1">Aktueller Kontostand</div>
@@ -157,8 +171,9 @@
                 </div>
             </div>
 
-            {{-- Right: Upcoming items --}}
-            <div class="lg:col-span-1">
+            {{-- Right: Upcoming items + Signals --}}
+            <div class="lg:col-span-1 space-y-6">
+                {{-- Upcoming Items --}}
                 <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
                     <div class="px-6 py-4 border-b border-gray-100">
                         <h3 class="text-xl font-bold text-gray-900">Naechste geplante Posten</h3>
@@ -169,7 +184,21 @@
                             @foreach($plan['upcoming_items'] as $item)
                                 <div class="px-6 py-3">
                                     <div class="flex items-center justify-between mb-0.5">
-                                        <span class="text-[13px] font-medium text-gray-900 truncate mr-2">{{ $item['name'] }}</span>
+                                        <div class="flex items-center gap-1.5 min-w-0 mr-2">
+                                            <span class="text-[13px] font-medium text-gray-900 truncate">{{ $item['name'] }}</span>
+                                            @if(($item['source'] ?? 'budget') === 'signal')
+                                                @php
+                                                    $badgeColor = match($item['confidence_level'] ?? 'expected') {
+                                                        'confirmed' => 'bg-green-50 text-green-700',
+                                                        'speculative' => 'bg-amber-50 text-amber-700',
+                                                        default => 'bg-blue-50 text-blue-700',
+                                                    };
+                                                @endphp
+                                                <span class="inline-flex items-center px-1 py-0.5 rounded text-[9px] font-medium {{ $badgeColor }} shrink-0">
+                                                    {{ match($item['confidence_level'] ?? 'expected') { 'confirmed' => 'Sicher', 'speculative' => 'Spekulativ', default => 'Erwartet' } }}
+                                                </span>
+                                            @endif
+                                        </div>
                                         <span class="text-[13px] tabular-nums font-medium shrink-0 {{ $item['direction'] === 'credit' ? 'text-green-600' : 'text-red-600' }}">
                                             {{ $item['direction'] === 'credit' ? '+' : '-' }}{{ number_format($item['amount'], 2, ',', '.') }} &euro;
                                         </span>
@@ -178,6 +207,9 @@
                                         <span>{{ \Illuminate\Support\Carbon::parse($item['date'])->format('d.m.Y') }}</span>
                                         @if($item['category'])
                                             <span>{{ $item['category'] }}</span>
+                                        @endif
+                                        @if(($item['source'] ?? 'budget') === 'signal')
+                                            <span class="text-blue-400">Signal</span>
                                         @endif
                                     </div>
                                 </div>
@@ -190,6 +222,70 @@
                         </div>
                     @endif
                 </div>
+
+                {{-- External Signals Panel --}}
+                @if(count($signals) > 0)
+                    <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
+                        <div class="px-6 py-4 border-b border-gray-100">
+                            <h3 class="text-xl font-bold text-gray-900">Externe Signale</h3>
+                            <p class="text-[11px] text-gray-400 mt-0.5">{{ count($signals) }} aktive Signale</p>
+                        </div>
+                        <div class="divide-y divide-gray-50">
+                            @foreach($signals as $sig)
+                                <div class="px-6 py-3">
+                                    <div class="flex items-center justify-between mb-1">
+                                        <div class="flex items-center gap-1.5 min-w-0 mr-2">
+                                            @if($sig['url'])
+                                                <a href="{{ $sig['url'] }}" target="_blank" class="text-[12px] font-medium text-blue-600 hover:text-blue-700 truncate">{{ $sig['label'] }}</a>
+                                            @else
+                                                <span class="text-[12px] font-medium text-gray-900 truncate">{{ $sig['label'] }}</span>
+                                            @endif
+                                            @php
+                                                $confColor = match($sig['confidence_level']) {
+                                                    'confirmed' => 'bg-green-50 text-green-700',
+                                                    'speculative' => 'bg-amber-50 text-amber-700',
+                                                    default => 'bg-blue-50 text-blue-700',
+                                                };
+                                            @endphp
+                                            <span class="inline-flex items-center px-1 py-0.5 rounded text-[9px] font-medium {{ $confColor }} shrink-0">
+                                                {{ match($sig['confidence_level']) { 'confirmed' => 'Sicher', 'speculative' => 'Spekulativ', default => 'Erwartet' } }}
+                                            </span>
+                                        </div>
+                                        <span class="text-[12px] tabular-nums font-medium shrink-0 {{ $sig['direction'] === 'credit' ? 'text-green-600' : 'text-red-600' }}">
+                                            {{ $sig['direction'] === 'credit' ? '+' : '-' }}{{ number_format($sig['amount'], 2, ',', '.') }} &euro;
+                                        </span>
+                                    </div>
+                                    <div class="flex items-center gap-2 text-[10px] text-gray-400 mb-1.5">
+                                        <span>{{ $sig['date_formatted'] }}</span>
+                                        @if($sig['counterparty'])
+                                            <span>{{ $sig['counterparty'] }}</span>
+                                        @endif
+                                        <span class="text-gray-300">{{ $sig['provider_key'] }}</span>
+                                        @if($sig['has_override'])
+                                            <span class="text-orange-400">Angepasst</span>
+                                        @endif
+                                    </div>
+                                    {{-- Actions --}}
+                                    <div class="flex items-center gap-1">
+                                        <button wire:click="pinSignalToBudget({{ $sig['id'] }})"
+                                                wire:confirm="Signal als Budget-Posten uebernehmen?"
+                                                class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium text-blue-600 hover:bg-blue-50 transition-colors"
+                                                title="Als Budget uebernehmen">
+                                            @svg('heroicon-o-bookmark', 'w-3 h-3')
+                                            Pin
+                                        </button>
+                                        <button wire:click="dismissSignal({{ $sig['id'] }})"
+                                                class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                                                title="Ausblenden">
+                                            @svg('heroicon-o-eye-slash', 'w-3 h-3')
+                                            Ausblenden
+                                        </button>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
             </div>
 
         </div>

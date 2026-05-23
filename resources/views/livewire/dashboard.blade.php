@@ -12,6 +12,78 @@
 
     <x-ui-page-container>
 
+        {{-- Alerts --}}
+        @if(count($alerts) > 0)
+            <div class="flex flex-wrap items-center gap-2 mb-6">
+                @foreach($alerts as $alert)
+                    @php
+                        $colors = match($alert['type']) {
+                            'danger' => 'bg-red-50 text-red-700 border-red-200',
+                            'warning' => 'bg-yellow-50 text-yellow-700 border-yellow-200',
+                            'info' => 'bg-gray-50 text-gray-600 border-gray-200',
+                            'primary' => 'bg-blue-50 text-blue-700 border-blue-200',
+                            default => 'bg-gray-50 text-gray-600 border-gray-200',
+                        };
+                        $iconColor = match($alert['type']) {
+                            'danger' => 'text-red-500',
+                            'warning' => 'text-yellow-500',
+                            'info' => 'text-gray-400',
+                            'primary' => 'text-blue-500',
+                            default => 'text-gray-400',
+                        };
+                    @endphp
+                    <a href="{{ $alert['link'] }}" wire:navigate
+                       class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[12px] font-medium transition-colors hover:opacity-80 {{ $colors }}">
+                        @svg('heroicon-o-' . $alert['icon'], 'w-3.5 h-3.5 ' . $iconColor)
+                        {{ $alert['message'] }}
+                    </a>
+                @endforeach
+            </div>
+        @endif
+
+        {{-- Budget Summary Card --}}
+        @if(!empty($budgetSummary) && $budgetSummary['total'] > 0)
+            <div class="bg-white rounded-2xl shadow-sm p-6 mb-6">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="text-xl font-bold text-gray-900">Budget-Uebersicht</h2>
+                    <a href="{{ route('drip.budgets') }}" wire:navigate class="text-[11px] text-blue-600 hover:text-blue-700">Details</a>
+                </div>
+                <div class="grid grid-cols-3 gap-4 mb-3">
+                    <div>
+                        <div class="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Gesamtbudget</div>
+                        <div class="text-lg font-bold tabular-nums text-gray-900">{{ number_format($budgetSummary['total'], 0, ',', '.') }} &euro;</div>
+                    </div>
+                    <div>
+                        <div class="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Verbraucht</div>
+                        <div class="text-lg font-bold tabular-nums {{ $budgetSummary['percent'] > 100 ? 'text-red-600' : 'text-gray-900' }}">
+                            {{ number_format($budgetSummary['actual'], 0, ',', '.') }} &euro;
+                            <span class="text-[11px] font-normal text-gray-400">({{ $budgetSummary['percent'] }}%)</span>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Verbleibend</div>
+                        <div class="text-lg font-bold tabular-nums {{ $budgetSummary['remaining'] >= 0 ? 'text-green-600' : 'text-red-600' }}">
+                            {{ number_format($budgetSummary['remaining'], 0, ',', '.') }} &euro;
+                        </div>
+                    </div>
+                </div>
+                @php
+                    $summaryBarColor = $budgetSummary['percent'] <= 80 ? 'bg-green-500' : ($budgetSummary['percent'] <= 100 ? 'bg-yellow-500' : 'bg-red-500');
+                @endphp
+                <div class="h-2.5 bg-gray-100 rounded-full overflow-hidden mb-2">
+                    <div class="{{ $summaryBarColor }} h-2.5 rounded-full transition-all" style="width: {{ min($budgetSummary['percent'], 100) }}%"></div>
+                </div>
+                <div class="flex items-center gap-4 text-[11px]">
+                    @if($budgetSummary['at_risk'] > 0)
+                        <span class="text-yellow-600">{{ $budgetSummary['at_risk'] }} {{ $budgetSummary['at_risk'] === 1 ? 'Budget' : 'Budgets' }} at risk</span>
+                    @endif
+                    @if($budgetSummary['exceeded'] > 0)
+                        <span class="text-red-600">{{ $budgetSummary['exceeded'] }} ueberschritten</span>
+                    @endif
+                </div>
+            </div>
+        @endif
+
         {{-- Stat Cards --}}
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             {{-- Kontostand --}}
@@ -61,7 +133,7 @@
 
         {{-- Cashflow (6 Monate) — Grouped Bar Chart --}}
         @if(count($monthlyFlow) > 0)
-            <div class="bg-white rounded-2xl shadow-sm p-6 mb-6">
+            <div class="bg-white rounded-2xl shadow-sm p-6 mb-6 overflow-hidden">
                 <h2 class="text-xl font-bold text-gray-900 mb-4">Cashflow (6 Monate)</h2>
                 <div wire:ignore x-data="{
                     chart: null,

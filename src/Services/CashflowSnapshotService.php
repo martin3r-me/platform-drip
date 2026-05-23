@@ -306,6 +306,111 @@ class CashflowSnapshotService
         return $exists ? $hash : null;
     }
 
+    /**
+     * Top N categories/counterparties aggregated across multiple months (for quarter/year).
+     */
+    public function topForRange(
+        int $teamId,
+        string $dimension,
+        array $periodKeys,
+        string $direction = 'debit',
+        int $limit = 15,
+        ?int $bankAccountId = null,
+    ): array {
+        $query = CashflowSnapshot::forTeam($teamId)
+            ->monthly()
+            ->forBankAccount($bankAccountId)
+            ->where('direction', $direction)
+            ->whereIn('period_key', $periodKeys)
+            ->where('total_amount', '>', 0);
+
+        if ($dimension === 'category') {
+            $query->where('category_id', '!=', CashflowSnapshot::SENTINEL_ALL)
+                ->where('counterparty_hash', CashflowSnapshot::SENTINEL_HASH_ALL);
+        } else {
+            $query->where('counterparty_hash', '!=', CashflowSnapshot::SENTINEL_HASH_ALL)
+                ->where('category_id', CashflowSnapshot::SENTINEL_ALL);
+        }
+
+        $rows = $query->get();
+
+        if ($dimension === 'category') {
+            $grouped = $rows->groupBy('category_id');
+            $categoryIds = $grouped->keys()->filter();
+            $categories = BankTransactionCategory::whereIn('id', $categoryIds)
+                ->get(['id', 'name', 'color'])
+                ->keyBy('id');
+
+            $aggregated = $grouped->map(fn ($items, $catId) => [
+                'category_id' => (int) $catId,
+                'name' => $categories[$catId]?->name ?? 'Ohne Kategorie',
+                'color' => $categories[$catId]?->color ?? '#9CA3AF',
+                'amount' => $items->sum('total_amount'),
+                'count' => $items->sum('transaction_count'),
+            ])->sortByDesc('amount')->take($limit)->values();
+
+            $total = $aggregated->sum('amount');
+
+            return $aggregated->map(fn ($item) => array_merge($item, [
+                'percent' => $total > 0 ? round($item['amount'] / $total * 100, 1) : 0,
+            ]))->toArray();
+        }
+
+        // Counterparty
+        $grouped = $rows->groupBy('counterparty_hash');
+        $aggregated = $grouped->map(fn ($items, $hash) => [
+            'hash' => $hash,
+            'name' => $this->resolveCounterpartyName($teamId, $hash),
+            'amount' => $items->sum('total_amount'),
+            'count' => $items->sum('transaction_count'),
+        ])->sortByDesc('amount')->take($limit)->values();
+
+        $total = $aggregated->sum('amount');
+
+        return $aggregated->map(fn ($item) => array_merge($item, [
+            'percent' => $total > 0 ? round($item['amount'] / $total * 100, 1) : 0,
+        ]))->toArray();
+    }
+
+    /**
+     * Trend data aggregated across multiple months per period (for quarter/year trend).
+     */
+    public function trendForRange(
+        int $teamId,
+        array $periodGroups,
+        string $direction = 'debit',
+        ?int $bankAccountId = null,
+    ): array {
+        $allPeriodKeys = collect($periodGroups)->flatten()->unique()->all();
+
+        $snapshots = CashflowSnapshot::forTeam($teamId)
+            ->monthly()
+            ->forBankAccount($bankAccountId)
+            ->teamWide()
+            ->where('category_id', CashflowSnapshot::SENTINEL_ALL)
+            ->where('counterparty_hash', CashflowSnapshot::SENTINEL_HASH_ALL)
+            ->whereIn('period_key', $allPeriodKeys)
+            ->get();
+
+        $indexed = $snapshots->groupBy(fn ($s) => $s->period_key . '|' . $s->direction);
+
+        return collect($periodGroups)->map(function (array $monthKeys, string $label) use ($indexed) {
+            $debit = 0;
+            $credit = 0;
+            foreach ($monthKeys as $pk) {
+                $debit += (float) ($indexed->get($pk . '|debit')?->first()?->total_amount ?? 0);
+                $credit += (float) ($indexed->get($pk . '|credit')?->first()?->total_amount ?? 0);
+            }
+            return [
+                'period' => $label,
+                'label' => $label,
+                'debit' => $debit,
+                'credit' => $credit,
+                'net' => $credit - $debit,
+            ];
+        })->values()->toArray();
+    }
+
     // ── Private helpers ──
 
     private function addToBucket(

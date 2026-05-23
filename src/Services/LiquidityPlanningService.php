@@ -5,6 +5,7 @@ namespace Platform\Drip\Services;
 use Illuminate\Support\Carbon;
 use Platform\Drip\Models\BankAccountBalance;
 use Platform\Drip\Models\BudgetItemPeriod;
+use Platform\Drip\Models\CashflowSignal;
 use Platform\Drip\Models\LiquidityForecast;
 
 class LiquidityPlanningService
@@ -46,6 +47,30 @@ class LiquidityPlanningService
                 $dailyMap[$date]['credits'] += $amount;
             } else {
                 $dailyMap[$date]['debits'] += $amount;
+            }
+        }
+
+        // Merge in active cashflow signals (not pinned — those are handled via BudgetItems)
+        $signals = CashflowSignal::where('team_id', $teamId)
+            ->where('status', 'active')
+            ->get();
+
+        foreach ($signals as $signal) {
+            $date = $signal->effectiveDate()->format('Y-m-d');
+
+            if (Carbon::parse($date)->lt($today)) {
+                continue;
+            }
+
+            if (!isset($dailyMap[$date])) {
+                $dailyMap[$date] = ['credits' => 0, 'debits' => 0];
+            }
+
+            $weightedAmount = $signal->weightedAmount();
+            if ($signal->direction === 'credit') {
+                $dailyMap[$date]['credits'] += $weightedAmount;
+            } else {
+                $dailyMap[$date]['debits'] += $weightedAmount;
             }
         }
 
@@ -160,7 +185,7 @@ class LiquidityPlanningService
 
     protected function getUpcomingItems(int $teamId, int $monthsAhead): array
     {
-        return BudgetItemPeriod::where('team_id', $teamId)
+        $budgetItems = BudgetItemPeriod::where('team_id', $teamId)
             ->where('status', 'pending')
             ->where('period_end', '>=', now()->startOfDay())
             ->where('period_start', '<=', now()->addMonths($monthsAhead)->endOfMonth())
@@ -176,7 +201,43 @@ class LiquidityPlanningService
                 'direction' => $p->budgetItem->direction,
                 'amount' => (float) $p->planned_amount,
                 'category' => $p->budgetItem->category?->name,
+                'source' => 'budget',
+                'confidence_level' => null,
             ])
+            ->values();
+
+        // Merge active signals
+        $signalItems = CashflowSignal::where('team_id', $teamId)
+            ->where('status', 'active')
+            ->where(function ($q) {
+                $q->where(function ($inner) {
+                    $inner->whereNotNull('override_date')
+                        ->where('override_date', '>=', now()->startOfDay());
+                })->orWhere(function ($or) {
+                    $or->whereNull('override_date')
+                        ->where('expected_date', '>=', now()->startOfDay());
+                });
+            })
+            ->orderBy('expected_date')
+            ->limit(20)
+            ->get()
+            ->map(fn (CashflowSignal $s) => [
+                'name' => $s->label,
+                'date' => $s->effectiveDate()->format('Y-m-d'),
+                'direction' => $s->direction,
+                'amount' => $s->effectiveAmount(),
+                'category' => $s->category,
+                'source' => 'signal',
+                'confidence_level' => $s->confidence_level,
+                'signal_id' => $s->id,
+                'provider_key' => $s->provider_key,
+                'counterparty' => $s->counterparty,
+                'url' => $s->url,
+            ]);
+
+        return $budgetItems->concat($signalItems)
+            ->sortBy('date')
+            ->take(30)
             ->values()
             ->toArray();
     }

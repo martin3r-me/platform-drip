@@ -21,9 +21,10 @@ class DripServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        // Falls in Zukunft Artisan Commands o.ä. nötig sind, hier rein
-        
-        // Keine Services in Drip vorhanden
+        $this->app->singleton(
+            \Platform\Drip\Services\CashflowSignalRegistry::class,
+            fn () => new \Platform\Drip\Services\CashflowSignalRegistry()
+        );
     }
 
     public function boot(): void
@@ -167,6 +168,7 @@ class DripServiceProvider extends ServiceProvider
                 \Platform\Drip\Console\Commands\GenerateBudgetPeriodsCommand::class,
                 \Platform\Drip\Console\Commands\ComputeLiquidityCommand::class,
                 \Platform\Drip\Console\Commands\BuildCashflowSnapshotsCommand::class,
+                \Platform\Drip\Console\Commands\SyncCashflowSignalsCommand::class,
             ]);
         }
     }
