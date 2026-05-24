@@ -33,6 +33,11 @@ class DripServiceProvider extends ServiceProvider
         // Policies
         Gate::policy(BankAccount::class, BankAccountPolicy::class);
         Gate::policy(BankTransaction::class, BankTransactionPolicy::class);
+
+        // MorphMap for Organization EntityLink integration
+        \Illuminate\Database\Eloquent\Relations\Relation::morphMap([
+            'drip_bank_account_group' => \Platform\Drip\Models\BankAccountGroup::class,
+        ]);
         // Schritt 1: Config laden
         $this->mergeConfigFrom(__DIR__.'/../config/drip.php', 'drip');
         
@@ -82,6 +87,14 @@ class DripServiceProvider extends ServiceProvider
         // Observer
         BankAccount::observe(BankAccountObserver::class);
         
+        // EntityLinkProvider for Organization snapshots
+        try {
+            resolve(\Platform\Organization\Services\EntityLinkRegistry::class)
+                ->register(new \Platform\Drip\Organization\DripEntityLinkProvider());
+        } catch (\Throwable $e) {
+            // Organization-Modul nicht geladen
+        }
+
         // Schritt 7: Commands
         $this->registerCommands();
 

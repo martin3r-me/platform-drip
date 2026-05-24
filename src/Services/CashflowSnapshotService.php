@@ -411,6 +411,46 @@ class CashflowSnapshotService
         })->values()->toArray();
     }
 
+    /**
+     * Aggregate cashflow snapshot data for a set of bank accounts.
+     * Used by DripEntityLinkProvider as a data bridge.
+     *
+     * @param int[] $bankAccountIds
+     * @return array{credit: float, debit: float, net: float, tx_count: int}
+     */
+    public function aggregateForBankAccounts(array $bankAccountIds, ?string $periodKey = null): array
+    {
+        $periodKey ??= now()->format('Y-m');
+
+        $snapshots = CashflowSnapshot::whereIn('bank_account_id', $bankAccountIds)
+            ->where('period_type', 'month')
+            ->where('period_key', $periodKey)
+            ->where('category_id', CashflowSnapshot::SENTINEL_ALL)
+            ->where('counterparty_hash', CashflowSnapshot::SENTINEL_HASH_ALL)
+            ->get();
+
+        $credit = 0;
+        $debit = 0;
+        $txCount = 0;
+
+        foreach ($snapshots as $snap) {
+            if ($snap->direction === 'credit') {
+                $credit += (float) $snap->total_amount;
+                $txCount += (int) $snap->transaction_count;
+            } elseif ($snap->direction === 'debit') {
+                $debit += (float) $snap->total_amount;
+                $txCount += (int) $snap->transaction_count;
+            }
+        }
+
+        return [
+            'credit' => $credit,
+            'debit' => $debit,
+            'net' => $credit - $debit,
+            'tx_count' => $txCount,
+        ];
+    }
+
     // ── Private helpers ──
 
     private function addToBucket(
