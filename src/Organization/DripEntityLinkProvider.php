@@ -14,7 +14,7 @@ class DripEntityLinkProvider implements EntityLinkProvider, HasMetricDefinitions
 {
     public function morphAliases(): array
     {
-        return ['drip_bank_account_group'];
+        return ['drip_bank_account_group', 'drip_bank_transaction'];
     }
 
     public function linkTypeConfig(): array
@@ -24,6 +24,12 @@ class DripEntityLinkProvider implements EntityLinkProvider, HasMetricDefinitions
                 'label' => 'Kontengruppen',
                 'singular' => 'Kontengruppe',
                 'icon' => 'banknotes',
+                'route' => null,
+            ],
+            'drip_bank_transaction' => [
+                'label' => 'Transaktionen',
+                'singular' => 'Transaktion',
+                'icon' => 'receipt-percent',
                 'route' => null,
             ],
         ];
@@ -36,6 +42,15 @@ class DripEntityLinkProvider implements EntityLinkProvider, HasMetricDefinitions
 
     public function extractMetadata(string $morphAlias, mixed $model): array
     {
+        if ($morphAlias === 'drip_bank_transaction') {
+            return [
+                'amount' => $model->amount,
+                'direction' => $model->direction,
+                'counterparty' => $model->counterparty_name,
+                'booked_at' => $model->booked_at?->toDateString(),
+            ];
+        }
+
         return [];
     }
 

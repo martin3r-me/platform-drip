@@ -37,6 +37,7 @@ class DripServiceProvider extends ServiceProvider
         // MorphMap for Organization EntityLink integration
         \Illuminate\Database\Eloquent\Relations\Relation::morphMap([
             'drip_bank_account_group' => \Platform\Drip\Models\BankAccountGroup::class,
+            'drip_bank_transaction' => BankTransaction::class,
         ]);
         // Schritt 1: Config laden
         $this->mergeConfigFrom(__DIR__.'/../config/drip.php', 'drip');
