@@ -56,7 +56,13 @@ class DripEntityLinkProvider implements EntityLinkProvider, HasMetricDefinitions
 
     public function metadataDisplayRules(): array
     {
-        return [];
+        return [
+            'drip_bank_transaction' => [
+                ['field' => 'amount', 'format' => 'text', 'suffix' => '€'],
+                ['field' => 'counterparty', 'format' => 'text'],
+                ['field' => 'booked_at', 'format' => 'text'],
+            ],
+        ];
     }
 
     public function timeTrackableCascades(): array
