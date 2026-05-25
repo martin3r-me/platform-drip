@@ -5,12 +5,14 @@ namespace Platform\Drip\Organization;
 use Illuminate\Database\Eloquent\Builder;
 use Platform\Drip\Models\BankAccount;
 use Platform\Drip\Models\BankAccountGroup;
+use Platform\Drip\Models\BankTransaction;
 use Platform\Drip\Models\CashflowSnapshot;
 use Platform\Drip\Services\CashflowSnapshotService;
 use Platform\Organization\Contracts\EntityLinkProvider;
+use Platform\Organization\Contracts\HasCostDriverMetrics;
 use Platform\Organization\Contracts\HasMetricDefinitions;
 
-class DripEntityLinkProvider implements EntityLinkProvider, HasMetricDefinitions
+class DripEntityLinkProvider implements EntityLinkProvider, HasMetricDefinitions, HasCostDriverMetrics
 {
     public function morphAliases(): array
     {
@@ -162,6 +164,133 @@ class DripEntityLinkProvider implements EntityLinkProvider, HasMetricDefinitions
         }
 
         return $result;
+    }
+
+    /**
+     * Cost-Driver-Adjustments: Verschiebung von Cashflow-Anteilen
+     * von der Default-Entity (Kontengruppen-Owner) auf Kostenverursacher.
+     *
+     * Logik:
+     * 1. Alle Transaktionen im aktuellen Monat mit cost-driver Links laden
+     * 2. Für jede: attributierter Betrag = amount × percentage / 100
+     * 3. Default-Entity (Kontengruppen-Owner) bekommt negative Korrektur
+     * 4. Cost-Driver-Entity bekommt positive Zurechnung
+     */
+    public function costDriverAdjustments(array $groupLinksByEntity): array
+    {
+        $currentMonth = now()->format('Y-m');
+
+        // 1. Find cost-driver dimension
+        $costDriverDef = \Platform\Organization\Models\OrganizationDimensionDefinition::findByKey('cost-driver');
+        if (!$costDriverDef) {
+            return [];
+        }
+
+        // 2. Load all cost-driver links for drip_bank_transaction in this team
+        $costDriverLinks = \Platform\Organization\Models\OrganizationDimensionLink::where('dimension_definition_id', $costDriverDef->id)
+            ->where('linkable_type', 'drip_bank_transaction')
+            ->with('value')
+            ->get();
+
+        if ($costDriverLinks->isEmpty()) {
+            return [];
+        }
+
+        // 3. Load linked transactions for current month
+        $transactionIds = $costDriverLinks->pluck('linkable_id')->unique()->toArray();
+
+        $transactions = BankTransaction::whereIn('id', $transactionIds)
+            ->whereRaw("DATE_FORMAT(booked_at, '%Y-%m') = ?", [$currentMonth])
+            ->select('id', 'bank_account_id', 'amount', 'direction')
+            ->get()
+            ->keyBy('id');
+
+        if ($transactions->isEmpty()) {
+            return [];
+        }
+
+        // 4. Build account → group → default entity map
+        $accountIds = $transactions->pluck('bank_account_id')->unique()->toArray();
+        $accounts = BankAccount::whereIn('id', $accountIds)->select('id', 'group_id')->get();
+        $accountToGroup = $accounts->pluck('group_id', 'id')->toArray();
+
+        // Invert groupLinksByEntity: groupId → entityId
+        $groupToEntity = [];
+        foreach ($groupLinksByEntity as $entityId => $groupIds) {
+            foreach ($groupIds as $gid) {
+                $groupToEntity[$gid] = $entityId;
+            }
+        }
+
+        // 5. Build cost-driver value → entity map
+        $dimValueToEntity = [];
+        foreach ($costDriverDef->values()->get() as $v) {
+            $sourceEntityId = $v->metadata['source_entity_id'] ?? null;
+            if ($sourceEntityId) {
+                $dimValueToEntity[$v->id] = $sourceEntityId;
+            }
+        }
+
+        // 6. Group cost-driver links by transaction
+        $linksByTransaction = $costDriverLinks->groupBy('linkable_id');
+
+        // 7. Calculate adjustments
+        $adjustments = []; // entityId => [cashflow_in => x, cashflow_out => y]
+
+        foreach ($linksByTransaction as $txId => $links) {
+            $tx = $transactions->get($txId);
+            if (!$tx) {
+                continue;
+            }
+
+            $groupId = $accountToGroup[$tx->bank_account_id] ?? null;
+            $defaultEntityId = $groupId ? ($groupToEntity[$groupId] ?? null) : null;
+
+            if (!$defaultEntityId) {
+                continue;
+            }
+
+            $amount = abs((float) $tx->amount);
+            $isCredit = $tx->direction === 'credit';
+
+            foreach ($links as $link) {
+                $costDriverEntityId = $dimValueToEntity[$link->dimension_value_id] ?? null;
+                if (!$costDriverEntityId || $costDriverEntityId === $defaultEntityId) {
+                    continue;
+                }
+
+                $pct = (float) ($link->percentage ?? 0);
+                if ($pct <= 0) {
+                    continue;
+                }
+
+                $attributed = round($amount * $pct / 100, 2);
+
+                // Add to cost-driver entity
+                if ($isCredit) {
+                    $adjustments[$costDriverEntityId]['cashflow_in'] = ($adjustments[$costDriverEntityId]['cashflow_in'] ?? 0) + $attributed;
+                } else {
+                    $adjustments[$costDriverEntityId]['cashflow_out'] = ($adjustments[$costDriverEntityId]['cashflow_out'] ?? 0) + $attributed;
+                }
+
+                // Subtract from default entity
+                if ($isCredit) {
+                    $adjustments[$defaultEntityId]['cashflow_in'] = ($adjustments[$defaultEntityId]['cashflow_in'] ?? 0) - $attributed;
+                } else {
+                    $adjustments[$defaultEntityId]['cashflow_out'] = ($adjustments[$defaultEntityId]['cashflow_out'] ?? 0) - $attributed;
+                }
+            }
+        }
+
+        // 8. Calculate net for each entity
+        foreach ($adjustments as $entityId => &$m) {
+            $m['cashflow_in'] = round($m['cashflow_in'] ?? 0, 2);
+            $m['cashflow_out'] = round($m['cashflow_out'] ?? 0, 2);
+            $m['cashflow_net'] = round($m['cashflow_in'] - $m['cashflow_out'], 2);
+        }
+        unset($m);
+
+        return $adjustments;
     }
 
     public function metricDefinitions(): array
