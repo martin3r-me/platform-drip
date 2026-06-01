@@ -73,10 +73,10 @@
                     <h3 class="text-lg font-bold text-gray-900">Kontoverlauf</h3>
                     <div class="flex items-center gap-4 text-[11px] text-gray-400">
                         <span class="flex items-center gap-1">
-                            <span class="inline-block w-4 h-0.5 bg-blue-600 rounded"></span> Ist
+                            <span class="inline-block w-4 h-0.5 rounded" style="background: #1E40AF;"></span> Ist
                         </span>
                         <span class="flex items-center gap-1">
-                            <span class="inline-block w-4 h-0.5 bg-blue-300 rounded" style="border-top: 2px dashed #93C5FD;"></span> Prognose
+                            <span class="inline-block w-4 h-0.5 rounded" style="border-top: 2px dashed #F59E0B;"></span> Prognose
                         </span>
                         <span>Min: {{ number_format($minBal, 0, ',', '.') }} &euro;</span>
                         <span>Max: {{ number_format($maxBal, 0, ',', '.') }} &euro;</span>
@@ -95,8 +95,8 @@
                                 { name: 'Ist-Saldo', data: actualData },
                                 { name: 'Prognose', data: forecastData }
                             ],
-                            colors: ['#3B82F6', '#93C5FD'],
-                            stroke: { curve: 'smooth', width: [3, 2], dashArray: [0, 5] },
+                            colors: ['#1E40AF', '#F59E0B'],
+                            stroke: { curve: 'smooth', width: [3, 2.5], dashArray: [0, 6] },
                             fill: {
                                 type: ['solid', 'gradient'],
                                 gradient: { shadeIntensity: 1, opacityFrom: 0.25, opacityTo: 0.05, stops: [0, 100] }
