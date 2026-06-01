@@ -71,10 +71,12 @@ class LiquidityPlanning extends Component
         $service = app(LiquidityPlanningService::class);
         $plan = $service->getPlan($teamId, $this->monthsAhead);
         $monthlyDetail = $service->getMonthlyDetail($teamId, $this->monthsAhead);
+        $scenarios = $service->getScenarioForecasts($teamId, $this->monthsAhead * 30);
 
         return view('drip::livewire.liquidity-planning', [
             'plan' => $plan,
             'monthlyDetail' => $monthlyDetail,
+            'scenarios' => $scenarios,
         ])->layout('platform::layouts.app');
     }
 }

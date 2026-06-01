@@ -41,151 +41,201 @@
             </div>
         @endif
 
-        {{-- Budget Summary Card --}}
-        @if(!empty($budgetSummary) && $budgetSummary['total'] > 0)
-            <div class="bg-white rounded-2xl shadow-sm p-6 mb-6">
-                <div class="flex items-center justify-between mb-3">
-                    <h2 class="text-xl font-bold text-gray-900">Budget-Uebersicht</h2>
-                    <a href="{{ route('drip.budgets') }}" wire:navigate class="text-[11px] text-blue-600 hover:text-blue-700">Details</a>
-                </div>
-                <div class="grid grid-cols-3 gap-4 mb-3">
-                    <div>
-                        <div class="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Gesamtbudget</div>
-                        <div class="text-lg font-bold tabular-nums text-gray-900">{{ number_format($budgetSummary['total'], 0, ',', '.') }} &euro;</div>
+        {{-- Summary Row: Budget Summary + Cash Runway --}}
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            {{-- Budget Summary --}}
+            @if(!empty($budgetSummary) && $budgetSummary['total'] > 0)
+                <div class="bg-white rounded-2xl shadow-sm p-6">
+                    <div class="flex items-center justify-between mb-3">
+                        <h2 class="text-lg font-bold text-gray-900">Budget-Uebersicht</h2>
+                        <a href="{{ route('drip.budgets') }}" wire:navigate class="text-[11px] text-blue-600 hover:text-blue-700">Details</a>
                     </div>
-                    <div>
-                        <div class="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Verbraucht</div>
-                        <div class="text-lg font-bold tabular-nums {{ $budgetSummary['percent'] > 100 ? 'text-red-600' : 'text-gray-900' }}">
-                            {{ number_format($budgetSummary['actual'], 0, ',', '.') }} &euro;
-                            <span class="text-[11px] font-normal text-gray-400">({{ $budgetSummary['percent'] }}%)</span>
+                    <div class="grid grid-cols-3 gap-4 mb-3">
+                        <div>
+                            <div class="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Gesamtbudget</div>
+                            <div class="text-lg font-bold tabular-nums text-gray-900">{{ number_format($budgetSummary['total'], 0, ',', '.') }} &euro;</div>
+                        </div>
+                        <div>
+                            <div class="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Verbraucht</div>
+                            <div class="text-lg font-bold tabular-nums {{ $budgetSummary['percent'] > 100 ? 'text-red-600' : 'text-gray-900' }}">
+                                {{ number_format($budgetSummary['actual'], 0, ',', '.') }} &euro;
+                                <span class="text-[11px] font-normal text-gray-400">({{ $budgetSummary['percent'] }}%)</span>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Verbleibend</div>
+                            <div class="text-lg font-bold tabular-nums {{ $budgetSummary['remaining'] >= 0 ? 'text-green-600' : 'text-red-600' }}">
+                                {{ number_format($budgetSummary['remaining'], 0, ',', '.') }} &euro;
+                            </div>
                         </div>
                     </div>
-                    <div>
-                        <div class="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Verbleibend</div>
-                        <div class="text-lg font-bold tabular-nums {{ $budgetSummary['remaining'] >= 0 ? 'text-green-600' : 'text-red-600' }}">
-                            {{ number_format($budgetSummary['remaining'], 0, ',', '.') }} &euro;
-                        </div>
+                    @php
+                        $summaryBarColor = $budgetSummary['percent'] <= 80 ? 'bg-green-500' : ($budgetSummary['percent'] <= 100 ? 'bg-yellow-500' : 'bg-red-500');
+                    @endphp
+                    <div class="h-2.5 bg-gray-100 rounded-full overflow-hidden mb-2">
+                        <div class="{{ $summaryBarColor }} h-2.5 rounded-full transition-all" style="width: {{ min($budgetSummary['percent'], 100) }}%"></div>
+                    </div>
+                    <div class="flex items-center gap-4 text-[11px]">
+                        @if($budgetSummary['at_risk'] > 0)
+                            <span class="text-yellow-600">{{ $budgetSummary['at_risk'] }} {{ $budgetSummary['at_risk'] === 1 ? 'Budget' : 'Budgets' }} at risk</span>
+                        @endif
+                        @if($budgetSummary['exceeded'] > 0)
+                            <span class="text-red-600">{{ $budgetSummary['exceeded'] }} ueberschritten</span>
+                        @endif
                     </div>
                 </div>
+            @endif
+
+            {{-- Cash Runway --}}
+            @if(!empty($cashRunway) && $cashRunway['label'] !== '-')
                 @php
-                    $summaryBarColor = $budgetSummary['percent'] <= 80 ? 'bg-green-500' : ($budgetSummary['percent'] <= 100 ? 'bg-yellow-500' : 'bg-red-500');
+                    $runwayColors = match($cashRunway['color']) {
+                        'green' => ['bg' => 'bg-green-50', 'text' => 'text-green-600', 'bar' => 'bg-green-500', 'ring' => 'ring-green-200'],
+                        'yellow' => ['bg' => 'bg-yellow-50', 'text' => 'text-yellow-600', 'bar' => 'bg-yellow-500', 'ring' => 'ring-yellow-200'],
+                        'red' => ['bg' => 'bg-red-50', 'text' => 'text-red-600', 'bar' => 'bg-red-500', 'ring' => 'ring-red-200'],
+                        default => ['bg' => 'bg-gray-50', 'text' => 'text-gray-600', 'bar' => 'bg-gray-400', 'ring' => 'ring-gray-200'],
+                    };
                 @endphp
-                <div class="h-2.5 bg-gray-100 rounded-full overflow-hidden mb-2">
-                    <div class="{{ $summaryBarColor }} h-2.5 rounded-full transition-all" style="width: {{ min($budgetSummary['percent'], 100) }}%"></div>
-                </div>
-                <div class="flex items-center gap-4 text-[11px]">
-                    @if($budgetSummary['at_risk'] > 0)
-                        <span class="text-yellow-600">{{ $budgetSummary['at_risk'] }} {{ $budgetSummary['at_risk'] === 1 ? 'Budget' : 'Budgets' }} at risk</span>
-                    @endif
-                    @if($budgetSummary['exceeded'] > 0)
-                        <span class="text-red-600">{{ $budgetSummary['exceeded'] }} ueberschritten</span>
-                    @endif
-                </div>
-            </div>
-        @endif
-
-        {{-- Cash Runway Card --}}
-        @if(!empty($cashRunway) && $cashRunway['label'] !== '-')
-            @php
-                $runwayColors = match($cashRunway['color']) {
-                    'green' => ['bg' => 'bg-green-50', 'text' => 'text-green-600', 'bar' => 'bg-green-500', 'ring' => 'ring-green-200'],
-                    'yellow' => ['bg' => 'bg-yellow-50', 'text' => 'text-yellow-600', 'bar' => 'bg-yellow-500', 'ring' => 'ring-yellow-200'],
-                    'red' => ['bg' => 'bg-red-50', 'text' => 'text-red-600', 'bar' => 'bg-red-500', 'ring' => 'ring-red-200'],
-                    default => ['bg' => 'bg-gray-50', 'text' => 'text-gray-600', 'bar' => 'bg-gray-400', 'ring' => 'ring-gray-200'],
-                };
-            @endphp
-            <div class="{{ $runwayColors['bg'] }} rounded-2xl shadow-sm p-6 mb-6">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <div class="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Cash Runway</div>
-                        <div class="mt-1 text-4xl font-bold tabular-nums {{ $runwayColors['text'] }}">
-                            {{ $cashRunway['label'] }}
+                <div class="{{ $runwayColors['bg'] }} rounded-2xl shadow-sm p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <div class="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Cash Runway</div>
+                            <div class="mt-1 text-4xl font-bold tabular-nums {{ $runwayColors['text'] }}">
+                                {{ $cashRunway['label'] }}
+                            </div>
+                            <div class="mt-1 text-[11px] text-gray-500">
+                                @if($cashRunway['days'] === null && $cashRunway['label'] === '∞')
+                                    Kein Negativsaldo im Prognosezeitraum
+                                @elseif($cashRunway['days'] !== null)
+                                    bis projizierter Saldo &le; 0 &euro;
+                                @endif
+                            </div>
                         </div>
-                        <div class="mt-1 text-[11px] text-gray-500">
-                            @if($cashRunway['days'] === null && $cashRunway['label'] === '∞')
-                                Kein Negativsaldo im Prognosezeitraum
-                            @elseif($cashRunway['days'] !== null)
-                                bis projizierter Saldo &le; 0 &euro;
-                            @endif
+                        <div class="shrink-0">
+                            <svg class="w-16 h-16" viewBox="0 0 36 36">
+                                <path class="text-gray-200" stroke="currentColor" stroke-width="3" fill="none"
+                                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                <path class="{{ str_replace('bg-', 'text-', $runwayColors['bar']) }}" stroke="currentColor" stroke-width="3" fill="none"
+                                      stroke-dasharray="{{ $cashRunway['percent'] }}, 100" stroke-linecap="round"
+                                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                            </svg>
                         </div>
                     </div>
-                    <div class="shrink-0">
-                        {{-- Circular progress indicator --}}
-                        <svg class="w-16 h-16" viewBox="0 0 36 36">
-                            <path class="text-gray-200" stroke="currentColor" stroke-width="3" fill="none"
-                                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                            <path class="{{ str_replace('bg-', 'text-', $runwayColors['bar']) }}" stroke="currentColor" stroke-width="3" fill="none"
-                                  stroke-dasharray="{{ $cashRunway['percent'] }}, 100" stroke-linecap="round"
-                                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                        </svg>
-                    </div>
                 </div>
-            </div>
-        @endif
+            @endif
+        </div>
 
-        {{-- Stat Cards --}}
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {{-- Kontostand --}}
-            <div class="bg-white rounded-2xl shadow-sm p-6">
-                <div class="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Kontostand</div>
-                <div class="mt-1 text-2xl font-bold tabular-nums text-gray-900">
-                    {{ number_format($totalBalance, 2, ',', '.') }} &euro;
-                </div>
+        {{-- Controls: Period Type + Month Dropdown + Comparison Mode --}}
+        <div class="flex items-center gap-4 mb-6 flex-wrap">
+            {{-- Period Type Switcher --}}
+            <div class="flex items-center gap-1 bg-gray-100 rounded-md p-0.5">
+                @foreach(['month' => 'Monat', 'quarter' => 'Quartal', 'year' => 'Jahr'] as $type => $label)
+                    <button wire:click="$set('periodType', '{{ $type }}')"
+                            class="px-3 py-1 rounded text-[12px] font-medium transition-colors {{ $periodType === $type ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700' }}">
+                        {{ $label }}
+                    </button>
+                @endforeach
             </div>
 
-            {{-- Einnahmen 30T --}}
-            <div class="bg-white rounded-2xl shadow-sm p-6">
-                <div class="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Einnahmen (30T)</div>
-                <div class="mt-1 text-2xl font-bold tabular-nums text-green-600">
-                    +{{ number_format($income30d, 2, ',', '.') }} &euro;
-                </div>
-                @if($incomePrev30d > 0)
-                    @php $incomeChange = $incomePrev30d > 0 ? round(($income30d - $incomePrev30d) / $incomePrev30d * 100, 1) : 0; @endphp
-                    <div class="mt-1 text-[11px] {{ $incomeChange >= 0 ? 'text-green-600' : 'text-red-500' }}">
-                        {{ $incomeChange >= 0 ? '+' : '' }}{{ $incomeChange }}% vs. Vormonat
-                    </div>
-                @endif
+            {{-- Month Selector --}}
+            <div>
+                <select wire:model.live="selectedMonth"
+                        class="px-3 py-1.5 rounded-md border border-gray-200 text-[13px] text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+                    @foreach($availableMonths as $m)
+                        <option value="{{ $m['value'] }}">{{ $m['label'] }}</option>
+                    @endforeach
+                </select>
             </div>
 
-            {{-- Ausgaben 30T --}}
-            <div class="bg-white rounded-2xl shadow-sm p-6">
-                <div class="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Ausgaben (30T)</div>
-                <div class="mt-1 text-2xl font-bold tabular-nums text-red-600">
-                    -{{ number_format($expenses30d, 2, ',', '.') }} &euro;
-                </div>
-                @if($expensesPrev30d > 0)
-                    @php $expenseChange = $expensesPrev30d > 0 ? round(($expenses30d - $expensesPrev30d) / $expensesPrev30d * 100, 1) : 0; @endphp
-                    <div class="mt-1 text-[11px] {{ $expenseChange <= 0 ? 'text-green-600' : 'text-red-500' }}">
-                        {{ $expenseChange >= 0 ? '+' : '' }}{{ $expenseChange }}% vs. Vormonat
-                    </div>
-                @endif
-            </div>
-
-            {{-- Transaktionen 30T --}}
-            <div class="bg-white rounded-2xl shadow-sm p-6">
-                <div class="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Transaktionen (30T)</div>
-                <div class="mt-1 text-2xl font-bold tabular-nums text-gray-900">
-                    {{ $transactions30d }}
-                </div>
+            {{-- Comparison Mode --}}
+            <div class="flex items-center gap-1 bg-gray-100 rounded-md p-0.5">
+                @foreach(['previous' => 'vs. Vorperiode', 'average' => 'vs. Durchschnitt', 'none' => 'Ohne'] as $mode => $label)
+                    <button wire:click="$set('comparisonMode', '{{ $mode }}')"
+                            class="px-3 py-1 rounded text-[12px] font-medium transition-colors {{ $comparisonMode === $mode ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700' }}">
+                        {{ $label }}
+                    </button>
+                @endforeach
             </div>
         </div>
 
-        {{-- Cashflow (6 Monate) — Grouped Bar Chart --}}
-        @if(count($monthlyFlow) > 0)
-            <div class="bg-white rounded-2xl shadow-sm p-6 mb-6 overflow-hidden">
-                <h2 class="text-xl font-bold text-gray-900 mb-4">Cashflow (6 Monate)</h2>
+        {{-- Stat Cards (4-spaltig): Kontostand + Ausgaben + Einnahmen + Netto --}}
+        @if(!empty($comparison))
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                {{-- Kontostand --}}
+                <div class="bg-white rounded-2xl shadow-sm p-6">
+                    <div class="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Kontostand</div>
+                    <div class="mt-1 text-2xl font-bold tabular-nums text-gray-900">
+                        {{ number_format($totalBalance, 2, ',', '.') }} &euro;
+                    </div>
+                </div>
+
+                {{-- Ausgaben --}}
+                <div class="bg-white rounded-2xl shadow-sm p-6">
+                    <div class="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Ausgaben</div>
+                    <div class="mt-1 text-2xl font-bold tabular-nums text-red-600">
+                        {{ number_format($comparison['debit_current'], 2, ',', '.') }} &euro;
+                    </div>
+                    @if($comparisonMode !== 'none' && $comparison['debit_prev'] > 0)
+                        <div class="mt-1 text-[11px] {{ $comparison['debit_delta'] <= 0 ? 'text-green-600' : 'text-red-500' }}">
+                            {{ $comparison['debit_delta'] >= 0 ? '+' : '' }}{{ number_format($comparison['debit_delta'], 0, ',', '.') }} &euro;
+                            ({{ $comparison['debit_delta_pct'] >= 0 ? '+' : '' }}{{ $comparison['debit_delta_pct'] }}%)
+                            vs. {{ $comparison['prev_label'] }}
+                        </div>
+                    @endif
+                </div>
+
+                {{-- Einnahmen --}}
+                <div class="bg-white rounded-2xl shadow-sm p-6">
+                    <div class="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Einnahmen</div>
+                    <div class="mt-1 text-2xl font-bold tabular-nums text-green-600">
+                        {{ number_format($comparison['credit_current'], 2, ',', '.') }} &euro;
+                    </div>
+                    @if($comparisonMode !== 'none' && $comparison['credit_prev'] > 0)
+                        <div class="mt-1 text-[11px] {{ $comparison['credit_delta'] >= 0 ? 'text-green-600' : 'text-red-500' }}">
+                            {{ $comparison['credit_delta'] >= 0 ? '+' : '' }}{{ number_format($comparison['credit_delta'], 0, ',', '.') }} &euro;
+                            ({{ $comparison['credit_delta_pct'] >= 0 ? '+' : '' }}{{ $comparison['credit_delta_pct'] }}%)
+                            vs. {{ $comparison['prev_label'] }}
+                        </div>
+                    @endif
+                </div>
+
+                {{-- Netto --}}
+                <div class="bg-white rounded-2xl shadow-sm p-6">
+                    <div class="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Netto</div>
+                    <div class="mt-1 text-2xl font-bold tabular-nums {{ $comparison['net_current'] >= 0 ? 'text-green-600' : 'text-red-600' }}">
+                        {{ $comparison['net_current'] >= 0 ? '+' : '' }}{{ number_format($comparison['net_current'], 2, ',', '.') }} &euro;
+                    </div>
+                    @if($comparisonMode !== 'none' && ($comparison['net_prev'] ?? 0) != 0)
+                        @php
+                            $netDelta = $comparison['net_current'] - $comparison['net_prev'];
+                        @endphp
+                        <div class="mt-1 text-[11px] {{ $netDelta >= 0 ? 'text-green-600' : 'text-red-500' }}">
+                            {{ $netDelta >= 0 ? '+' : '' }}{{ number_format($netDelta, 0, ',', '.') }} &euro;
+                            vs. {{ $comparison['prev_label'] }}
+                        </div>
+                    @endif
+                </div>
+            </div>
+        @endif
+
+        {{-- Trend Chart --}}
+        @if(count($trend) > 0)
+            <div class="bg-white rounded-2xl shadow-sm p-6 mb-8 overflow-hidden" wire:key="trend-{{ $selectedMonth }}-{{ $periodType }}">
+                <h2 class="text-lg font-bold text-gray-900 mb-4">Trend (6 {{ match($periodType) { 'quarter' => 'Quartale', 'year' => 'Jahre', default => 'Monate' } }})</h2>
                 <div wire:ignore x-data="{
                     chart: null,
                     init() {
                         this.chart = new ApexCharts(this.$refs.el, {
-                            chart: { type: 'bar', height: 220, toolbar: { show: false }, fontFamily: 'inherit' },
+                            chart: { type: 'area', height: 260, toolbar: { show: false }, fontFamily: 'inherit' },
                             series: [
-                                { name: 'Einnahmen', data: {{ json_encode(collect($monthlyFlow)->pluck('income')->values()) }} },
-                                { name: 'Ausgaben', data: {{ json_encode(collect($monthlyFlow)->pluck('expenses')->values()) }} }
+                                { name: 'Einnahmen', type: 'area', data: {{ json_encode(collect($trend)->pluck('credit')->values()) }} },
+                                { name: 'Ausgaben', type: 'area', data: {{ json_encode(collect($trend)->pluck('debit')->values()) }} },
+                                { name: 'Netto', type: 'line', data: {{ json_encode(collect($trend)->pluck('net')->values()) }} }
                             ],
-                            colors: ['#22C55E', '#F87171'],
-                            plotOptions: { bar: { columnWidth: '50%', borderRadius: 3 } },
-                            xaxis: { categories: {{ json_encode(collect($monthlyFlow)->pluck('month_short')->values()) }}, labels: { style: { fontSize: '11px', colors: '#6B7280' } } },
+                            colors: ['#22C55E', '#F87171', '#3B82F6'],
+                            stroke: { curve: 'smooth', width: [2, 2, 2.5] },
+                            fill: { type: ['gradient', 'gradient', 'solid'], gradient: { opacityFrom: 0.35, opacityTo: 0.05 } },
+                            xaxis: { categories: {{ json_encode(collect($trend)->pluck('label')->values()) }}, labels: { style: { fontSize: '11px', colors: '#6B7280' } } },
                             yaxis: { labels: { style: { fontSize: '11px', colors: '#6B7280' }, formatter: v => new Intl.NumberFormat('de-DE').format(Math.round(v)) } },
                             tooltip: { y: { formatter: v => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(v) } },
                             dataLabels: { enabled: false },
@@ -201,127 +251,146 @@
             </div>
         @endif
 
-        {{-- Waterfall Chart — Cashflow Bridge --}}
-        @if(count($waterfallData) > 2)
-            <div class="bg-white rounded-2xl shadow-sm p-6 mb-6 overflow-hidden">
-                <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-xl font-bold text-gray-900">Cashflow Bridge ({{ now()->translatedFormat('F Y') }})</h2>
-                </div>
-                <div wire:ignore x-data="{
-                    chart: null,
-                    init() {
-                        const bars = {{ Js::from($waterfallData) }};
-                        const categories = bars.map(b => b.x);
-                        const data = bars.map(b => ({ x: b.x, y: b.y }));
-                        const colors = bars.map(b => b.type === 'income' ? '#22C55E' : (b.type === 'expense' ? '#EF4444' : '#6B7280'));
-
-                        this.chart = new ApexCharts(this.$refs.el, {
-                            chart: { type: 'rangeBar', height: 300, toolbar: { show: false }, fontFamily: 'inherit' },
-                            series: [{ data: data }],
-                            plotOptions: {
-                                bar: {
-                                    horizontal: false,
-                                    columnWidth: '60%',
-                                    borderRadius: 3,
-                                    colors: {
-                                        ranges: bars.map((b, i) => ({
-                                            from: b.y[0],
-                                            to: b.y[1],
-                                            color: colors[i]
-                                        }))
+        {{-- 3-spaltig: Donut + Top Kategorien + Top Counterparties --}}
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8" wire:key="details-{{ $selectedMonth }}-{{ $periodType }}">
+            {{-- Donut Chart --}}
+            <div class="bg-white rounded-2xl shadow-sm p-6 overflow-hidden">
+                <h2 class="text-lg font-bold text-gray-900 mb-4">
+                    Kategorie-Anteile
+                    <span class="text-[11px] font-normal text-gray-400 ml-1">Ausgaben</span>
+                </h2>
+                @if(count($topCategories) > 0)
+                    <div wire:ignore x-data="{
+                        chart: null,
+                        init() {
+                            this.chart = new ApexCharts(this.$refs.el, {
+                                chart: {
+                                    type: 'donut', height: 320, fontFamily: 'inherit',
+                                    events: {
+                                        dataPointSelection: (e, chart, opts) => {
+                                            const catId = {{ json_encode(collect($topCategories)->pluck('category_id')->values()) }}[opts.dataPointIndex];
+                                            if (catId) @this.selectCategory(catId);
+                                        }
                                     }
-                                }
-                            },
-                            colors: colors,
-                            fill: { type: 'solid' },
-                            xaxis: {
-                                categories: categories,
-                                labels: { style: { fontSize: '10px', colors: '#6B7280' }, rotate: -45, rotateAlways: categories.length > 6 }
-                            },
-                            yaxis: {
-                                labels: { style: { fontSize: '11px', colors: '#6B7280' }, formatter: v => new Intl.NumberFormat('de-DE').format(Math.round(v)) + ' \u20AC' }
-                            },
-                            tooltip: {
-                                custom: function({ seriesIndex, dataPointIndex, w }) {
-                                    const bar = bars[dataPointIndex];
-                                    const diff = bar.y[1] - bar.y[0];
-                                    const fmt = v => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(v);
-                                    let label = bar.type === 'income' ? '+' + fmt(diff) : (bar.type === 'expense' ? '-' + fmt(Math.abs(diff)) : fmt(bar.y[1]));
-                                    return '<div class=\"px-3 py-2 text-[12px]\"><strong>' + bar.x + '</strong><br>' + label + '</div>';
-                                }
-                            },
-                            dataLabels: { enabled: false },
-                            grid: { borderColor: '#F3F4F6' },
-                            legend: { show: false },
-                            states: { hover: { filter: { type: 'darken', value: 0.9 } } }
-                        });
-                        this.chart.render();
-
-                        // Apply individual bar colors via post-render
-                        this.$nextTick(() => {
-                            const rects = this.$refs.el.querySelectorAll('.apexcharts-rangebar-area');
-                            rects.forEach((rect, i) => {
-                                if (i < colors.length) rect.style.fill = colors[i];
+                                },
+                                series: {{ json_encode(collect($topCategories)->pluck('amount')->values()) }},
+                                labels: {{ json_encode(collect($topCategories)->pluck('name')->values()) }},
+                                colors: {{ json_encode(collect($topCategories)->pluck('color')->values()) }},
+                                legend: { position: 'bottom', fontSize: '10px', labels: { colors: '#6B7280' } },
+                                tooltip: { y: { formatter: v => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(v) } },
+                                dataLabels: { enabled: true, formatter: (val) => Math.round(val) + '%', style: { fontSize: '10px' } },
+                                plotOptions: { pie: { donut: { size: '55%', labels: { show: true, name: { fontSize: '11px' }, value: { fontSize: '14px', formatter: v => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(v) }, total: { show: true, label: 'Gesamt', formatter: w => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(w.globals.seriesTotals.reduce((a, b) => a + b, 0)) } } } } },
+                                stroke: { width: 2, colors: ['#fff'] }
                             });
-                        });
-                    },
-                    destroy() { this.chart?.destroy(); }
-                }">
-                    <div x-ref="el"></div>
-                </div>
-            </div>
-        @endif
-
-        {{-- Ausgaben: Kategorien (Donut) + Counterparties (Horizontal Bar) --}}
-        @if(count($categoryBreakdown) > 0 || count($topCounterparties) > 0)
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-                {{-- Top Kategorien — Donut Chart --}}
-                @if(count($categoryBreakdown) > 0)
-                    <div class="bg-white rounded-2xl shadow-sm p-6 overflow-hidden">
-                        <div class="flex items-center justify-between mb-4">
-                            <h2 class="text-xl font-bold text-gray-900">Top Kategorien</h2>
-                            <a href="{{ route('drip.cashflow') }}" wire:navigate class="text-[11px] text-blue-600 hover:text-blue-700">Details</a>
-                        </div>
-                        <div wire:ignore x-data="{
-                            chart: null,
-                            init() {
-                                this.chart = new ApexCharts(this.$refs.el, {
-                                    chart: { type: 'donut', height: 280, fontFamily: 'inherit' },
-                                    series: {{ json_encode(collect($categoryBreakdown)->pluck('amount')->values()) }},
-                                    labels: {{ json_encode(collect($categoryBreakdown)->pluck('name')->values()) }},
-                                    colors: {{ json_encode(collect($categoryBreakdown)->pluck('color')->values()) }},
-                                    legend: { position: 'bottom', fontSize: '11px', labels: { colors: '#6B7280' }, formatter: (label, opts) => label + ' — ' + new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(opts.w.config.series[opts.seriesIndex]) },
-                                    tooltip: { y: { formatter: v => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(v) } },
-                                    dataLabels: { enabled: false },
-                                    plotOptions: { pie: { donut: { size: '55%' } } },
-                                    stroke: { width: 2, colors: ['#fff'] }
-                                });
-                                this.chart.render();
-                            },
-                            destroy() { this.chart?.destroy(); }
-                        }">
-                            <div x-ref="el"></div>
-                        </div>
+                            this.chart.render();
+                        },
+                        destroy() { this.chart?.destroy(); }
+                    }">
+                        <div x-ref="el"></div>
                     </div>
+                @else
+                    <p class="text-[13px] text-gray-400 py-4 text-center">Keine Daten fuer diesen Zeitraum</p>
                 @endif
+            </div>
 
-                {{-- Top Counterparties — Horizontal Bar Chart --}}
+            {{-- Top Categories --}}
+            <div class="bg-white rounded-2xl shadow-sm p-6 overflow-hidden">
+                <h2 class="text-lg font-bold text-gray-900 mb-4">
+                    Top Kategorien
+                    <span class="text-[11px] font-normal text-gray-400 ml-1">Ausgaben</span>
+                </h2>
+                @if(count($topCategories) > 0)
+                    <div class="space-y-2">
+                        @foreach($topCategories as $cat)
+                            <div wire:click="selectCategory({{ $cat['category_id'] }})"
+                                 class="cursor-pointer rounded-lg p-2 transition-colors {{ $selectedCategoryId === $cat['category_id'] ? 'bg-blue-50 ring-1 ring-blue-200' : 'hover:bg-gray-50' }}">
+                                <div class="flex items-center justify-between mb-1">
+                                    <div class="flex items-center gap-2 min-w-0">
+                                        <div class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: {{ $cat['color'] }}"></div>
+                                        <span class="text-[12px] font-medium text-gray-900 truncate">{{ $cat['name'] }}</span>
+                                        <span class="text-[10px] text-gray-400 shrink-0">{{ $cat['percent'] }}%</span>
+                                    </div>
+                                    <span class="text-[12px] tabular-nums font-medium text-gray-700 shrink-0">{{ number_format($cat['amount'], 0, ',', '.') }} &euro;</span>
+                                </div>
+                                @php $maxAmount = collect($topCategories)->max('amount'); @endphp
+                                <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                    <div class="h-1.5 rounded-full" style="width: {{ $maxAmount > 0 ? round($cat['amount'] / $maxAmount * 100) : 0 }}%; background-color: {{ $cat['color'] }}"></div>
+                                </div>
+                                @if(isset($categoryBudgets[$cat['category_id']]))
+                                    @php
+                                        $cb = $categoryBudgets[$cat['category_id']];
+                                        $budgetBarColor = $cb['percent'] <= 100 ? 'bg-green-400' : ($cb['percent'] <= 120 ? 'bg-yellow-400' : 'bg-red-400');
+                                    @endphp
+                                    <div class="flex items-center gap-2 mt-1">
+                                        <div class="flex-1 h-1 bg-gray-100 rounded-full overflow-hidden">
+                                            <div class="{{ $budgetBarColor }} h-1 rounded-full" style="width: {{ min($cb['percent'], 100) }}%"></div>
+                                        </div>
+                                        <span class="text-[9px] tabular-nums text-gray-400 shrink-0">Budget: {{ $cb['percent'] }}%</span>
+                                    </div>
+                                @endif
+                            </div>
+                        @endforeach
+                    </div>
+                @else
+                    <p class="text-[13px] text-gray-400 py-4 text-center">Keine Daten fuer diesen Zeitraum</p>
+                @endif
+            </div>
+
+            {{-- Top Counterparties --}}
+            <div class="bg-white rounded-2xl shadow-sm p-6 overflow-hidden">
+                <h2 class="text-lg font-bold text-gray-900 mb-4">
+                    Top Zahlungsempfaenger
+                    <span class="text-[11px] font-normal text-gray-400 ml-1">Ausgaben</span>
+                </h2>
                 @if(count($topCounterparties) > 0)
+                    <div wire:ignore x-data="{
+                        chart: null,
+                        init() {
+                            this.chart = new ApexCharts(this.$refs.el, {
+                                chart: { type: 'bar', height: {{ max(180, count($topCounterparties) * 28) }}, toolbar: { show: false }, fontFamily: 'inherit' },
+                                series: [{ name: 'Betrag', data: {{ json_encode(collect($topCounterparties)->pluck('amount')->values()) }} }],
+                                colors: ['#F87171'],
+                                plotOptions: { bar: { horizontal: true, borderRadius: 3, barHeight: '60%' } },
+                                xaxis: { categories: {{ json_encode(collect($topCounterparties)->pluck('name')->map(fn($n) => Str::limit($n, 22))->values()) }}, labels: { style: { fontSize: '11px', colors: '#6B7280' }, formatter: v => new Intl.NumberFormat('de-DE').format(Math.round(v)) } },
+                                yaxis: { labels: { style: { fontSize: '11px', colors: '#374151' }, maxWidth: 130 } },
+                                tooltip: { y: { formatter: v => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(v) } },
+                                dataLabels: { enabled: false },
+                                legend: { show: false },
+                                grid: { borderColor: '#F3F4F6' }
+                            });
+                            this.chart.render();
+                        },
+                        destroy() { this.chart?.destroy(); }
+                    }">
+                        <div x-ref="el"></div>
+                    </div>
+                @else
+                    <p class="text-[13px] text-gray-400 py-4 text-center">Keine Daten fuer diesen Zeitraum</p>
+                @endif
+            </div>
+        </div>
+
+        {{-- Category Drilldown (conditional) --}}
+        @if($selectedCategoryId)
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8" wire:key="cat-detail-{{ $selectedCategoryId }}">
+                {{-- Category Trend --}}
+                @if(count($categoryTrend) > 0)
                     <div class="bg-white rounded-2xl shadow-sm p-6 overflow-hidden">
                         <div class="flex items-center justify-between mb-4">
-                            <h2 class="text-xl font-bold text-gray-900">Top Zahlungsempfaenger</h2>
-                            <a href="{{ route('drip.cashflow') }}" wire:navigate class="text-[11px] text-blue-600 hover:text-blue-700">Details</a>
+                            <h2 class="text-lg font-bold text-gray-900">Kategorie-Trend</h2>
+                            <button wire:click="selectCategory(null)" class="text-[11px] text-gray-400 hover:text-gray-600">Schliessen</button>
                         </div>
                         <div wire:ignore x-data="{
                             chart: null,
                             init() {
                                 this.chart = new ApexCharts(this.$refs.el, {
-                                    chart: { type: 'bar', height: 280, toolbar: { show: false }, fontFamily: 'inherit' },
-                                    series: [{ name: 'Betrag', data: {{ json_encode(collect($topCounterparties)->pluck('amount')->values()) }} }],
+                                    chart: { type: 'area', height: 200, toolbar: { show: false }, fontFamily: 'inherit' },
+                                    series: [{ name: 'Betrag', data: {{ json_encode(collect($categoryTrend)->pluck('amount')->values()) }} }],
                                     colors: ['#F87171'],
-                                    plotOptions: { bar: { horizontal: true, borderRadius: 3, barHeight: '60%' } },
-                                    xaxis: { categories: {{ json_encode(collect($topCounterparties)->pluck('name')->map(fn($n) => Str::limit($n, 20))->values()) }}, labels: { style: { fontSize: '11px', colors: '#6B7280' }, formatter: v => new Intl.NumberFormat('de-DE').format(Math.round(v)) } },
-                                    yaxis: { labels: { style: { fontSize: '11px', colors: '#374151' }, maxWidth: 120 } },
+                                    stroke: { curve: 'smooth', width: 2 },
+                                    fill: { type: 'gradient', gradient: { opacityFrom: 0.3, opacityTo: 0.05 } },
+                                    xaxis: { categories: {{ json_encode(collect($categoryTrend)->pluck('label')->values()) }}, labels: { style: { fontSize: '11px', colors: '#6B7280' } } },
+                                    yaxis: { labels: { style: { fontSize: '11px', colors: '#6B7280' }, formatter: v => new Intl.NumberFormat('de-DE').format(Math.round(v)) } },
                                     tooltip: { y: { formatter: v => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(v) } },
                                     dataLabels: { enabled: false },
                                     grid: { borderColor: '#F3F4F6' }
@@ -334,6 +403,41 @@
                         </div>
                     </div>
                 @endif
+
+                {{-- Category Transactions --}}
+                <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
+                    <div class="px-6 py-4 border-b border-gray-100">
+                        <div class="flex items-center justify-between">
+                            <h2 class="text-lg font-bold text-gray-900">Transaktionen</h2>
+                            <span class="text-[11px] text-gray-400">{{ count($categoryTransactions) }} Eintraege</span>
+                        </div>
+                    </div>
+                    @if(count($categoryTransactions) > 0)
+                        <div class="divide-y divide-gray-50 max-h-[400px] overflow-y-auto">
+                            @foreach($categoryTransactions as $ct)
+                                <a href="{{ route('drip.transactions.show', $ct['id']) }}" wire:navigate
+                                   class="flex items-center justify-between px-6 py-2.5 hover:bg-gray-50/50 transition-colors">
+                                    <div class="flex-1 min-w-0 mr-3">
+                                        <div class="text-[12px] text-gray-900 truncate">{{ $ct['counterparty'] }}</div>
+                                        <div class="text-[10px] text-gray-400 truncate">
+                                            {{ $ct['date'] }}
+                                            @if($ct['reference'])
+                                                &middot; {{ $ct['reference'] }}
+                                            @endif
+                                        </div>
+                                    </div>
+                                    <span class="text-[12px] font-medium tabular-nums shrink-0 text-red-600">
+                                        -{{ number_format($ct['amount'], 2, ',', '.') }} &euro;
+                                    </span>
+                                </a>
+                            @endforeach
+                        </div>
+                    @else
+                        <div class="px-6 py-8 text-center">
+                            <p class="text-[13px] text-gray-400">Keine Transaktionen in diesem Zeitraum</p>
+                        </div>
+                    @endif
+                </div>
             </div>
         @endif
 
@@ -341,7 +445,7 @@
         @if(count($budgetOverview) > 0)
             <div class="bg-white rounded-2xl shadow-sm p-6 mb-6">
                 <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-xl font-bold text-gray-900">Budget-Status</h2>
+                    <h2 class="text-lg font-bold text-gray-900">Budget-Status</h2>
                     <a href="{{ route('drip.budgets') }}" wire:navigate class="text-[11px] text-blue-600 hover:text-blue-700">
                         Alle Budgets
                         @if($budgetSuggestionsCount > 0)
@@ -370,11 +474,12 @@
             </div>
         @endif
 
+        {{-- Recent Transactions + Groups --}}
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {{-- Letzte Transaktionen --}}
             <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
                 <div class="px-6 py-4 border-b border-gray-100">
-                    <h2 class="text-xl font-bold text-gray-900">Letzte Transaktionen</h2>
+                    <h2 class="text-lg font-bold text-gray-900">Letzte Transaktionen</h2>
                 </div>
                 <div class="divide-y divide-gray-100">
                     @forelse(($recentTransactions ?? []) as $t)
@@ -409,7 +514,7 @@
             {{-- Kontogruppen --}}
             <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
                 <div class="px-6 py-4 border-b border-gray-100">
-                    <h2 class="text-xl font-bold text-gray-900">Kontogruppen</h2>
+                    <h2 class="text-lg font-bold text-gray-900">Kontogruppen</h2>
                 </div>
                 <div class="divide-y divide-gray-100">
                     @forelse(($groups ?? []) as $g)
@@ -477,10 +582,6 @@
                         <div class="flex items-center justify-between">
                             <span class="text-gray-500">Konten</span>
                             <span class="font-medium text-gray-900">{{ $accountsCount }}</span>
-                        </div>
-                        <div class="flex items-center justify-between">
-                            <span class="text-gray-500">Transaktionen (30T)</span>
-                            <span class="font-medium text-gray-900">{{ $transactions30d }}</span>
                         </div>
                     </div>
                 </div>

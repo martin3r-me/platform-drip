@@ -14,10 +14,6 @@
     </x-ui-sidebar-list>
 
     <x-ui-sidebar-list label="Analyse">
-        <x-ui-sidebar-item :href="route('drip.cashflow')">
-            @svg('heroicon-o-arrow-trending-down', 'w-4 h-4 text-[var(--ui-secondary)]')
-            <span class="ml-2 text-sm">Cashflow</span>
-        </x-ui-sidebar-item>
         <x-ui-sidebar-item :href="route('drip.budgets')">
             @svg('heroicon-o-calculator', 'w-4 h-4 text-[var(--ui-secondary)]')
             <span class="ml-2 text-sm">Budgets</span>
@@ -52,9 +48,6 @@
 
             <div class="border-t border-[var(--ui-border)] my-1"></div>
 
-            <a href="{{ route('drip.cashflow') }}" wire:navigate class="flex items-center justify-center p-2 rounded-md text-[var(--ui-secondary)] hover:bg-[var(--ui-muted-5)]">
-                @svg('heroicon-o-arrow-trending-down', 'w-5 h-5')
-            </a>
             <a href="{{ route('drip.budgets') }}" wire:navigate class="flex items-center justify-center p-2 rounded-md text-[var(--ui-secondary)] hover:bg-[var(--ui-muted-5)]">
                 @svg('heroicon-o-calculator', 'w-5 h-5')
             </a>

@@ -477,6 +477,124 @@ class LiquidityPlanningService
         return $payments;
     }
 
+    /**
+     * Compute 3 scenario forecast curves on-the-fly (not persisted).
+     * Splits signals by confidence_level into pessimistic/base/optimistic.
+     */
+    public function getScenarioForecasts(int $teamId, int $daysAhead = 180): array
+    {
+        $currentBalance = $this->getCurrentBalance($teamId);
+        $today = now()->startOfDay();
+        $horizon = $today->copy()->addDays($daysAhead);
+
+        // Load budget periods (same as computeForTeam)
+        $periods = BudgetItemPeriod::where('team_id', $teamId)
+            ->whereIn('status', ['pending', 'partial'])
+            ->where('period_end', '>=', $today)
+            ->where('period_start', '<=', $horizon)
+            ->with('budgetItem')
+            ->get();
+
+        // Base daily map from budgets (shared across all scenarios)
+        $budgetMap = [];
+        foreach ($periods as $p) {
+            if (!$p->budgetItem) {
+                continue;
+            }
+            $date = ($p->expected_date ?? $p->period_start)->format('Y-m-d');
+            if (Carbon::parse($date)->lt($today)) {
+                continue;
+            }
+            if (!isset($budgetMap[$date])) {
+                $budgetMap[$date] = ['credits' => 0, 'debits' => 0];
+            }
+            $amount = (float) $p->planned_amount;
+            if ($p->budgetItem->direction === 'credit') {
+                $budgetMap[$date]['credits'] += $amount;
+            } else {
+                $budgetMap[$date]['debits'] += $amount;
+            }
+        }
+
+        // VAT payments (same in all scenarios)
+        $vatPayments = $this->calculateVatPayments($teamId, $today, $horizon);
+        foreach ($vatPayments as $vp) {
+            $dateKey = $vp['date'];
+            if (!isset($budgetMap[$dateKey])) {
+                $budgetMap[$dateKey] = ['credits' => 0, 'debits' => 0];
+            }
+            $budgetMap[$dateKey]['debits'] += $vp['amount'];
+        }
+
+        // Load active signals and split by confidence_level
+        $signals = CashflowSignal::where('team_id', $teamId)
+            ->where('status', 'active')
+            ->get();
+
+        $signalMaps = ['confirmed' => [], 'expected' => [], 'speculative' => []];
+
+        foreach ($signals as $signal) {
+            $date = $signal->effectiveDate()->format('Y-m-d');
+            if (Carbon::parse($date)->lt($today)) {
+                continue;
+            }
+
+            $level = $signal->confidence_level ?? 'expected';
+            if (!isset($signalMaps[$level])) {
+                $level = 'expected';
+            }
+
+            if (!isset($signalMaps[$level][$date])) {
+                $signalMaps[$level][$date] = ['credits' => 0, 'debits' => 0];
+            }
+
+            $weightedAmount = $signal->weightedAmount();
+            if ($signal->direction === 'credit') {
+                $signalMaps[$level][$date]['credits'] += $weightedAmount;
+            } else {
+                $signalMaps[$level][$date]['debits'] += $weightedAmount;
+            }
+        }
+
+        // Build 3 scenarios
+        $scenarios = [];
+        foreach (['pessimistic', 'base', 'optimistic'] as $scenario) {
+            $runningBalance = $currentBalance;
+            $daily = [];
+
+            for ($i = 0; $i <= $daysAhead; $i++) {
+                $date = $today->copy()->addDays($i);
+                $dateKey = $date->format('Y-m-d');
+
+                $credits = ($budgetMap[$dateKey]['credits'] ?? 0);
+                $debits = ($budgetMap[$dateKey]['debits'] ?? 0);
+
+                // Pessimistic: budgets + confirmed signals only
+                $credits += ($signalMaps['confirmed'][$dateKey]['credits'] ?? 0);
+                $debits += ($signalMaps['confirmed'][$dateKey]['debits'] ?? 0);
+
+                // Base: + expected signals
+                if ($scenario === 'base' || $scenario === 'optimistic') {
+                    $credits += ($signalMaps['expected'][$dateKey]['credits'] ?? 0);
+                    $debits += ($signalMaps['expected'][$dateKey]['debits'] ?? 0);
+                }
+
+                // Optimistic: + speculative signals
+                if ($scenario === 'optimistic') {
+                    $credits += ($signalMaps['speculative'][$dateKey]['credits'] ?? 0);
+                    $debits += ($signalMaps['speculative'][$dateKey]['debits'] ?? 0);
+                }
+
+                $runningBalance += ($credits - $debits);
+                $daily[] = ['date' => $dateKey, 'balance' => round($runningBalance, 2)];
+            }
+
+            $scenarios[$scenario] = $daily;
+        }
+
+        return $scenarios;
+    }
+
     protected function getCurrentBalance(int $teamId): float
     {
         return BankAccountBalance::where('team_id', $teamId)

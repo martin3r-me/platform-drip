@@ -55,17 +55,19 @@
             </span>
         </div>
 
-        {{-- Daily Balance Curve — Actual vs. Forecast Overlay --}}
+        {{-- Daily Balance Curve — Actual + 3 Scenario Forecasts --}}
         @if(count($plan['daily_forecast']) > 1)
             @php
                 $dailyData = $plan['daily_forecast'];
                 $historicalData = $plan['historical_balances'] ?? [];
-                $allBalances = array_merge(
-                    array_column($dailyData, 'balance'),
-                    array_column($historicalData, 'balance')
+                $scenarioBalances = array_merge(
+                    array_column($historicalData, 'balance'),
+                    array_column($scenarios['pessimistic'] ?? [], 'balance'),
+                    array_column($scenarios['base'] ?? [], 'balance'),
+                    array_column($scenarios['optimistic'] ?? [], 'balance')
                 );
-                $minBal = !empty($allBalances) ? min($allBalances) : 0;
-                $maxBal = !empty($allBalances) ? max($allBalances) : 0;
+                $minBal = !empty($scenarioBalances) ? min($scenarioBalances) : 0;
+                $maxBal = !empty($scenarioBalances) ? max($scenarioBalances) : 0;
                 $todayStr = now()->format('Y-m-d');
             @endphp
             <div class="bg-white rounded-2xl shadow-sm p-6 mb-8 overflow-hidden" wire:key="balance-curve-{{ $monthsAhead }}">
@@ -76,7 +78,13 @@
                             <span class="inline-block w-4 h-0.5 rounded" style="background: #1E40AF;"></span> Ist
                         </span>
                         <span class="flex items-center gap-1">
-                            <span class="inline-block w-4 h-0.5 rounded" style="border-top: 2px dashed #F59E0B;"></span> Prognose
+                            <span class="inline-block w-4 h-0.5 rounded" style="border-top: 2px dashed #9CA3AF;"></span> Pessimistisch
+                        </span>
+                        <span class="flex items-center gap-1">
+                            <span class="inline-block w-4 h-0.5 rounded" style="border-top: 2px dashed #F59E0B;"></span> Basis
+                        </span>
+                        <span class="flex items-center gap-1">
+                            <span class="inline-block w-4 h-0.5 rounded" style="border-top: 2px dashed #22C55E;"></span> Optimistisch
                         </span>
                         <span>Min: {{ number_format($minBal, 0, ',', '.') }} &euro;</span>
                         <span>Max: {{ number_format($maxBal, 0, ',', '.') }} &euro;</span>
@@ -85,22 +93,23 @@
                 <div wire:ignore x-data="{
                     chart: null,
                     init() {
-                        const forecastData = {{ Js::from(collect($dailyData)->map(fn($d) => ['x' => $d['date'], 'y' => round($d['balance'], 2)])->values()) }};
                         const actualData = {{ Js::from(collect($historicalData)->map(fn($d) => ['x' => $d['date'], 'y' => round($d['balance'], 2)])->values()) }};
+                        const pessimisticData = {{ Js::from(collect($scenarios['pessimistic'] ?? [])->map(fn($d) => ['x' => $d['date'], 'y' => $d['balance']])->values()) }};
+                        const baseData = {{ Js::from(collect($scenarios['base'] ?? [])->map(fn($d) => ['x' => $d['date'], 'y' => $d['balance']])->values()) }};
+                        const optimisticData = {{ Js::from(collect($scenarios['optimistic'] ?? [])->map(fn($d) => ['x' => $d['date'], 'y' => $d['balance']])->values()) }};
                         const today = '{{ $todayStr }}';
 
                         this.chart = new ApexCharts(this.$refs.el, {
-                            chart: { type: 'line', height: 220, toolbar: { show: true, tools: { download: false, selection: true, zoom: true, zoomin: true, zoomout: true, pan: true, reset: true } }, fontFamily: 'inherit', zoom: { enabled: true } },
+                            chart: { type: 'line', height: 280, toolbar: { show: true, tools: { download: false, selection: true, zoom: true, zoomin: true, zoomout: true, pan: true, reset: true } }, fontFamily: 'inherit', zoom: { enabled: true } },
                             series: [
                                 { name: 'Ist-Saldo', data: actualData },
-                                { name: 'Prognose', data: forecastData }
+                                { name: 'Pessimistisch', data: pessimisticData },
+                                { name: 'Basis', data: baseData },
+                                { name: 'Optimistisch', data: optimisticData }
                             ],
-                            colors: ['#1E40AF', '#F59E0B'],
-                            stroke: { curve: 'smooth', width: [3, 2.5], dashArray: [0, 6] },
-                            fill: {
-                                type: ['solid', 'gradient'],
-                                gradient: { shadeIntensity: 1, opacityFrom: 0.25, opacityTo: 0.05, stops: [0, 100] }
-                            },
+                            colors: ['#1E40AF', '#9CA3AF', '#F59E0B', '#22C55E'],
+                            stroke: { curve: 'smooth', width: [3, 1.5, 2.5, 1.5], dashArray: [0, 6, 6, 6] },
+                            fill: { type: 'solid', opacity: 0 },
                             xaxis: { type: 'datetime', labels: { style: { fontSize: '11px', colors: '#6B7280' }, datetimeFormatter: { month: 'MMM', day: 'dd. MMM' } } },
                             yaxis: { labels: { style: { fontSize: '11px', colors: '#6B7280' }, formatter: v => new Intl.NumberFormat('de-DE').format(Math.round(v)) + ' \u20AC' } },
                             tooltip: { x: { format: 'dd.MM.yyyy' }, y: { formatter: v => v !== null ? new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(v) : '-' } },
