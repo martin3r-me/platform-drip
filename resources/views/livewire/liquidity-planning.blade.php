@@ -13,7 +13,7 @@
 
     <x-ui-page-container>
 
-        {{-- Horizon selector + computed_at --}}
+        {{-- Header: Zeitraum-Selector + computed_at --}}
         <div class="flex items-center justify-between mb-4">
             <div class="text-[11px] text-gray-400">
                 @if($plan['computed_at'])
@@ -47,12 +47,12 @@
             </div>
         @endif
 
-        {{-- Current Balance Card --}}
-        <div class="bg-white rounded-2xl shadow-sm p-6 mb-8">
-            <div class="text-[11px] font-medium text-gray-500 uppercase tracking-wide mb-1">Aktueller Kontostand</div>
-            <div class="text-3xl font-bold tabular-nums {{ $plan['current_balance'] >= 0 ? 'text-gray-900' : 'text-red-600' }}">
+        {{-- Compact current balance --}}
+        <div class="flex items-center gap-3 mb-6 px-1">
+            <span class="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Kontostand</span>
+            <span class="text-2xl font-bold tabular-nums {{ $plan['current_balance'] >= 0 ? 'text-gray-900' : 'text-red-600' }}">
                 {{ number_format($plan['current_balance'], 2, ',', '.') }} &euro;
-            </div>
+            </span>
         </div>
 
         {{-- Daily Balance Curve — Actual vs. Forecast Overlay --}}
@@ -70,7 +70,7 @@
             @endphp
             <div class="bg-white rounded-2xl shadow-sm p-6 mb-8 overflow-hidden" wire:key="balance-curve-{{ $monthsAhead }}">
                 <div class="flex items-center justify-between mb-3">
-                    <h3 class="text-xl font-bold text-gray-900">Kontoverlauf</h3>
+                    <h3 class="text-lg font-bold text-gray-900">Kontoverlauf</h3>
                     <div class="flex items-center gap-4 text-[11px] text-gray-400">
                         <span class="flex items-center gap-1">
                             <span class="inline-block w-4 h-0.5 bg-blue-600 rounded"></span> Ist
@@ -90,7 +90,7 @@
                         const today = '{{ $todayStr }}';
 
                         this.chart = new ApexCharts(this.$refs.el, {
-                            chart: { type: 'line', height: 300, toolbar: { show: true, tools: { download: false, selection: true, zoom: true, zoomin: true, zoomout: true, pan: true, reset: true } }, fontFamily: 'inherit', zoom: { enabled: true } },
+                            chart: { type: 'line', height: 220, toolbar: { show: true, tools: { download: false, selection: true, zoom: true, zoomin: true, zoomout: true, pan: true, reset: true } }, fontFamily: 'inherit', zoom: { enabled: true } },
                             series: [
                                 { name: 'Ist-Saldo', data: actualData },
                                 { name: 'Prognose', data: forecastData }
@@ -126,197 +126,81 @@
             </div>
         @endif
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-
-            {{-- Left: Monthly forecast table --}}
-            <div class="lg:col-span-2">
-                <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
-                    <div class="px-6 py-4 border-b border-gray-100">
-                        <h3 class="text-xl font-bold text-gray-900">Monatliche Prognose</h3>
-                    </div>
-
-                    @if(count($plan['monthly_summary']) > 0)
-                        {{-- Monthly Summary — Grouped Bar Chart --}}
-                        <div class="px-6 py-4 border-b border-gray-100" wire:key="monthly-bars-{{ $monthsAhead }}">
-                            <div wire:ignore x-data="{
-                                chart: null,
-                                init() {
-                                    this.chart = new ApexCharts(this.$refs.el, {
-                                        chart: { type: 'bar', height: 180, toolbar: { show: false }, fontFamily: 'inherit' },
-                                        series: [
-                                            { name: 'Einnahmen', data: {{ json_encode(array_column($plan['monthly_summary'], 'credits')) }} },
-                                            { name: 'Ausgaben', data: {{ json_encode(array_column($plan['monthly_summary'], 'debits')) }} }
-                                        ],
-                                        colors: ['#4ADE80', '#F87171'],
-                                        plotOptions: { bar: { columnWidth: '55%', borderRadius: 2 } },
-                                        xaxis: { categories: {{ json_encode(array_map(fn($ms) => Str::limit($ms['month'], 7), $plan['monthly_summary'])) }}, labels: { style: { fontSize: '10px', colors: '#9CA3AF' } } },
-                                        yaxis: { labels: { style: { fontSize: '10px', colors: '#9CA3AF' }, formatter: v => new Intl.NumberFormat('de-DE').format(Math.round(v)) } },
-                                        tooltip: { y: { formatter: v => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(v) } },
-                                        dataLabels: { enabled: false },
-                                        legend: { fontSize: '10px', labels: { colors: '#9CA3AF' } },
-                                        grid: { borderColor: '#F3F4F6' }
-                                    });
-                                    this.chart.render();
-                                },
-                                destroy() { this.chart?.destroy(); }
-                            }">
-                                <div x-ref="el"></div>
+        {{-- Monthly Cashflow Cards --}}
+        @if(count($monthlyDetail) > 0)
+            <div class="space-y-4">
+                @foreach($monthlyDetail as $monthKey => $month)
+                    @php $isFirst = $loop->first; @endphp
+                    <div class="bg-white rounded-2xl shadow-sm overflow-hidden" x-data="{ open: {{ $isFirst ? 'true' : 'false' }} }">
+                        {{-- Month Header --}}
+                        <button @click="open = !open" class="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
+                            <div class="flex items-center gap-4">
+                                <h3 class="text-lg font-bold text-gray-900">{{ $month['label'] }}</h3>
+                                @if($month['end_balance'] !== null)
+                                    <span class="text-[12px] text-gray-400">Endstand: <span class="font-medium {{ $month['end_balance'] >= 0 ? 'text-gray-600' : 'text-red-600' }}">{{ number_format($month['end_balance'], 2, ',', '.') }} &euro;</span></span>
+                                @endif
                             </div>
-                        </div>
+                            <div class="flex items-center gap-4">
+                                <span class="text-[14px] tabular-nums font-semibold {{ $month['net'] >= 0 ? 'text-green-600' : 'text-red-600' }}">
+                                    {{ $month['net'] >= 0 ? '+' : '' }}{{ number_format($month['net'], 2, ',', '.') }} &euro;
+                                </span>
+                                <svg :class="{ 'rotate-180': open }" class="w-4 h-4 text-gray-400 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                            </div>
+                        </button>
 
-                        {{-- Table --}}
-                        <table class="w-full text-[13px]">
-                            <thead>
-                                <tr class="border-b border-gray-100">
-                                    <th class="px-6 py-3 text-left font-medium text-gray-500">Monat</th>
-                                    <th class="px-6 py-3 text-right font-medium text-green-600">Einnahmen</th>
-                                    <th class="px-6 py-3 text-right font-medium text-red-600">Ausgaben</th>
-                                    <th class="px-6 py-3 text-right font-medium text-gray-500">Netto</th>
-                                    <th class="px-6 py-3 text-right font-medium text-gray-700">Endstand</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach($plan['monthly_summary'] as $ms)
-                                    <tr class="border-b border-gray-50 last:border-b-0">
-                                        <td class="px-6 py-3 font-medium text-gray-700">{{ $ms['month'] }}</td>
-                                        <td class="px-6 py-3 text-right tabular-nums text-green-600">+{{ number_format($ms['credits'], 2, ',', '.') }}</td>
-                                        <td class="px-6 py-3 text-right tabular-nums text-red-600">-{{ number_format($ms['debits'], 2, ',', '.') }}</td>
-                                        <td class="px-6 py-3 text-right tabular-nums {{ $ms['net'] >= 0 ? 'text-green-600' : 'text-red-600' }}">
-                                            {{ $ms['net'] >= 0 ? '+' : '' }}{{ number_format($ms['net'], 2, ',', '.') }}
-                                        </td>
-                                        <td class="px-6 py-3 text-right tabular-nums font-medium {{ $ms['end_balance'] >= 0 ? 'text-gray-900' : 'text-red-600' }}">
-                                            {{ number_format($ms['end_balance'], 2, ',', '.') }} &euro;
-                                        </td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    @else
-                        <div class="px-6 py-12 text-center">
-                            <p class="text-[13px] text-gray-500">Keine Prognosedaten vorhanden.</p>
-                            <p class="text-[11px] text-gray-400 mt-1">Fuehre <code class="bg-gray-100 px-1 rounded">drip:compute-liquidity</code> aus, um die Prognose zu berechnen.</p>
-                        </div>
-                    @endif
-                </div>
-            </div>
+                        {{-- Expanded content --}}
+                        <div x-show="open" x-collapse>
+                            @php
+                                $credits = collect($month['items'])->where('direction', 'credit')->sortByDesc('amount')->values();
+                                $debits = collect($month['items'])->where('direction', 'debit')->sortByDesc('amount')->values();
+                            @endphp
 
-            {{-- Right: Upcoming items + Signals --}}
-            <div class="lg:col-span-1 space-y-6">
-                {{-- Upcoming Items --}}
-                <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
-                    <div class="px-6 py-4 border-b border-gray-100">
-                        <h3 class="text-xl font-bold text-gray-900">Naechste geplante Posten</h3>
-                    </div>
-
-                    @if(count($plan['upcoming_items']) > 0)
-                        <div class="divide-y divide-gray-50">
-                            @foreach($plan['upcoming_items'] as $item)
-                                <div class="px-6 py-3">
-                                    <div class="flex items-center justify-between mb-0.5">
-                                        <div class="flex items-center gap-1.5 min-w-0 mr-2">
-                                            <span class="text-[13px] font-medium text-gray-900 truncate">{{ $item['name'] }}</span>
-                                            @if(($item['source'] ?? 'budget') === 'signal')
-                                                @php
-                                                    $badgeColor = match($item['confidence_level'] ?? 'expected') {
-                                                        'confirmed' => 'bg-green-50 text-green-700',
-                                                        'speculative' => 'bg-amber-50 text-amber-700',
-                                                        default => 'bg-blue-50 text-blue-700',
-                                                    };
-                                                @endphp
-                                                <span class="inline-flex items-center px-1 py-0.5 rounded text-[9px] font-medium {{ $badgeColor }} shrink-0">
-                                                    {{ match($item['confidence_level'] ?? 'expected') { 'confirmed' => 'Sicher', 'speculative' => 'Spekulativ', default => 'Erwartet' } }}
-                                                </span>
-                                            @endif
-                                        </div>
-                                        <span class="text-[13px] tabular-nums font-medium shrink-0 {{ $item['direction'] === 'credit' ? 'text-green-600' : 'text-red-600' }}">
-                                            {{ $item['direction'] === 'credit' ? '+' : '-' }}{{ number_format($item['amount'], 2, ',', '.') }} &euro;
-                                        </span>
+                            {{-- Credits section --}}
+                            @if($credits->isNotEmpty())
+                                <div class="border-t border-gray-100">
+                                    <div class="px-6 py-2.5 flex items-center justify-between bg-green-50/50">
+                                        <span class="text-[11px] font-semibold text-green-700 uppercase tracking-wide">Einnahmen</span>
+                                        <span class="text-[13px] tabular-nums font-semibold text-green-600">+{{ number_format($month['credits'], 2, ',', '.') }} &euro;</span>
                                     </div>
-                                    <div class="flex items-center gap-2 text-[11px] text-gray-400">
-                                        <span>{{ \Illuminate\Support\Carbon::parse($item['date'])->format('d.m.Y') }}</span>
-                                        @if($item['category'])
-                                            <span>{{ $item['category'] }}</span>
-                                        @endif
-                                        @if(($item['source'] ?? 'budget') === 'signal')
-                                            <span class="text-blue-400">Signal</span>
-                                        @endif
+                                    <div class="divide-y divide-gray-50">
+                                        @foreach($credits as $item)
+                                            @include('drip::livewire.partials.liquidity-item', ['item' => $item])
+                                        @endforeach
                                     </div>
                                 </div>
-                            @endforeach
-                        </div>
-                    @else
-                        <div class="px-6 py-12 text-center">
-                            <p class="text-[13px] text-gray-500">Keine geplanten Posten.</p>
-                            <p class="text-[11px] text-gray-400 mt-1">Erstelle Budgets, um Prognosen zu sehen.</p>
-                        </div>
-                    @endif
-                </div>
+                            @endif
 
-                {{-- External Signals Panel --}}
-                @if(count($signals) > 0)
-                    <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
-                        <div class="px-6 py-4 border-b border-gray-100">
-                            <h3 class="text-xl font-bold text-gray-900">Externe Signale</h3>
-                            <p class="text-[11px] text-gray-400 mt-0.5">{{ count($signals) }} aktive Signale</p>
-                        </div>
-                        <div class="divide-y divide-gray-50">
-                            @foreach($signals as $sig)
-                                <div class="px-6 py-3">
-                                    <div class="flex items-center justify-between mb-1">
-                                        <div class="flex items-center gap-1.5 min-w-0 mr-2">
-                                            @if($sig['url'])
-                                                <a href="{{ $sig['url'] }}" target="_blank" class="text-[12px] font-medium text-blue-600 hover:text-blue-700 truncate">{{ $sig['label'] }}</a>
-                                            @else
-                                                <span class="text-[12px] font-medium text-gray-900 truncate">{{ $sig['label'] }}</span>
-                                            @endif
-                                            @php
-                                                $confColor = match($sig['confidence_level']) {
-                                                    'confirmed' => 'bg-green-50 text-green-700',
-                                                    'speculative' => 'bg-amber-50 text-amber-700',
-                                                    default => 'bg-blue-50 text-blue-700',
-                                                };
-                                            @endphp
-                                            <span class="inline-flex items-center px-1 py-0.5 rounded text-[9px] font-medium {{ $confColor }} shrink-0">
-                                                {{ match($sig['confidence_level']) { 'confirmed' => 'Sicher', 'speculative' => 'Spekulativ', default => 'Erwartet' } }}
-                                            </span>
-                                        </div>
-                                        <span class="text-[12px] tabular-nums font-medium shrink-0 {{ $sig['direction'] === 'credit' ? 'text-green-600' : 'text-red-600' }}">
-                                            {{ $sig['direction'] === 'credit' ? '+' : '-' }}{{ number_format($sig['amount'], 2, ',', '.') }} &euro;
-                                        </span>
+                            {{-- Debits section --}}
+                            @if($debits->isNotEmpty())
+                                <div class="border-t border-gray-100">
+                                    <div class="px-6 py-2.5 flex items-center justify-between bg-red-50/50">
+                                        <span class="text-[11px] font-semibold text-red-700 uppercase tracking-wide">Ausgaben</span>
+                                        <span class="text-[13px] tabular-nums font-semibold text-red-600">-{{ number_format($month['debits'], 2, ',', '.') }} &euro;</span>
                                     </div>
-                                    <div class="flex items-center gap-2 text-[10px] text-gray-400 mb-1.5">
-                                        <span>{{ $sig['date_formatted'] }}</span>
-                                        @if($sig['counterparty'])
-                                            <span>{{ $sig['counterparty'] }}</span>
-                                        @endif
-                                        <span class="text-gray-300">{{ $sig['provider_key'] }}</span>
-                                        @if($sig['has_override'])
-                                            <span class="text-orange-400">Angepasst</span>
-                                        @endif
-                                    </div>
-                                    {{-- Actions --}}
-                                    <div class="flex items-center gap-1">
-                                        <button wire:click="pinSignalToBudget({{ $sig['id'] }})"
-                                                wire:confirm="Signal als Budget-Posten uebernehmen?"
-                                                class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium text-blue-600 hover:bg-blue-50 transition-colors"
-                                                title="Als Budget uebernehmen">
-                                            @svg('heroicon-o-bookmark', 'w-3 h-3')
-                                            Pin
-                                        </button>
-                                        <button wire:click="dismissSignal({{ $sig['id'] }})"
-                                                class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                                                title="Ausblenden">
-                                            @svg('heroicon-o-eye-slash', 'w-3 h-3')
-                                            Ausblenden
-                                        </button>
+                                    <div class="divide-y divide-gray-50">
+                                        @foreach($debits as $item)
+                                            @include('drip::livewire.partials.liquidity-item', ['item' => $item])
+                                        @endforeach
                                     </div>
                                 </div>
-                            @endforeach
+                            @endif
+
+                            {{-- Empty state --}}
+                            @if($credits->isEmpty() && $debits->isEmpty())
+                                <div class="border-t border-gray-100 px-6 py-8 text-center">
+                                    <p class="text-[13px] text-gray-400">Keine Posten in diesem Monat.</p>
+                                </div>
+                            @endif
                         </div>
                     </div>
-                @endif
+                @endforeach
             </div>
+        @else
+            <div class="bg-white rounded-2xl shadow-sm px-6 py-12 text-center">
+                <p class="text-[13px] text-gray-500">Keine Prognosedaten vorhanden.</p>
+                <p class="text-[11px] text-gray-400 mt-1">Fuehre <code class="bg-gray-100 px-1 rounded">drip:compute-liquidity</code> aus, um die Prognose zu berechnen.</p>
+            </div>
+        @endif
 
-        </div>
     </x-ui-page-container>
 </x-ui-page>

@@ -172,6 +172,117 @@ class LiquidityPlanningService
     }
 
     /**
+     * Get monthly detail with individual line items (budget + signals merged).
+     */
+    public function getMonthlyDetail(int $teamId, int $monthsAhead = 6): array
+    {
+        $today = now()->startOfDay();
+        $horizon = $today->copy()->addMonths($monthsAhead)->endOfMonth();
+
+        // Load budget item periods
+        $periods = BudgetItemPeriod::where('team_id', $teamId)
+            ->whereIn('status', ['pending', 'partial'])
+            ->where('period_end', '>=', $today)
+            ->where('period_start', '<=', $horizon)
+            ->with('budgetItem.category')
+            ->get()
+            ->filter(fn ($p) => $p->budgetItem !== null);
+
+        $items = [];
+
+        foreach ($periods as $p) {
+            $date = $p->expected_date ?? $p->period_start;
+            if ($date->lt($today)) {
+                continue;
+            }
+
+            $items[] = [
+                'name' => $p->budgetItem->name,
+                'amount' => (float) $p->planned_amount,
+                'direction' => $p->budgetItem->direction,
+                'date' => $date->format('Y-m-d'),
+                'month' => $date->format('Y-m'),
+                'source' => 'budget',
+                'confidence_level' => null,
+                'counterparty' => null,
+                'url' => null,
+                'category' => $p->budgetItem->category?->name,
+                'signal_id' => null,
+                'provider_key' => null,
+                'has_override' => false,
+            ];
+        }
+
+        // Load active signals
+        $signals = CashflowSignal::where('team_id', $teamId)
+            ->where('status', 'active')
+            ->get();
+
+        foreach ($signals as $signal) {
+            $date = $signal->effectiveDate();
+            if ($date->lt($today) || $date->gt($horizon)) {
+                continue;
+            }
+
+            $items[] = [
+                'name' => $signal->label,
+                'amount' => $signal->effectiveAmount(),
+                'direction' => $signal->direction,
+                'date' => $date->format('Y-m-d'),
+                'month' => $date->format('Y-m'),
+                'source' => 'signal',
+                'confidence_level' => $signal->confidence_level,
+                'counterparty' => $signal->counterparty,
+                'url' => $signal->url,
+                'category' => $signal->category,
+                'signal_id' => $signal->id,
+                'provider_key' => $signal->provider_key,
+                'has_override' => $signal->override_amount !== null || $signal->override_date !== null,
+            ];
+        }
+
+        // Group by month
+        $grouped = collect($items)->groupBy('month')->sortKeys();
+
+        // Load end_balance from forecasts
+        $forecasts = LiquidityForecast::where('team_id', $teamId)
+            ->where('forecast_date', '>=', $today)
+            ->where('forecast_date', '<=', $horizon)
+            ->orderBy('forecast_date')
+            ->get()
+            ->groupBy(fn ($f) => $f->forecast_date->format('Y-m'));
+
+        $result = [];
+
+        foreach ($grouped as $monthKey => $monthItems) {
+            $credits = $monthItems->where('direction', 'credit')->sum('amount');
+            $debits = $monthItems->where('direction', 'debit')->sum('amount');
+            $net = $credits - $debits;
+
+            $monthForecasts = $forecasts->get($monthKey);
+            $endBalance = $monthForecasts ? (float) $monthForecasts->last()->projected_balance : null;
+
+            // Sort items by amount descending within each month
+            $sorted = $monthItems
+                ->sortByDesc('amount')
+                ->values()
+                ->map(fn ($item) => collect($item)->except('month')->toArray())
+                ->toArray();
+
+            $result[$monthKey] = [
+                'label' => Carbon::createFromFormat('Y-m', $monthKey)->translatedFormat('F Y'),
+                'credits' => round($credits, 2),
+                'debits' => round($debits, 2),
+                'net' => round($net, 2),
+                'end_balance' => $endBalance !== null ? round($endBalance, 2) : null,
+                'items' => $sorted,
+            ];
+        }
+
+        return $result;
+    }
+
+    /**
      * Legacy method - redirects to getPlan for backward compat with MCP tool.
      */
     public function buildPlan(int $teamId, int $monthsAhead = 6): array

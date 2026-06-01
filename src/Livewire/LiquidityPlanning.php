@@ -11,7 +11,6 @@ use Platform\Drip\Services\LiquidityPlanningService;
 class LiquidityPlanning extends Component
 {
     public int $monthsAhead = 6;
-    public array $signals = [];
 
     public function setMonthsAhead(int $months): void
     {
@@ -71,34 +70,11 @@ class LiquidityPlanning extends Component
 
         $service = app(LiquidityPlanningService::class);
         $plan = $service->getPlan($teamId, $this->monthsAhead);
-
-        // Load active signals for the signals panel
-        $this->signals = CashflowSignal::where('team_id', $teamId)
-            ->whereIn('status', ['active'])
-            ->orderBy('expected_date')
-            ->limit(50)
-            ->get()
-            ->map(fn (CashflowSignal $s) => [
-                'id' => $s->id,
-                'label' => $s->label,
-                'provider_key' => $s->provider_key,
-                'direction' => $s->direction,
-                'amount' => $s->effectiveAmount(),
-                'original_amount' => (float) $s->amount,
-                'date' => $s->effectiveDate()->format('Y-m-d'),
-                'date_formatted' => $s->effectiveDate()->format('d.m.Y'),
-                'original_date' => $s->expected_date->format('Y-m-d'),
-                'confidence' => (float) $s->confidence,
-                'confidence_level' => $s->confidence_level,
-                'counterparty' => $s->counterparty,
-                'category' => $s->category,
-                'url' => $s->url,
-                'has_override' => $s->override_amount !== null || $s->override_date !== null,
-            ])
-            ->toArray();
+        $monthlyDetail = $service->getMonthlyDetail($teamId, $this->monthsAhead);
 
         return view('drip::livewire.liquidity-planning', [
             'plan' => $plan,
+            'monthlyDetail' => $monthlyDetail,
         ])->layout('platform::layouts.app');
     }
 }
