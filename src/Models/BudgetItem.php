@@ -19,7 +19,7 @@ class BudgetItem extends Model
 
     protected $fillable = [
         'uuid', 'team_id', 'user_id', 'category_id', 'bank_account_id',
-        'name', 'direction', 'amount', 'frequency',
+        'name', 'direction', 'amount', 'tax_rate', 'frequency',
         'day_of_month', 'day_mode', 'start_date', 'end_date', 'planned_date',
         'is_active', 'notes',
         'status', 'source_type', 'source_counterparty', 'source_iban',
@@ -29,6 +29,7 @@ class BudgetItem extends Model
 
     protected $casts = [
         'amount' => 'decimal:2',
+        'tax_rate' => 'decimal:2',
         'source_avg_amount' => 'decimal:2',
         'start_date' => 'date',
         'end_date' => 'date',
@@ -142,6 +143,33 @@ class BudgetItem extends Model
             'is_active' => false,
         ]);
         return $this;
+    }
+
+    // ── Tax ──
+
+    public function effectiveTaxRate(): ?float
+    {
+        // Explicitly set (including 0 = tax-free)
+        if ($this->tax_rate !== null) {
+            return (float) $this->tax_rate;
+        }
+        // Category default
+        if ($this->category && $this->category->default_tax_rate !== null) {
+            return (float) $this->category->default_tax_rate;
+        }
+        // Team default
+        $settings = DripTeamSettings::getOrCreateForTeam($this->team_id);
+        return (float) $settings->getSetting('default_tax_rate', 19.00);
+    }
+
+    public function vatAmount(): float
+    {
+        $rate = $this->effectiveTaxRate();
+        if ($rate === null || $rate <= 0) {
+            return 0;
+        }
+        // Brutto → VAT: amount * rate / (100 + rate)
+        return round((float) $this->amount * $rate / (100 + $rate), 2);
     }
 
     // ── Fulfillment ──

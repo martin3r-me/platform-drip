@@ -120,6 +120,10 @@ class BudgetItemsToolCrud implements ToolContract, ToolMetadataContract
                     'type' => 'string',
                     'description' => 'Monat fuer historische Fulfillment-Daten (YYYY-MM, fuer list).',
                 ],
+                'tax_rate' => [
+                    'type' => 'number',
+                    'description' => 'USt-Satz in %. null = erbt von Kategorie/Team-Default. 0 = steuerfrei.',
+                ],
                 'status' => [
                     'type' => 'string',
                     'enum' => ['active', 'suggested', 'paused', 'archived'],
@@ -241,6 +245,7 @@ class BudgetItemsToolCrud implements ToolContract, ToolMetadataContract
         $item = BudgetItem::create([
             'name' => $arguments['name'],
             'amount' => $arguments['amount'],
+            'tax_rate' => array_key_exists('tax_rate', $arguments) ? $arguments['tax_rate'] : null,
             'direction' => $arguments['direction'],
             'frequency' => $arguments['frequency'],
             'category_id' => $arguments['category_id'] ?? null,
@@ -293,6 +298,9 @@ class BudgetItemsToolCrud implements ToolContract, ToolMetadataContract
             'notes' => array_key_exists('notes', $arguments) ? $arguments['notes'] : null,
         ], fn ($v) => $v !== null);
 
+        if (array_key_exists('tax_rate', $arguments)) {
+            $data['tax_rate'] = $arguments['tax_rate'];
+        }
         if (array_key_exists('category_id', $arguments)) {
             $data['category_id'] = $arguments['category_id'];
         }

@@ -6,6 +6,7 @@ use Illuminate\Support\Carbon;
 use Platform\Drip\Models\BankAccountBalance;
 use Platform\Drip\Models\BudgetItemPeriod;
 use Platform\Drip\Models\CashflowSignal;
+use Platform\Drip\Models\DripTeamSettings;
 use Platform\Drip\Models\LiquidityForecast;
 
 class LiquidityPlanningService
@@ -72,6 +73,16 @@ class LiquidityPlanningService
             } else {
                 $dailyMap[$date]['debits'] += $weightedAmount;
             }
+        }
+
+        // Calculate VAT payments and inject into daily map
+        $vatPayments = $this->calculateVatPayments($teamId, $today, $horizon);
+        foreach ($vatPayments as $vp) {
+            $dateKey = $vp['date'];
+            if (!isset($dailyMap[$dateKey])) {
+                $dailyMap[$dateKey] = ['credits' => 0, 'debits' => 0];
+            }
+            $dailyMap[$dateKey]['debits'] += $vp['amount'];
         }
 
         // Delete old forecasts for this team, then insert day by day
@@ -196,9 +207,15 @@ class LiquidityPlanningService
                 continue;
             }
 
+            $effectiveRate = $p->budgetItem->effectiveTaxRate();
+            $plannedAmount = (float) $p->planned_amount;
+            $vatAmount = ($effectiveRate !== null && $effectiveRate > 0)
+                ? round($plannedAmount * $effectiveRate / (100 + $effectiveRate), 2)
+                : null;
+
             $items[] = [
                 'name' => $p->budgetItem->name,
-                'amount' => (float) $p->planned_amount,
+                'amount' => $plannedAmount,
                 'direction' => $p->budgetItem->direction,
                 'date' => $date->format('Y-m-d'),
                 'month' => $date->format('Y-m'),
@@ -210,6 +227,8 @@ class LiquidityPlanningService
                 'signal_id' => null,
                 'provider_key' => null,
                 'has_override' => false,
+                'tax_rate' => $effectiveRate,
+                'vat_amount' => $vatAmount,
             ];
         }
 
@@ -238,6 +257,30 @@ class LiquidityPlanningService
                 'signal_id' => $signal->id,
                 'provider_key' => $signal->provider_key,
                 'has_override' => $signal->override_amount !== null || $signal->override_date !== null,
+                'tax_rate' => null,
+                'vat_amount' => null,
+            ];
+        }
+
+        // Inject VAT payment items
+        $vatPayments = $this->calculateVatPayments($teamId, $today, $horizon);
+        foreach ($vatPayments as $vp) {
+            $items[] = [
+                'name' => $vp['label'],
+                'amount' => $vp['amount'],
+                'direction' => 'debit',
+                'date' => $vp['date'],
+                'month' => Carbon::parse($vp['date'])->format('Y-m'),
+                'source' => 'vat',
+                'confidence_level' => null,
+                'counterparty' => 'Finanzamt',
+                'url' => null,
+                'category' => 'USt-Vorauszahlung',
+                'signal_id' => null,
+                'provider_key' => null,
+                'has_override' => false,
+                'tax_rate' => null,
+                'vat_amount' => null,
             ];
         }
 
@@ -327,6 +370,111 @@ class LiquidityPlanningService
         usort($dailyTotals, fn ($a, $b) => strcmp($a['date'], $b['date']));
 
         return $dailyTotals;
+    }
+
+    /**
+     * Calculate VAT advance payments based on budget items in the forecast window.
+     * Returns array of synthetic debit entries with date, amount, label.
+     */
+    protected function calculateVatPayments(int $teamId, Carbon $today, Carbon $horizon): array
+    {
+        $settings = DripTeamSettings::getOrCreateForTeam($teamId);
+
+        if (!$settings->getSetting('vat_enabled', true)) {
+            return [];
+        }
+
+        $frequency = $settings->getSetting('vat_filing_frequency', 'monthly');
+        $dueDay = (int) $settings->getSetting('vat_due_day', 10);
+
+        // Load all pending/partial periods in the window with budget item + category
+        $periods = BudgetItemPeriod::where('team_id', $teamId)
+            ->whereIn('status', ['pending', 'partial'])
+            ->where('period_end', '>=', $today)
+            ->where('period_start', '<=', $horizon)
+            ->with('budgetItem.category')
+            ->get()
+            ->filter(fn ($p) => $p->budgetItem !== null);
+
+        // Accumulate VAT per filing period
+        $vatByPeriod = [];
+
+        foreach ($periods as $p) {
+            $date = $p->expected_date ?? $p->period_start;
+            if ($date->lt($today)) {
+                continue;
+            }
+
+            $item = $p->budgetItem;
+            $rate = $item->effectiveTaxRate();
+            if ($rate === null || $rate <= 0) {
+                continue;
+            }
+
+            $amount = (float) $p->planned_amount;
+            $vat = round($amount * $rate / (100 + $rate), 2);
+
+            // Determine filing period key
+            if ($frequency === 'quarterly') {
+                $quarter = (int) ceil($date->month / 3);
+                $periodKey = $date->year . '-Q' . $quarter;
+                // Due date = first day after quarter end + due_day days
+                $quarterEndMonth = $quarter * 3;
+                $periodEnd = Carbon::create($date->year, $quarterEndMonth, 1)->endOfMonth();
+            } else {
+                $periodKey = $date->format('Y-m');
+                $periodEnd = $date->copy()->endOfMonth();
+            }
+
+            if (!isset($vatByPeriod[$periodKey])) {
+                $vatByPeriod[$periodKey] = [
+                    'credit_vat' => 0,
+                    'debit_vat' => 0,
+                    'period_end' => $periodEnd,
+                    'period_key' => $periodKey,
+                ];
+            }
+
+            // Credits = revenue → we owe VAT to Finanzamt (positive)
+            // Debits = expenses → Vorsteuer we can deduct (negative)
+            if ($item->direction === 'credit') {
+                $vatByPeriod[$periodKey]['credit_vat'] += $vat;
+            } else {
+                $vatByPeriod[$periodKey]['debit_vat'] += $vat;
+            }
+        }
+
+        // Build payment entries — only positive net VAT (we owe the Finanzamt)
+        $payments = [];
+
+        foreach ($vatByPeriod as $periodKey => $data) {
+            $netVat = round($data['credit_vat'] - $data['debit_vat'], 2);
+            if ($netVat <= 0) {
+                continue;
+            }
+
+            $dueDate = $data['period_end']->copy()->addDays($dueDay);
+
+            // Only include if due date is within the forecast window
+            if ($dueDate->lt($today) || $dueDate->gt($horizon)) {
+                continue;
+            }
+
+            // Build human-readable label
+            if ($frequency === 'quarterly') {
+                $label = 'USt-Vorauszahlung ' . str_replace('-', ' ', $periodKey);
+            } else {
+                $label = 'USt-Vorauszahlung ' . Carbon::createFromFormat('Y-m', $periodKey)->translatedFormat('F Y');
+            }
+
+            $payments[] = [
+                'date' => $dueDate->format('Y-m-d'),
+                'amount' => $netVat,
+                'label' => $label,
+            ];
+        }
+
+        return $payments;
     }
 
     protected function getCurrentBalance(int $teamId): float

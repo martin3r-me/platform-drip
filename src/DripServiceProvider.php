@@ -164,6 +164,7 @@ class DripServiceProvider extends ServiceProvider
             $registry->register(new \Platform\Drip\Tools\RulesToolCrud());
             $registry->register(new \Platform\Drip\Tools\BudgetItemsToolCrud());
             $registry->register(new \Platform\Drip\Tools\CashflowAnalyticsTool());
+            $registry->register(new \Platform\Drip\Tools\DripTeamSettingsToolCrud());
         } catch (\Throwable $e) {
             \Log::warning('Drip: Tool-Registrierung fehlgeschlagen', ['error' => $e->getMessage()]);
         }

@@ -18,10 +18,11 @@ class BankTransactionCategory extends Model
 
     protected $fillable = [
         'uuid', 'team_id', 'user_id', 'parent_id',
-        'name', 'slug', 'color', 'direction', 'metadata',
+        'name', 'slug', 'color', 'direction', 'default_tax_rate', 'metadata',
     ];
 
     protected $casts = [
+        'default_tax_rate' => 'decimal:2',
         'metadata' => 'array',
     ];
 
