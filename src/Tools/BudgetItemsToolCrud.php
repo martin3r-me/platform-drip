@@ -24,7 +24,7 @@ class BudgetItemsToolCrud implements ToolContract, ToolMetadataContract
 
     public function getDescription(): string
     {
-        return 'CRUD /drip/budgets - Verwaltet Budget-Items (Soll/Ist pro Kategorie). action=list (default, inkl. Ist-Werte, optional month=YYYY-MM, status=active|suggested|paused|archived), action=create, action=update, action=delete, action=suggestions (offene Vorschlaege), action=confirm (budget_id), action=dismiss (budget_id), action=detect (erkennt wiederkehrende Muster), action=periods (budget_id, optional status/date_from/date_to), action=skip_period (period_id), action=adjust_period (period_id + planned_amount), action=liquidity (months_ahead).';
+        return 'CRUD /drip/budgets - Verwaltet Budget-Items (Soll/Ist pro Kategorie). action=list (default, inkl. Ist-Werte, optional month=YYYY-MM, status=active|suggested|paused|archived), action=create (end_date/start_date optional — begrenzt Periodenanzahl), action=update, action=delete, action=suggestions (offene Vorschlaege), action=confirm (budget_id), action=dismiss (budget_id), action=detect (erkennt wiederkehrende Muster), action=periods (budget_id, optional status/date_from/date_to), action=skip_period (period_id), action=adjust_period (period_id + planned_amount), action=liquidity (months_ahead).';
     }
 
     public function getSchema(): array
@@ -107,6 +107,14 @@ class BudgetItemsToolCrud implements ToolContract, ToolMetadataContract
                 'notes' => [
                     'type' => 'string',
                     'description' => 'Notizen (optional).',
+                ],
+                'end_date' => [
+                    'type' => 'string',
+                    'description' => 'End-Datum fuer zeitlich begrenzte Budgets (YYYY-MM-DD). Perioden werden nur bis zu diesem Datum generiert.',
+                ],
+                'start_date' => [
+                    'type' => 'string',
+                    'description' => 'Start-Datum (YYYY-MM-DD, default: aktueller Monat).',
                 ],
                 'month' => [
                     'type' => 'string',
@@ -240,6 +248,8 @@ class BudgetItemsToolCrud implements ToolContract, ToolMetadataContract
             'day_of_month' => $arguments['day_of_month'] ?? null,
             'day_mode' => $arguments['day_mode'] ?? 'fixed',
             'planned_date' => $arguments['planned_date'] ?? null,
+            'start_date' => $arguments['start_date'] ?? null,
+            'end_date' => $arguments['end_date'] ?? null,
             'is_active' => $arguments['is_active'] ?? true,
             'notes' => $arguments['notes'] ?? null,
             'team_id' => $teamId,
@@ -291,6 +301,12 @@ class BudgetItemsToolCrud implements ToolContract, ToolMetadataContract
         }
         if (array_key_exists('is_active', $arguments)) {
             $data['is_active'] = $arguments['is_active'];
+        }
+        if (array_key_exists('start_date', $arguments)) {
+            $data['start_date'] = $arguments['start_date'];
+        }
+        if (array_key_exists('end_date', $arguments)) {
+            $data['end_date'] = $arguments['end_date'];
         }
 
         $item->update($data);
