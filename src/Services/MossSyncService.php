@@ -314,18 +314,28 @@ class MossSyncService
     {
         $meta = $expense['expenseMetadata'] ?? [];
 
-        // Combine all available text fields
+        // Explicit text fields first
         $parts = array_filter([
             $expense['description'] ?? null,
             $expense['bookingText'] ?? null,
-            // Line-level bookingText (first line)
             $expense['lines'][0]['bookingText'] ?? null,
             $expense['lines'][0]['description'] ?? null,
         ]);
 
-        // Deduplicate (description sometimes repeats in lines)
         $parts = array_unique($parts);
 
-        return !empty($parts) ? implode(' | ', $parts) : null;
+        if (!empty($parts)) {
+            return implode(' | ', $parts);
+        }
+
+        // Fallback for card transactions: invoice number + expense type
+        $invoiceNumber = $meta['invoiceNumber'] ?? null;
+        $expenseType = $expense['expenseType'] ?? null;
+
+        if ($invoiceNumber) {
+            return $invoiceNumber;
+        }
+
+        return $expenseType;
     }
 }
