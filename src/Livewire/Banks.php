@@ -157,6 +157,7 @@ class Banks extends Component
         ]);
 
         $data = $this->accountForm;
+        $data['provider'] = 'manual';
         BankAccount::create($data);
         $this->accountForm = ['name' => '', 'iban' => '', 'currency' => 'EUR', 'institution_id' => null, 'group_id' => null];
         $this->showAccountModal = false;

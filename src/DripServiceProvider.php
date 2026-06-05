@@ -173,6 +173,12 @@ class DripServiceProvider extends ServiceProvider
     protected function registerSchedule(): void
     {
         $this->callAfterResolving(Schedule::class, function (Schedule $schedule) {
+            // MOSS-Sync: nachts um 02:00 (vor GoCardless, damit Analytics beide Quellen sehen)
+            $schedule->command('drip:sync-moss')
+                ->dailyAt('02:00')
+                ->withoutOverlapping()
+                ->onOneServer();
+
             // Bank-Sync: morgens 03:00 (Nacht-Buchungen) + nachmittags 14:00 (Tages-Buchungen)
             $schedule->command('drip:update-bank-data --skip-details')
                 ->twiceDaily(3, 14)
@@ -217,6 +223,7 @@ class DripServiceProvider extends ServiceProvider
                 \Platform\Drip\Console\Commands\ComputeLiquidityCommand::class,
                 \Platform\Drip\Console\Commands\BuildCashflowSnapshotsCommand::class,
                 \Platform\Drip\Console\Commands\SyncCashflowSignalsCommand::class,
+                \Platform\Drip\Console\Commands\SyncMossDataCommand::class,
             ]);
         }
     }

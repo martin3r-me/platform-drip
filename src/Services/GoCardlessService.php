@@ -782,7 +782,7 @@ class GoCardlessService
             ]);
 
             $bankAccount = BankAccount::updateOrCreate(
-                ['external_id' => $accountId],
+                ['provider' => 'gocardless', 'external_id' => $accountId],
                 [
                     'team_id' => $this->teamId,
                     'iban' => $account['iban'] ?? null,
@@ -826,7 +826,7 @@ class GoCardlessService
         ]);
         
         BankAccount::updateOrCreate(
-            ['external_id' => $accountId],
+            ['provider' => 'gocardless', 'external_id' => $accountId],
             [
                 'team_id' => $this->teamId,
                 'user_id' => auth()->id(),
