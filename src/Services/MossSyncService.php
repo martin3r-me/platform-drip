@@ -20,7 +20,7 @@ class MossSyncService
     ) {}
 
     /**
-     * Sync MOSS expense-accounts + expenses for a team.
+     * Sync MOSS wallets + expenses for a team.
      *
      * @return array{accounts_synced: int, transactions_synced: int}
      */
@@ -79,18 +79,18 @@ class MossSyncService
     }
 
     /**
-     * Sync MOSS expense-accounts as BankAccounts.
+     * Sync MOSS bank-accounts (wallets) as BankAccounts.
      *
-     * Each expense-account (card/virtual card/wallet) becomes its own
-     * BankAccount so it can be assigned to a group independently.
+     * MOSS /v1/bank-accounts returns wallets (CREDIT/DEBIT funding type).
+     * Each wallet becomes its own BankAccount in Drip.
      */
     public function syncAccounts(Team $team, MossApiService $api, User $proxyUser): int
     {
-        $response = $api->getExpenseAccounts($proxyUser);
-        $expenseAccounts = $response['data'] ?? $response;
+        $response = $api->getBankAccounts($proxyUser);
+        $mossAccounts = $response['data'] ?? $response;
 
-        if (!is_array($expenseAccounts)) {
-            Log::warning('MossSyncService: Unexpected expense-accounts response', [
+        if (!is_array($mossAccounts)) {
+            Log::warning('MossSyncService: Unexpected bank-accounts response', [
                 'team_id' => $team->id,
                 'response' => $response,
             ]);
@@ -100,37 +100,39 @@ class MossSyncService
         $syncedIds = [];
         $count = 0;
 
-        foreach ($expenseAccounts as $ea) {
-            $eaId = $ea['id'] ?? null;
-            if (!$eaId) {
+        foreach ($mossAccounts as $ma) {
+            $maId = $ma['id'] ?? null;
+            if (!$maId) {
                 continue;
             }
 
-            $name = $ea['name'] ?? $ea['account_name'] ?? 'MOSS Konto';
-            $ownerName = $ea['owner']['name']
-                ?? $ea['owner_name']
-                ?? $ea['cardholder_name']
-                ?? $ea['cardholder']['name']
-                ?? null;
-            if ($ownerName) {
-                $name = "{$name} – {$ownerName}";
+            // Skip closed wallets
+            $status = $ma['status'] ?? null;
+            if ($status === 'CLOSED') {
+                continue;
+            }
+
+            $name = $ma['bankName'] ?? $ma['bank_name'] ?? $ma['name'] ?? 'MOSS Wallet';
+            $accountNumber = $ma['accountNumber'] ?? $ma['account_number'] ?? null;
+            if ($accountNumber) {
+                $name = "{$name} ({$accountNumber})";
             }
 
             BankAccount::updateOrCreate(
                 [
                     'provider' => 'moss',
-                    'external_id' => $eaId,
+                    'external_id' => $maId,
                     'team_id' => $team->id,
                 ],
                 [
                     'name' => $name,
-                    'currency' => $ea['currency'] ?? 'EUR',
-                    'metadata' => $ea,
+                    'currency' => $ma['currency'] ?? 'EUR',
+                    'metadata' => $ma,
                     'last_details_synced_at' => now(),
                 ]
             );
 
-            $syncedIds[] = $eaId;
+            $syncedIds[] = $maId;
             $count++;
         }
 
@@ -149,9 +151,9 @@ class MossSyncService
     /**
      * Sync MOSS expenses as BankTransactions.
      *
-     * Fetches all expenses and assigns each to the matching BankAccount
-     * via expense_account_id. Expenses without a matching account are
-     * skipped (the account must exist from syncAccounts).
+     * MOSS API uses: expense_date__gte (not date_from), page_size (not per_page).
+     * Expenses are assigned to the MOSS wallet. If multiple wallets exist,
+     * we fall back to the first active one.
      */
     public function syncTransactions(Team $team, MossApiService $api, User $proxyUser): int
     {
@@ -165,7 +167,7 @@ class MossSyncService
             return 0;
         }
 
-        // Use the oldest last_transactions_synced_at across all accounts for the API call
+        // Delta: oldest sync timestamp across all accounts, or 90 days back
         $oldestSync = $accounts->min('last_transactions_synced_at');
         $dateFrom = $oldestSync
             ? Carbon::parse($oldestSync)->subDay()->format('Y-m-d')
@@ -175,10 +177,11 @@ class MossSyncService
         $page = 1;
 
         do {
+            // MOSS API parameters: expense_date__gte, page_size, page
             $response = $api->getExpenses($proxyUser, [
-                'date_from' => $dateFrom,
+                'expense_date__gte' => $dateFrom,
                 'page' => $page,
-                'per_page' => 100,
+                'page_size' => 100,
             ]);
 
             $expenses = $response['data'] ?? $response;
@@ -193,28 +196,16 @@ class MossSyncService
                     continue;
                 }
 
-                // Find the matching BankAccount via expense_account_id
-                $eaId = $expense['expense_account_id']
-                    ?? $expense['account_id']
-                    ?? $expense['card_id']
-                    ?? null;
-
-                $account = $eaId ? $accounts->get($eaId) : null;
-
-                // Fallback: if only one account, assign everything to it
-                if (!$account && $accounts->count() === 1) {
-                    $account = $accounts->first();
-                }
-
-                if (!$account) {
-                    continue;
-                }
+                // Resolve target BankAccount — fallback to first wallet
+                $account = $accounts->first();
 
                 $amount = $this->parseAmount($expense);
-                $supplierName = $expense['supplier']['name']
-                    ?? $expense['supplier_name']
-                    ?? $expense['merchant_name']
-                    ?? null;
+                $supplierName = $this->parseSupplierName($expense);
+                $bookedAt = $expense['expenseTime'] ?? $expense['expense_time'] ?? $expense['createTime'] ?? now();
+                $currency = $expense['homeAmount']['currency']
+                    ?? $expense['currency']
+                    ?? $account->currency
+                    ?? 'EUR';
 
                 BankTransaction::updateOrCreate(
                     [
@@ -223,12 +214,12 @@ class MossSyncService
                     ],
                     [
                         'amount' => $amount,
-                        'currency' => $expense['currency'] ?? $account->currency ?? 'EUR',
+                        'currency' => $currency,
                         'direction' => 'debit',
-                        'booked_at' => $expense['date'] ?? $expense['created_at'] ?? now(),
-                        'booking_date' => $expense['date'] ?? $expense['created_at'] ?? now(),
+                        'booked_at' => $bookedAt,
+                        'booking_date' => $bookedAt,
                         'counterparty_name' => $supplierName,
-                        'reference' => $expense['description'] ?? $expense['note'] ?? null,
+                        'reference' => $expense['bookingText'] ?? $expense['description'] ?? null,
                         'metadata' => $expense,
                         'status' => 'booked',
                     ]
@@ -237,8 +228,9 @@ class MossSyncService
                 $totalCount++;
             }
 
+            // MOSS pagination: check total pages from meta
             $meta = $response['meta'] ?? $response['pagination'] ?? null;
-            $lastPage = $meta['last_page'] ?? $meta['total_pages'] ?? $page;
+            $lastPage = $meta['last_page'] ?? $meta['total_pages'] ?? $meta['totalPages'] ?? $page;
             $page++;
         } while ($page <= $lastPage);
 
@@ -253,13 +245,27 @@ class MossSyncService
 
     protected function parseAmount(array $expense): float
     {
-        $amount = (float) ($expense['amount'] ?? $expense['total_amount'] ?? 0);
+        // Prefer homeAmount (organisation's home currency)
+        if (isset($expense['homeAmount']['amount'])) {
+            $amount = (float) $expense['homeAmount']['amount'];
+        } else {
+            $amount = (float) ($expense['amount'] ?? $expense['total_amount'] ?? 0);
+        }
 
-        // MOSS amounts are positive; expenses are outflows → negative
+        // Expenses are outflows → negative
         if ($amount > 0) {
             $amount = -$amount;
         }
 
         return $amount;
+    }
+
+    protected function parseSupplierName(array $expense): ?string
+    {
+        return $expense['supplier']['name']
+            ?? $expense['supplierName']
+            ?? $expense['supplier_name']
+            ?? $expense['merchant_name']
+            ?? null;
     }
 }
