@@ -8,6 +8,7 @@ use Platform\Core\Models\Team;
 use Platform\Core\Models\User;
 use Platform\Drip\Models\BankAccount;
 use Platform\Drip\Models\BankTransaction;
+use Platform\Integrations\Exceptions\MossApiException;
 use Platform\Integrations\Services\IntegrationConnectionResolver;
 use Platform\Integrations\Services\MossApiService;
 
@@ -44,8 +45,32 @@ class MossSyncService
 
         $api = $this->api->forConnection($connection->id);
 
-        $accountsSynced = $this->syncAccounts($team, $api, $proxyUser);
-        $transactionsSynced = $this->syncTransactions($team, $api, $proxyUser);
+        $accountsSynced = 0;
+        $transactionsSynced = 0;
+
+        try {
+            $accountsSynced = $this->syncAccounts($team, $api, $proxyUser);
+        } catch (MossApiException $e) {
+            Log::error('MossSyncService: Account sync failed', [
+                'team_id' => $team->id,
+                'status' => $e->getHttpStatusCode(),
+                'error' => $e->getMessage(),
+                'response' => $e->getResponseData(),
+            ]);
+            throw $e;
+        }
+
+        try {
+            $transactionsSynced = $this->syncTransactions($team, $api, $proxyUser);
+        } catch (MossApiException $e) {
+            Log::error('MossSyncService: Transaction sync failed', [
+                'team_id' => $team->id,
+                'status' => $e->getHttpStatusCode(),
+                'error' => $e->getMessage(),
+                'response' => $e->getResponseData(),
+            ]);
+            // Don't throw — accounts were already synced successfully
+        }
 
         return [
             'accounts_synced' => $accountsSynced,
