@@ -170,12 +170,13 @@ class MossSyncService
         $page = 1;
 
         do {
-            $response = $api->getExpenses($proxyUser, [
-                'type' => 'card_transaction',
+            $filters = [
                 'date_from' => $dateFrom,
                 'page' => $page,
                 'per_page' => 100,
-            ]);
+            ];
+
+            $response = $api->getExpenses($proxyUser, $filters);
 
             $expenses = $response['data'] ?? $response;
 
@@ -186,17 +187,6 @@ class MossSyncService
             foreach ($expenses as $expense) {
                 $expenseId = $expense['id'] ?? null;
                 if (!$expenseId) {
-                    continue;
-                }
-
-                // Match expense to this account via account reference in expense
-                $expenseAccountId = $expense['bank_account_id']
-                    ?? $expense['account_id']
-                    ?? $expense['card_id']
-                    ?? null;
-
-                // If expense has an account reference and it doesn't match, skip
-                if ($expenseAccountId && $expenseAccountId !== $account->external_id) {
                     continue;
                 }
 
