@@ -200,8 +200,7 @@ class MossSyncService
                 $account = $accounts->first();
 
                 $amount = $this->parseAmount($expense);
-                $supplierName = $this->parseSupplierName($expense);
-                $bookedAt = $expense['expenseTime'] ?? $expense['expense_time'] ?? $expense['createTime'] ?? now();
+                $bookedAt = $expense['expenseTime'] ?? $expense['createTime'] ?? now();
                 $currency = $expense['homeAmount']['currency']
                     ?? $expense['currency']
                     ?? $account->currency
@@ -218,8 +217,8 @@ class MossSyncService
                         'direction' => 'debit',
                         'booked_at' => $bookedAt,
                         'booking_date' => $bookedAt,
-                        'counterparty_name' => $supplierName,
-                        'reference' => $expense['bookingText'] ?? $expense['description'] ?? null,
+                        'counterparty_name' => $this->parseCounterpartyName($expense),
+                        'reference' => $this->parseReference($expense),
                         'metadata' => $expense,
                         'status' => 'booked',
                     ]
@@ -260,12 +259,21 @@ class MossSyncService
         return $amount;
     }
 
-    protected function parseSupplierName(array $expense): ?string
+    protected function parseCounterpartyName(array $expense): ?string
     {
-        return $expense['supplier']['name']
+        // CARD_TRANSACTION: merchantDetails.name is the actual counterparty
+        return $expense['expenseMetadata']['merchantDetails']['name']
+            ?? $expense['supplier']['name']
             ?? $expense['supplierName']
-            ?? $expense['supplier_name']
-            ?? $expense['merchant_name']
+            ?? null;
+    }
+
+    protected function parseReference(array $expense): ?string
+    {
+        // description ("Fahrt zur Culinaria"), bookingText, or expense type as fallback
+        return $expense['description']
+            ?? $expense['bookingText']
+            ?? $expense['expenseType']
             ?? null;
     }
 }
