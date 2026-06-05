@@ -129,19 +129,22 @@ class SyncMossDataCommand extends Command
             $this->info("   Normalized transactions: {$normalized}");
         }
 
-        // Group metrics
-        $gm = app(GroupMetricsService::class);
-        $rows = $gm->buildForTeam($teamId, now()->startOfMonth()->subMonth(), now());
-        $this->info("   Group KPIs updated: {$rows}");
+        // Group metrics, finance metrics, cashflow snapshots
+        // These require accounts to be assigned to groups — skip gracefully if not yet done
+        try {
+            $gm = app(GroupMetricsService::class);
+            $rows = $gm->buildForTeam($teamId, now()->startOfMonth()->subMonth(), now());
+            $this->info("   Group KPIs updated: {$rows}");
 
-        // Finance metrics
-        $fm = app(FinanceMetricsService::class);
-        $frows = $fm->buildFromGroupMetrics($teamId, now()->startOfMonth()->subMonth(), now());
-        $this->info("   Finance metrics: {$frows}");
+            $fm = app(FinanceMetricsService::class);
+            $frows = $fm->buildFromGroupMetrics($teamId, now()->startOfMonth()->subMonth(), now());
+            $this->info("   Finance metrics: {$frows}");
 
-        // Cashflow snapshots
-        $cs = app(CashflowSnapshotService::class);
-        $csRows = $cs->computeForTeam($teamId, now()->startOfMonth()->subMonth(), now());
-        $this->info("   Cashflow snapshots: {$csRows}");
+            $cs = app(CashflowSnapshotService::class);
+            $csRows = $cs->computeForTeam($teamId, now()->startOfMonth()->subMonth(), now());
+            $this->info("   Cashflow snapshots: {$csRows}");
+        } catch (\Exception $e) {
+            $this->warn("   Metrics skipped (assign MOSS accounts to groups first): {$e->getMessage()}");
+        }
     }
 }
