@@ -270,10 +270,12 @@ class MossSyncService
 
     protected function parseReference(array $expense): ?string
     {
-        // description ("Fahrt zur Culinaria"), bookingText, or expense type as fallback
-        return $expense['description']
-            ?? $expense['bookingText']
-            ?? $expense['expenseType']
-            ?? null;
+        // Combine description + bookingText when both exist
+        $parts = array_filter([
+            $expense['description'] ?? null,
+            $expense['bookingText'] ?? null,
+        ]);
+
+        return !empty($parts) ? implode(' | ', $parts) : null;
     }
 }
