@@ -20,7 +20,7 @@ class MossSyncService
     ) {}
 
     /**
-     * Sync MOSS accounts + transactions for a team.
+     * Sync MOSS expense-accounts + expenses for a team.
      *
      * @return array{accounts_synced: int, transactions_synced: int}
      */
@@ -78,13 +78,19 @@ class MossSyncService
         ];
     }
 
+    /**
+     * Sync MOSS expense-accounts as BankAccounts.
+     *
+     * Each expense-account (card/virtual card/wallet) becomes its own
+     * BankAccount so it can be assigned to a group independently.
+     */
     public function syncAccounts(Team $team, MossApiService $api, User $proxyUser): int
     {
-        $response = $api->getBankAccounts($proxyUser);
-        $mossAccounts = $response['data'] ?? $response;
+        $response = $api->getExpenseAccounts($proxyUser);
+        $expenseAccounts = $response['data'] ?? $response;
 
-        if (!is_array($mossAccounts)) {
-            Log::warning('MossSyncService: Unexpected bank accounts response', [
+        if (!is_array($expenseAccounts)) {
+            Log::warning('MossSyncService: Unexpected expense-accounts response', [
                 'team_id' => $team->id,
                 'response' => $response,
             ]);
@@ -94,37 +100,41 @@ class MossSyncService
         $syncedIds = [];
         $count = 0;
 
-        foreach ($mossAccounts as $mossAccount) {
-            $mossAccountId = $mossAccount['id'] ?? null;
-            if (!$mossAccountId) {
+        foreach ($expenseAccounts as $ea) {
+            $eaId = $ea['id'] ?? null;
+            if (!$eaId) {
                 continue;
             }
 
-            $name = $mossAccount['account_name'] ?? $mossAccount['name'] ?? 'MOSS Konto';
-            $cardholderName = $mossAccount['cardholder_name'] ?? $mossAccount['cardholder']['name'] ?? null;
-            if ($cardholderName) {
-                $name = "{$name} – {$cardholderName}";
+            $name = $ea['name'] ?? $ea['account_name'] ?? 'MOSS Konto';
+            $ownerName = $ea['owner']['name']
+                ?? $ea['owner_name']
+                ?? $ea['cardholder_name']
+                ?? $ea['cardholder']['name']
+                ?? null;
+            if ($ownerName) {
+                $name = "{$name} – {$ownerName}";
             }
 
             BankAccount::updateOrCreate(
                 [
                     'provider' => 'moss',
-                    'external_id' => $mossAccountId,
+                    'external_id' => $eaId,
                     'team_id' => $team->id,
                 ],
                 [
                     'name' => $name,
-                    'currency' => $mossAccount['currency'] ?? 'EUR',
-                    'metadata' => $mossAccount,
+                    'currency' => $ea['currency'] ?? 'EUR',
+                    'metadata' => $ea,
                     'last_details_synced_at' => now(),
                 ]
             );
 
-            $syncedIds[] = $mossAccountId;
+            $syncedIds[] = $eaId;
             $count++;
         }
 
-        // Soft-delete accounts no longer in MOSS
+        // Close accounts no longer in MOSS
         if (!empty($syncedIds)) {
             BankAccount::where('team_id', $team->id)
                 ->where('provider', 'moss')
@@ -133,50 +143,43 @@ class MossSyncService
                 ->update(['closed_at' => now()]);
         }
 
-        Log::info('MossSyncService: Accounts synced', [
-            'team_id' => $team->id,
-            'count' => $count,
-        ]);
-
         return $count;
     }
 
+    /**
+     * Sync MOSS expenses as BankTransactions.
+     *
+     * Fetches all expenses and assigns each to the matching BankAccount
+     * via expense_account_id. Expenses without a matching account are
+     * skipped (the account must exist from syncAccounts).
+     */
     public function syncTransactions(Team $team, MossApiService $api, User $proxyUser): int
     {
         $accounts = BankAccount::where('team_id', $team->id)
             ->where('provider', 'moss')
             ->whereNull('closed_at')
-            ->get();
+            ->get()
+            ->keyBy('external_id');
 
-        $totalCount = 0;
-
-        foreach ($accounts as $account) {
-            $count = $this->syncTransactionsForAccount($account, $api, $proxyUser);
-            $totalCount += $count;
-
-            $account->update(['last_transactions_synced_at' => now()]);
+        if ($accounts->isEmpty()) {
+            return 0;
         }
 
-        return $totalCount;
-    }
-
-    protected function syncTransactionsForAccount(BankAccount $account, MossApiService $api, User $proxyUser): int
-    {
-        $dateFrom = $account->last_transactions_synced_at
-            ? $account->last_transactions_synced_at->copy()->subDay()->format('Y-m-d')
+        // Use the oldest last_transactions_synced_at across all accounts for the API call
+        $oldestSync = $accounts->min('last_transactions_synced_at');
+        $dateFrom = $oldestSync
+            ? Carbon::parse($oldestSync)->subDay()->format('Y-m-d')
             : now()->subDays(90)->format('Y-m-d');
 
-        $count = 0;
+        $totalCount = 0;
         $page = 1;
 
         do {
-            $filters = [
+            $response = $api->getExpenses($proxyUser, [
                 'date_from' => $dateFrom,
                 'page' => $page,
                 'per_page' => 100,
-            ];
-
-            $response = $api->getExpenses($proxyUser, $filters);
+            ]);
 
             $expenses = $response['data'] ?? $response;
 
@@ -187,6 +190,23 @@ class MossSyncService
             foreach ($expenses as $expense) {
                 $expenseId = $expense['id'] ?? null;
                 if (!$expenseId) {
+                    continue;
+                }
+
+                // Find the matching BankAccount via expense_account_id
+                $eaId = $expense['expense_account_id']
+                    ?? $expense['account_id']
+                    ?? $expense['card_id']
+                    ?? null;
+
+                $account = $eaId ? $accounts->get($eaId) : null;
+
+                // Fallback: if only one account, assign everything to it
+                if (!$account && $accounts->count() === 1) {
+                    $account = $accounts->first();
+                }
+
+                if (!$account) {
                     continue;
                 }
 
@@ -214,29 +234,28 @@ class MossSyncService
                     ]
                 );
 
-                $count++;
+                $totalCount++;
             }
 
-            // Pagination: check if there are more pages
             $meta = $response['meta'] ?? $response['pagination'] ?? null;
             $lastPage = $meta['last_page'] ?? $meta['total_pages'] ?? $page;
             $page++;
         } while ($page <= $lastPage);
 
-        Log::info('MossSyncService: Transactions synced for account', [
-            'account_id' => $account->id,
-            'external_id' => $account->external_id,
-            'count' => $count,
-        ]);
+        // Update sync timestamp on all accounts
+        BankAccount::where('team_id', $team->id)
+            ->where('provider', 'moss')
+            ->whereNull('closed_at')
+            ->update(['last_transactions_synced_at' => now()]);
 
-        return $count;
+        return $totalCount;
     }
 
     protected function parseAmount(array $expense): float
     {
         $amount = (float) ($expense['amount'] ?? $expense['total_amount'] ?? 0);
 
-        // MOSS amounts are positive; card transactions are expenses → negative
+        // MOSS amounts are positive; expenses are outflows → negative
         if ($amount > 0) {
             $amount = -$amount;
         }
