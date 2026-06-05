@@ -11,7 +11,7 @@
             ['label' => 'Transaktionen'],
         ]">
             <x-slot name="left">
-                <span class="text-[13px] text-gray-500">{{ $transactions->total() }} Transaktionen</span>
+                <span class="text-[13px] text-gray-500">{{ $totalCount }} Transaktionen</span>
             </x-slot>
         </x-ui-page-actionbar>
     </x-slot>
@@ -136,9 +136,14 @@
                     </table>
                 </div>
 
-                @if ($transactions->hasPages())
-                    <div class="px-6 py-4 border-t border-gray-100">
-                        {{ $transactions->links() }}
+                @if ($hasMore)
+                    <div class="px-6 py-4 border-t border-gray-100 text-center">
+                        <button wire:click="loadMore"
+                                class="inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-[13px] font-medium text-gray-600 bg-gray-50 hover:bg-gray-100 transition-colors">
+                            @svg('heroicon-o-arrow-down', 'w-4 h-4')
+                            Weitere laden
+                            <span class="text-gray-400">({{ $transactions->count() }} von {{ $totalCount }})</span>
+                        </button>
                     </div>
                 @endif
             @else

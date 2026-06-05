@@ -15,7 +15,7 @@ class GroupTransactions extends Component
     public string $categoryFilter = '';
     public string $sortBy = 'booked_at';
     public string $sortDirection = 'desc';
-    public int $perPage = 25;
+    public int $perPage = 50;
 
     public function mount(BankAccountGroup $group)
     {
@@ -24,17 +24,22 @@ class GroupTransactions extends Component
 
     public function updatedSearch()
     {
-        $this->resetPage();
+        $this->perPage = 50;
     }
 
     public function updatedDirection()
     {
-        $this->resetPage();
+        $this->perPage = 50;
     }
 
     public function updatedCategoryFilter()
     {
-        $this->resetPage();
+        $this->perPage = 50;
+    }
+
+    public function loadMore(): void
+    {
+        $this->perPage += 50;
     }
 
     public function updateCategory(int $transactionId, $categoryId): void
@@ -59,7 +64,7 @@ class GroupTransactions extends Component
 
     public function render()
     {
-        $transactions = $this->group->transactions()
+        $query = $this->group->transactions()
             ->with(['bankAccount', 'category'])
             ->when($this->search, function ($query) {
                 $query->where(function ($q) {
@@ -79,8 +84,11 @@ class GroupTransactions extends Component
                     $query->where('category_id', $this->categoryFilter);
                 }
             })
-            ->orderBy($this->sortBy, $this->sortDirection)
-            ->paginate($this->perPage);
+            ->orderBy($this->sortBy, $this->sortDirection);
+
+        $totalCount = $query->count();
+        $transactions = $query->limit($this->perPage)->get();
+        $hasMore = $totalCount > $this->perPage;
 
         // Summary stats — amounts are encrypted, must compute in PHP
         $allTransactions = $this->group->transactions()->get(['drip_bank_transactions.id', 'amount', 'direction']);
@@ -95,6 +103,8 @@ class GroupTransactions extends Component
 
         return view('drip::livewire.group-transactions', [
             'transactions' => $transactions,
+            'totalCount' => $totalCount,
+            'hasMore' => $hasMore,
             'totalIncome' => $totalIncome,
             'totalExpenses' => $totalExpenses,
             'totalBalance' => $totalBalance,
