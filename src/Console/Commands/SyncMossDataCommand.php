@@ -10,6 +10,7 @@ use Platform\Drip\Services\FinanceMetricsService;
 use Platform\Drip\Services\GroupMetricsService;
 use Platform\Drip\Services\MossSyncService;
 use Platform\Drip\Services\TransactionService;
+use Platform\Integrations\Exceptions\MossApiException;
 use Platform\Integrations\Models\Integration;
 use Platform\Integrations\Models\IntegrationConnection;
 
@@ -57,8 +58,16 @@ class SyncMossDataCommand extends Command
 
                 $this->postProcess($team);
                 $successCount++;
+            } catch (MossApiException $e) {
+                $this->error("   MOSS API Error [{$e->getHttpStatusCode()}]: {$e->getMessage()}");
+                $responseData = $e->getResponseData();
+                if ($responseData) {
+                    $this->error('   Response: ' . json_encode($responseData, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+                }
+                $errorCount++;
             } catch (\Exception $e) {
                 $this->error("   Failed: {$e->getMessage()}");
+                $this->error('   ' . $e->getFile() . ':' . $e->getLine());
                 $errorCount++;
             }
         }
