@@ -194,7 +194,7 @@ class BudgetItem extends Model
                 $query->where('bank_account_id', $this->bank_account_id);
             }
 
-            $actual = $query->where(function ($q) use ($monthStart, $monthEnd) {
+            $transactions = $query->where(function ($q) use ($monthStart, $monthEnd) {
                     $q->where(function ($inner) use ($monthStart, $monthEnd) {
                         $inner->whereNotNull('booked_at')
                             ->whereBetween('booked_at', [$monthStart, $monthEnd]);
@@ -203,8 +203,16 @@ class BudgetItem extends Model
                             ->whereBetween('created_at', [$monthStart, $monthEnd]);
                     });
                 })
-                ->get(['amount'])
-                ->sum(fn ($t) => abs((float) $t->amount));
+                ->get(['amount', 'counterparty_name']);
+
+            if ($this->source_counterparty) {
+                $pattern = mb_strtolower(trim($this->source_counterparty));
+                $transactions = $transactions->filter(fn ($t) =>
+                    str_contains(mb_strtolower($t->counterparty_name ?? ''), $pattern)
+                );
+            }
+
+            $actual = $transactions->sum(fn ($t) => abs((float) $t->amount));
         }
 
         $percent = $monthlyBudget > 0 ? round($actual / $monthlyBudget * 100, 1) : 0;

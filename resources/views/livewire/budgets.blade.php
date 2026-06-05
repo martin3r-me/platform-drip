@@ -426,6 +426,18 @@
                             @enderror
                         </div>
 
+                        {{-- Counterparty-Pattern --}}
+                        <div>
+                            <label for="budget-counterparty" class="block text-[13px] font-medium text-gray-700 mb-1">Counterparty-Pattern (optional)</label>
+                            <input type="text" id="budget-counterparty" wire:model="formSourceCounterparty"
+                                   class="w-full px-3 py-1.5 rounded-md border border-gray-200 text-[13px] text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                   placeholder="z.B. HETZNER">
+                            <p class="mt-1 text-[11px] text-gray-400">Filtert Ist-Werte auf Transaktionen mit diesem Text im Counterparty-Namen.</p>
+                            @error('formSourceCounterparty')
+                                <p class="mt-1 text-[11px] text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
+
                         {{-- Richtung --}}
                         <div>
                             <label for="budget-direction" class="block text-[13px] font-medium text-gray-700 mb-1">Richtung</label>

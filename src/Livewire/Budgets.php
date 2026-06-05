@@ -27,6 +27,7 @@ class Budgets extends Component
     public ?string $formNotes = null;
     public ?string $formPlannedDate = null;
     public ?int $formBankAccountId = null;
+    public ?string $formSourceCounterparty = null;
 
     public string $historyMonth = '';
 
@@ -64,6 +65,7 @@ class Budgets extends Component
             'formNotes' => ['nullable', 'string', 'max:1000'],
             'formPlannedDate' => ['nullable', 'date', 'required_if:formFrequency,once'],
             'formBankAccountId' => ['nullable', 'integer', 'exists:drip_bank_accounts,id'],
+            'formSourceCounterparty' => ['nullable', 'string', 'max:255'],
         ];
     }
 
@@ -86,6 +88,7 @@ class Budgets extends Component
             'end_date' => $this->formEndDate ?: null,
             'planned_date' => $this->formPlannedDate ?: null,
             'notes' => $this->formNotes ?: null,
+            'source_counterparty' => $this->formSourceCounterparty ?: null,
         ];
 
         $service = app(BudgetPeriodService::class);
@@ -123,6 +126,7 @@ class Budgets extends Component
         $this->formEndDate = $budget->end_date?->format('Y-m-d');
         $this->formPlannedDate = $budget->planned_date?->format('Y-m-d');
         $this->formNotes = $budget->notes;
+        $this->formSourceCounterparty = $budget->source_counterparty;
         $this->activeTab = 'active';
     }
 
@@ -140,6 +144,7 @@ class Budgets extends Component
         $this->formEndDate = null;
         $this->formPlannedDate = null;
         $this->formBankAccountId = null;
+        $this->formSourceCounterparty = null;
         $this->formNotes = null;
         $this->showPeriodsFor = null;
         $this->editingPeriodId = null;

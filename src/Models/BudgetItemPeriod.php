@@ -87,7 +87,7 @@ class BudgetItemPeriod extends Model
                 $query->where('bank_account_id', $item->bank_account_id);
             }
 
-            $actual = $query->where(function ($q) {
+            $transactions = $query->where(function ($q) {
                     $q->where(function ($inner) {
                         $inner->whereNotNull('booked_at')
                             ->whereBetween('booked_at', [$this->period_start, $this->period_end]);
@@ -96,8 +96,16 @@ class BudgetItemPeriod extends Model
                             ->whereBetween('created_at', [$this->period_start, $this->period_end]);
                     });
                 })
-                ->get(['amount'])
-                ->sum(fn ($t) => abs((float) $t->amount));
+                ->get(['amount', 'counterparty_name']);
+
+            if ($item->source_counterparty) {
+                $pattern = mb_strtolower(trim($item->source_counterparty));
+                $transactions = $transactions->filter(fn ($t) =>
+                    str_contains(mb_strtolower($t->counterparty_name ?? ''), $pattern)
+                );
+            }
+
+            $actual = $transactions->sum(fn ($t) => abs((float) $t->amount));
         }
 
         $planned = (float) $this->planned_amount;

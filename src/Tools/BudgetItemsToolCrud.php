@@ -120,6 +120,10 @@ class BudgetItemsToolCrud implements ToolContract, ToolMetadataContract
                     'type' => 'string',
                     'description' => 'Monat fuer historische Fulfillment-Daten (YYYY-MM, fuer list).',
                 ],
+                'source_counterparty' => [
+                    'type' => 'string',
+                    'description' => 'Counterparty-Pattern fuer Matching (z.B. "HETZNER"). Filtert Ist-Werte auf Transaktionen mit diesem Pattern im counterparty_name.',
+                ],
                 'tax_rate' => [
                     'type' => 'number',
                     'description' => 'USt-Satz in %. null = erbt von Kategorie/Team-Default. 0 = steuerfrei.',
@@ -200,6 +204,7 @@ class BudgetItemsToolCrud implements ToolContract, ToolMetadataContract
                 'day_mode' => $item->day_mode ?? 'fixed',
                 'is_active' => $item->is_active,
                 'status' => $item->status,
+                'source_counterparty' => $item->source_counterparty,
                 'category' => $item->category ? [
                     'id' => $item->category->id,
                     'name' => $item->category->name,
@@ -257,6 +262,7 @@ class BudgetItemsToolCrud implements ToolContract, ToolMetadataContract
             'end_date' => $arguments['end_date'] ?? null,
             'is_active' => $arguments['is_active'] ?? true,
             'notes' => $arguments['notes'] ?? null,
+            'source_counterparty' => $arguments['source_counterparty'] ?? null,
             'team_id' => $teamId,
             'user_id' => $context->user?->id,
             'status' => 'active',
@@ -306,6 +312,9 @@ class BudgetItemsToolCrud implements ToolContract, ToolMetadataContract
         }
         if (array_key_exists('bank_account_id', $arguments)) {
             $data['bank_account_id'] = $arguments['bank_account_id'];
+        }
+        if (array_key_exists('source_counterparty', $arguments)) {
+            $data['source_counterparty'] = $arguments['source_counterparty'];
         }
         if (array_key_exists('is_active', $arguments)) {
             $data['is_active'] = $arguments['is_active'];
