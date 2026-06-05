@@ -167,6 +167,9 @@ class MossSyncService
             return 0;
         }
 
+        // Preload suppliers for counterparty name resolution
+        $supplierMap = $this->loadSupplierMap($api, $proxyUser);
+
         // Delta: oldest sync timestamp across all accounts, or 90 days back
         $oldestSync = $accounts->min('last_transactions_synced_at');
         $dateFrom = $oldestSync
@@ -217,7 +220,7 @@ class MossSyncService
                         'direction' => 'debit',
                         'booked_at' => $bookedAt,
                         'booking_date' => $bookedAt,
-                        'counterparty_name' => $this->parseCounterpartyName($expense),
+                        'counterparty_name' => $this->parseCounterpartyName($expense, $supplierMap),
                         'reference' => $this->parseReference($expense),
                         'metadata' => $expense,
                         'status' => 'booked',
@@ -259,7 +262,7 @@ class MossSyncService
         return $amount;
     }
 
-    protected function parseCounterpartyName(array $expense): ?string
+    protected function parseCounterpartyName(array $expense, array $supplierMap = []): ?string
     {
         $meta = $expense['expenseMetadata'] ?? [];
 
@@ -269,8 +272,42 @@ class MossSyncService
             return $merchant;
         }
 
-        // REIMBURSEMENT / INVOICE: supplier name (need to resolve via supplierId externally)
-        return $expense['supplier']['name'] ?? $expense['supplierName'] ?? null;
+        // REIMBURSEMENT / INVOICE: resolve supplierId via preloaded map
+        $supplierId = $expense['supplierId'] ?? null;
+        if ($supplierId && isset($supplierMap[$supplierId])) {
+            return $supplierMap[$supplierId];
+        }
+
+        return null;
+    }
+
+    /**
+     * Load all MOSS suppliers into an id → name map.
+     */
+    protected function loadSupplierMap(MossApiService $api, User $proxyUser): array
+    {
+        try {
+            $response = $api->getSuppliers($proxyUser, ['page_size' => 100]);
+            $suppliers = $response['data'] ?? $response;
+
+            if (!is_array($suppliers)) {
+                return [];
+            }
+
+            $map = [];
+            foreach ($suppliers as $s) {
+                $id = $s['id'] ?? null;
+                $name = $s['name'] ?? $s['companyName'] ?? null;
+                if ($id && $name) {
+                    $map[$id] = $name;
+                }
+            }
+
+            return $map;
+        } catch (\Exception $e) {
+            // Non-critical — counterparty will be null for reimbursements
+            return [];
+        }
     }
 
     protected function parseReference(array $expense): ?string
