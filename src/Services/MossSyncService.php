@@ -261,20 +261,33 @@ class MossSyncService
 
     protected function parseCounterpartyName(array $expense): ?string
     {
-        // CARD_TRANSACTION: merchantDetails.name is the actual counterparty
-        return $expense['expenseMetadata']['merchantDetails']['name']
-            ?? $expense['supplier']['name']
-            ?? $expense['supplierName']
-            ?? null;
+        $meta = $expense['expenseMetadata'] ?? [];
+
+        // CARD_TRANSACTION: merchantDetails.name
+        $merchant = $meta['merchantDetails']['name'] ?? null;
+        if ($merchant) {
+            return $merchant;
+        }
+
+        // REIMBURSEMENT / INVOICE: supplier name (need to resolve via supplierId externally)
+        return $expense['supplier']['name'] ?? $expense['supplierName'] ?? null;
     }
 
     protected function parseReference(array $expense): ?string
     {
-        // Combine description + bookingText when both exist
+        $meta = $expense['expenseMetadata'] ?? [];
+
+        // Combine all available text fields
         $parts = array_filter([
             $expense['description'] ?? null,
             $expense['bookingText'] ?? null,
+            // Line-level bookingText (first line)
+            $expense['lines'][0]['bookingText'] ?? null,
+            $expense['lines'][0]['description'] ?? null,
         ]);
+
+        // Deduplicate (description sometimes repeats in lines)
+        $parts = array_unique($parts);
 
         return !empty($parts) ? implode(' | ', $parts) : null;
     }
