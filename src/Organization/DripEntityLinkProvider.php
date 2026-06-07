@@ -305,6 +305,8 @@ class DripEntityLinkProvider implements EntityLinkProvider, HasMetricDefinitions
                 'dimension' => 'revenue',
                 'type' => 'flow',
                 'aggregation_mode' => 'rolled_up',
+                'basis' => 'window_30d',
+                'is_dimension_primary' => true,
             ],
             'cashflow_out' => [
                 'label' => 'Ausgaben (Monat)',
@@ -314,6 +316,8 @@ class DripEntityLinkProvider implements EntityLinkProvider, HasMetricDefinitions
                 'dimension' => 'costs',
                 'type' => 'flow',
                 'aggregation_mode' => 'rolled_up',
+                'basis' => 'window_30d',
+                'is_dimension_primary' => true,
             ],
             'cashflow_net' => [
                 'label' => 'Cashflow netto (Monat)',
@@ -323,6 +327,7 @@ class DripEntityLinkProvider implements EntityLinkProvider, HasMetricDefinitions
                 'dimension' => 'revenue',
                 'type' => 'flow',
                 'aggregation_mode' => 'rolled_up',
+                'basis' => 'window_30d',
             ],
             'cashflow_tx_count' => [
                 'label' => 'Transaktionen (Monat)',
@@ -332,6 +337,7 @@ class DripEntityLinkProvider implements EntityLinkProvider, HasMetricDefinitions
                 'dimension' => 'throughput',
                 'type' => 'flow',
                 'aggregation_mode' => 'rolled_up',
+                'basis' => 'window_30d',
             ],
         ];
     }
