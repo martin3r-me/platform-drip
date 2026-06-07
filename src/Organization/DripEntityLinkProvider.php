@@ -328,6 +328,7 @@ class DripEntityLinkProvider implements EntityLinkProvider, HasMetricDefinitions
                 'type' => 'flow',
                 'aggregation_mode' => 'rolled_up',
                 'basis' => 'window_30d',
+                'subset_of' => 'cashflow_in',
             ],
             'cashflow_tx_count' => [
                 'label' => 'Transaktionen (Monat)',
