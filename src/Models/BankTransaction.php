@@ -21,7 +21,7 @@ class BankTransaction extends Model
     protected $fillable = [
         'uuid', 'team_id', 'user_id', 'bank_account_id', 'category_id', 'recurring_pattern_id',
         'transaction_id', 'booking_date', 'booking_date_time', 'value_date', 'value_date_time', 'booked_at',
-        'amount', 'currency', 'direction', 'status', 'metadata',
+        'amount', 'currency', 'direction', 'status', 'is_disregarded', 'metadata',
         'remittance_information', 'remittance_information_structured', 'remittance_information_structured_array',
         'remittance_information_unstructured', 'remittance_information_unstructured_array',
         'debtor_name', 'creditor_name', 'debtor_account_iban', 'creditor_account_iban',
@@ -36,6 +36,7 @@ class BankTransaction extends Model
     ];
 
     protected $casts = [
+        'is_disregarded' => 'boolean',
         'booked_at' => 'date',
         'booking_date' => 'date',
         'booking_date_time' => 'datetime',
@@ -132,6 +133,17 @@ class BankTransaction extends Model
     {
         $teamId = $user->current_team_id;
         return $query->where('team_id', $teamId);
+    }
+
+    /** Nur Transaktionen, die im Cashflow zählen (ohne abgelehnte/gelöschte MOSS-Zahlungen). */
+    public function scopeCounted($query)
+    {
+        return $query->where('is_disregarded', false);
+    }
+
+    public function scopeDisregarded($query)
+    {
+        return $query->where('is_disregarded', true);
     }
 }
 

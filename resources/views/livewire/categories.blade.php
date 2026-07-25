@@ -135,7 +135,10 @@
                                         </a>
                                     </x-nx-table-cell>
                                     <x-nx-table-cell>
-                                        <span class="text-[color:var(--nx-text)]">{{ $t->counterparty_name ?? '(unbekannt)' }}</span>
+                                        <span class="{{ $t->is_disregarded ? 'text-[color:var(--nx-faint)] line-through' : 'text-[color:var(--nx-text)]' }}">{{ $t->counterparty_name ?? '(unbekannt)' }}</span>
+                                        @if ($t->is_disregarded)
+                                            <x-nx-badge variant="warning">nicht berücksichtigt</x-nx-badge>
+                                        @endif
                                     </x-nx-table-cell>
                                     <x-nx-table-cell>
                                         <span class="text-[color:var(--nx-muted)]">{{ $t->bankAccount->name ?? '-' }}</span>
@@ -145,7 +148,7 @@
                                             wire:change="updateTransactionCategory({{ $t->id }}, $event.target.value)" />
                                     </x-nx-table-cell>
                                     <x-nx-table-cell align="right">
-                                        <span class="font-medium tabular-nums {{ $t->direction === 'credit' ? 'text-green-600' : 'text-red-600' }}">
+                                        <span class="font-medium tabular-nums {{ $t->is_disregarded ? 'text-[color:var(--nx-faint)] line-through' : ($t->direction === 'credit' ? 'text-green-600' : 'text-red-600') }}">
                                             {{ $t->direction === 'credit' ? '+' : '-' }}{{ number_format(abs((float) $t->amount), 2, ',', '.') }} {{ $t->currency }}
                                         </span>
                                     </x-nx-table-cell>

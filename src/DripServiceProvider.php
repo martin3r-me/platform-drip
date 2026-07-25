@@ -218,6 +218,7 @@ class DripServiceProvider extends ServiceProvider
                 \Platform\Drip\Console\Commands\BuildCashflowSnapshotsCommand::class,
                 \Platform\Drip\Console\Commands\SyncCashflowSignalsCommand::class,
                 \Platform\Drip\Console\Commands\SyncMossDataCommand::class,
+                \Platform\Drip\Console\Commands\BackfillDisregardedCommand::class,
             ]);
         }
     }

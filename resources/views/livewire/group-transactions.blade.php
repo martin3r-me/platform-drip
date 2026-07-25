@@ -97,14 +97,17 @@
                                     </x-nx-badge>
                                 </x-nx-table-cell>
                                 <x-nx-table-cell>
-                                    <span class="font-medium tabular-nums {{ $transaction->direction === 'credit' ? 'text-green-600' : 'text-red-600' }}">
+                                    <span class="font-medium tabular-nums {{ $transaction->is_disregarded ? 'text-[color:var(--nx-faint)] line-through' : ($transaction->direction === 'credit' ? 'text-green-600' : 'text-red-600') }}">
                                         {{ $transaction->direction === 'credit' ? '+' : '-' }}{{ number_format(abs((float) $transaction->amount), 2, ',', '.') }} {{ $transaction->currency }}
                                     </span>
                                 </x-nx-table-cell>
                                 <x-nx-table-cell>
-                                    <div class="font-medium text-[color:var(--nx-text)]">
+                                    <div class="font-medium {{ $transaction->is_disregarded ? 'text-[color:var(--nx-faint)] line-through' : 'text-[color:var(--nx-text)]' }}">
                                         {{ $transaction->counterparty_name ?? ($transaction->direction === 'debit' ? $transaction->creditor_name : $transaction->debtor_name) ?? '-' }}
                                     </div>
+                                    @if($transaction->is_disregarded)
+                                        <x-nx-badge variant="warning">nicht berücksichtigt</x-nx-badge>
+                                    @endif
                                     @php
                                         $displayIban = $transaction->counterparty_iban ?? ($transaction->direction === 'debit' ? $transaction->creditor_account_iban : $transaction->debtor_account_iban);
                                     @endphp

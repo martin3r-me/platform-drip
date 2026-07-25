@@ -224,6 +224,7 @@ class MossSyncService
                         'reference' => $this->parseReference($expense),
                         'metadata' => $expense,
                         'status' => 'booked',
+                        'is_disregarded' => self::isDisregardedExpense($expense),
                     ]
                 );
 
@@ -260,6 +261,23 @@ class MossSyncService
         }
 
         return $amount;
+    }
+
+    /**
+     * Ob ein MOSS-Expense NICHT im Cashflow zählen soll:
+     * gelöschte Buchung (status=DELETED) oder abgelehnte/stornierte Kartenzahlung
+     * (expenseMetadata.transactionStatus). Alles andere zählt (Deny-List → sicher).
+     */
+    public static function isDisregardedExpense(array $expense): bool
+    {
+        $status = strtoupper((string) ($expense['status'] ?? ''));
+        if ($status === 'DELETED') {
+            return true;
+        }
+
+        $txStatus = strtoupper((string) ($expense['expenseMetadata']['transactionStatus'] ?? ''));
+
+        return in_array($txStatus, ['REJECTED', 'DECLINED', 'REVERSED', 'CANCELLED', 'FAILED'], true);
     }
 
     protected function parseCounterpartyName(array $expense, array $supplierMap = []): ?string

@@ -149,8 +149,9 @@ class GroupTransactions extends Component
         $transactions = $query->limit($this->perPage)->get();
         $hasMore = $totalCount > $this->perPage;
 
-        // Summary stats — amounts are encrypted, must compute in PHP
-        $allTransactions = $this->group->transactions()->get(['drip_bank_transactions.id', 'amount', 'direction']);
+        // Summary stats — amounts are encrypted, must compute in PHP.
+        // Abgelehnte/gelöschte Zahlungen (is_disregarded) zählen nicht mit.
+        $allTransactions = $this->group->transactions()->counted()->get(['drip_bank_transactions.id', 'amount', 'direction']);
         $totalIncome = $allTransactions->where('direction', 'credit')->sum(fn ($t) => (float) $t->amount);
         $totalExpenses = $allTransactions->where('direction', 'debit')->sum(fn ($t) => abs((float) $t->amount));
         $totalBalance = $totalIncome - $totalExpenses;

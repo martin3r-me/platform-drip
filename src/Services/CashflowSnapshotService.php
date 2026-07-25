@@ -24,6 +24,7 @@ class CashflowSnapshotService
         $until ??= now();
 
         $transactions = BankTransaction::where('team_id', $teamId)
+            ->counted()
             ->where(function ($q) {
                 $q->whereNull('is_internal_transfer')
                     ->orWhere('is_internal_transfer', false);

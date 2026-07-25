@@ -73,7 +73,7 @@ class CategoryReportService
     protected function volumesByCategory(int $teamId, ?array $range): array
     {
         $txs = $this->applyPeriod(
-            BankTransaction::where('team_id', $teamId)->whereNotNull('category_id'),
+            BankTransaction::where('team_id', $teamId)->counted()->whereNotNull('category_id'),
             $range
         )->get(['category_id', 'amount']);
 
@@ -90,9 +90,9 @@ class CategoryReportService
 
     protected function coverage(int $teamId, ?array $range): array
     {
-        $total = $this->applyPeriod(BankTransaction::where('team_id', $teamId), $range)->count();
+        $total = $this->applyPeriod(BankTransaction::where('team_id', $teamId)->counted(), $range)->count();
         $categorized = $this->applyPeriod(
-            BankTransaction::where('team_id', $teamId)->whereNotNull('category_id'),
+            BankTransaction::where('team_id', $teamId)->counted()->whereNotNull('category_id'),
             $range
         )->count();
 
