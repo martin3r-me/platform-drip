@@ -91,9 +91,17 @@
                         <x-nx-badge variant="neutral">{{ (int) $selected->default_tax_rate }} % USt</x-nx-badge>
                     @endif
                 </div>
-                <x-nx-button variant="secondary" wire:click="edit({{ $selected->id }})">
-                    @svg('heroicon-o-pencil-square', 'w-4 h-4') Bearbeiten
-                </x-nx-button>
+                <div class="flex items-center gap-3">
+                    @if ($disregardedCount > 0)
+                        <label class="flex items-center gap-2 text-xs text-[color:var(--nx-muted)]">
+                            <input type="checkbox" wire:model.live="showDisregarded" class="rounded border-[color:var(--nx-line-strong)]">
+                            {{ $disregardedCount }} abgelehnte anzeigen
+                        </label>
+                    @endif
+                    <x-nx-button variant="secondary" wire:click="edit({{ $selected->id }})">
+                        @svg('heroicon-o-pencil-square', 'w-4 h-4') Bearbeiten
+                    </x-nx-button>
+                </div>
             </div>
 
             {{-- Lern-Feedback --}}

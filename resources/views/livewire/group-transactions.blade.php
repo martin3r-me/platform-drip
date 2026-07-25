@@ -188,6 +188,11 @@
                     nullable
                     nullLabel="Alle"
                     wire:model.live="direction" />
+
+                <label class="flex items-center gap-2 pt-2 text-sm text-[color:var(--nx-muted)]">
+                    <input type="checkbox" wire:model.live="showDisregarded" class="rounded border-[color:var(--nx-line-strong)]">
+                    Abgelehnte Zahlungen anzeigen
+                </label>
             </div>
         </x-ui-page-sidebar>
     </x-slot>

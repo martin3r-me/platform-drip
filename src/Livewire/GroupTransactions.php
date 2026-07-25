@@ -18,6 +18,9 @@ class GroupTransactions extends Component
     public string $sortDirection = 'desc';
     public int $perPage = 50;
 
+    /** Abgelehnte/gelöschte Zahlungen einblenden (Standard: aus). */
+    public bool $showDisregarded = false;
+
     /** Vorschlag nach manueller Zuordnung: gleiche Gegenpartei mitziehen. */
     public ?array $learnSuggestion = null;
     public ?string $learnResult = null;
@@ -38,6 +41,11 @@ class GroupTransactions extends Component
     }
 
     public function updatedCategoryFilter()
+    {
+        $this->perPage = 50;
+    }
+
+    public function updatedShowDisregarded()
     {
         $this->perPage = 50;
     }
@@ -125,6 +133,7 @@ class GroupTransactions extends Component
     {
         $query = $this->group->transactions()
             ->with(['bankAccount', 'category'])
+            ->when(! $this->showDisregarded, fn ($q) => $q->counted())
             ->when($this->search, function ($query) {
                 $query->where(function ($q) {
                     $q->where('remittance_information', 'like', '%' . $this->search . '%')

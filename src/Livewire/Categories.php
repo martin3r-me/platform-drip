@@ -22,6 +22,9 @@ class Categories extends Component
     public ?int $selectedCategoryId = null;
     public int $perPage = 50;
 
+    /** Abgelehnte/gelöschte Zahlungen einblenden (Standard: aus). */
+    public bool $showDisregarded = false;
+
     /** Edit-Panel (rechts). */
     public ?int $editingId = null;
     public bool $panelOpen = false;
@@ -54,6 +57,7 @@ class Categories extends Component
     {
         $this->selectedCategoryId = $id;
         $this->perPage = 50;
+        $this->showDisregarded = false;
         $this->learnSuggestion = null;
         $this->learnResult = null;
     }
@@ -210,14 +214,21 @@ class Categories extends Component
         $selected = null;
         $transactions = collect();
         $selectedCount = 0;
+        $disregardedCount = 0;
         if ($this->selectedCategoryId) {
             $selected = BankTransactionCategory::forTeam($teamId)->find($this->selectedCategoryId);
             if ($selected) {
                 $selectedCount = BankTransaction::where('team_id', $teamId)
                     ->where('category_id', $selected->id)
+                    ->counted()
+                    ->count();
+                $disregardedCount = BankTransaction::where('team_id', $teamId)
+                    ->where('category_id', $selected->id)
+                    ->disregarded()
                     ->count();
                 $transactions = BankTransaction::where('team_id', $teamId)
                     ->where('category_id', $selected->id)
+                    ->when(! $this->showDisregarded, fn ($q) => $q->counted())
                     ->with('bankAccount')
                     ->orderByDesc('booked_at')
                     ->orderByDesc('created_at')
@@ -236,6 +247,7 @@ class Categories extends Component
             'selected' => $selected,
             'transactions' => $transactions,
             'selectedCount' => $selectedCount,
+            'disregardedCount' => $disregardedCount,
             'tones' => self::TONES,
             'directionOptions' => [
                 ['value' => 'debit', 'label' => 'Ausgabe'],
