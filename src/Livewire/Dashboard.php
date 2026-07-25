@@ -36,6 +36,7 @@ class Dashboard extends Component
     public array $topCounterparties = [];
     public array $comparison = [];
     public array $trend = [];
+    public array $liquidityTrend = [];
     public array $categoryTrend = [];
     public array $categoryTransactions = [];
 
@@ -137,6 +138,37 @@ class Dashboard extends Component
         $this->topCounterparties = $this->loadTopCounterparties($teamId);
         $this->comparison = $this->loadComparison($teamId);
         $this->trend = $this->loadTrend($teamId);
+        $this->liquidityTrend = $this->buildLiquidityTrend();
+    }
+
+    /**
+     * Liquiditäts-Verlauf: Kontostand je Periodenende, rekonstruiert aus dem
+     * aktuellen Gesamtsaldo und den Netto-Flüssen. Ausgehend vom Ist-Saldo
+     * (= Ende der letzten Periode) wird Periode für Periode das Netto
+     * herausgerechnet, um den Saldo am Ende jeder früheren Periode zu erhalten.
+     *
+     * @return array<int, array{label:string, balance:float}>
+     */
+    protected function buildLiquidityTrend(): array
+    {
+        if (empty($this->trend)) {
+            return [];
+        }
+
+        $running = (float) $this->totalBalance;
+        $out = [];
+
+        for ($i = count($this->trend) - 1; $i >= 0; $i--) {
+            $out[$i] = [
+                'label' => $this->trend[$i]['label'] ?? '',
+                'balance' => round($running, 2),
+            ];
+            $running -= (float) ($this->trend[$i]['net'] ?? 0);
+        }
+
+        ksort($out);
+
+        return array_values($out);
     }
 
     protected function loadAvailableMonths(): void

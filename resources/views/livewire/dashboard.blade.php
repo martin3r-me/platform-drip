@@ -96,6 +96,41 @@
             </x-nx-stat-grid>
         @endif
 
+        {{-- Liquiditäts-Verlauf: Kontostand über Zeit (rekonstruiert aus Saldo + Netto) --}}
+        @if(count($liquidityTrend) > 0)
+            <x-nx-card class="overflow-hidden" wire:key="liquidity-{{ $selectedMonth }}-{{ $periodType }}">
+                <div class="mb-4 flex items-baseline justify-between gap-2">
+                    <h2 class="text-sm font-semibold text-[color:var(--nx-text)]">Liquiditäts-Verlauf</h2>
+                    <span class="text-[11px] text-[color:var(--nx-faint)]">Kontostand je Periodenende · rekonstruiert aus Saldo &amp; Netto-Flüssen</span>
+                </div>
+                <div wire:ignore x-data="{
+                    chart: null,
+                    init() {
+                        this.chart = new ApexCharts(this.$refs.el, {
+                            chart: { type: 'area', height: 260, toolbar: { show: false }, fontFamily: 'inherit' },
+                            series: [
+                                { name: 'Liquidität', type: 'area', data: {{ json_encode(collect($liquidityTrend)->pluck('balance')->values()) }} }
+                            ],
+                            colors: ['#0EA5E9'],
+                            stroke: { curve: 'smooth', width: 2.5 },
+                            fill: { type: 'gradient', gradient: { opacityFrom: 0.35, opacityTo: 0.05 } },
+                            markers: { size: 3, strokeWidth: 0 },
+                            xaxis: { categories: {{ json_encode(collect($liquidityTrend)->pluck('label')->values()) }}, labels: { style: { fontSize: '11px', colors: '#6B7280' } } },
+                            yaxis: { labels: { style: { fontSize: '11px', colors: '#6B7280' }, formatter: v => new Intl.NumberFormat('de-DE').format(Math.round(v)) } },
+                            tooltip: { y: { formatter: v => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(v) } },
+                            dataLabels: { enabled: false },
+                            legend: { show: false },
+                            grid: { borderColor: '#F3F4F6' }
+                        });
+                        this.chart.render();
+                    },
+                    destroy() { this.chart?.destroy(); }
+                }">
+                    <div x-ref="el"></div>
+                </div>
+            </x-nx-card>
+        @endif
+
         {{-- Trend Chart --}}
         @if(count($trend) > 0)
             <x-nx-card class="overflow-hidden" wire:key="trend-{{ $selectedMonth }}-{{ $periodType }}">
