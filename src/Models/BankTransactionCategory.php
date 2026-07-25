@@ -64,11 +64,6 @@ class BankTransactionCategory extends Model
         return $this->hasMany(BankTransaction::class, 'category_id');
     }
 
-    public function budgetItems(): HasMany
-    {
-        return $this->hasMany(BudgetItem::class, 'category_id');
-    }
-
     /** Regeln, die diese Kategorie via Spalte referenzieren (defaults->category_id zusätzlich in PHP prüfen). */
     public function rules(): HasMany
     {

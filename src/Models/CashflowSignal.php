@@ -4,7 +4,6 @@ namespace Platform\Drip\Models;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class CashflowSignal extends Model
@@ -19,7 +18,7 @@ class CashflowSignal extends Model
         'expected_date', 'override_date',
         'confidence', 'confidence_level',
         'counterparty', 'category', 'url',
-        'status', 'budget_item_id', 'meta',
+        'status', 'meta',
         'resolved_at',
     ];
 
@@ -32,13 +31,6 @@ class CashflowSignal extends Model
         'resolved_at' => 'datetime',
         'meta' => 'array',
     ];
-
-    // ── Relations ──
-
-    public function budgetItem(): BelongsTo
-    {
-        return $this->belongsTo(BudgetItem::class, 'budget_item_id');
-    }
 
     // ── Computed ──
 
@@ -115,15 +107,6 @@ class CashflowSignal extends Model
         $this->update([
             'status' => 'resolved',
             'resolved_at' => now(),
-        ]);
-        return $this;
-    }
-
-    public function pinToBudget(int $budgetItemId): self
-    {
-        $this->update([
-            'status' => 'pinned',
-            'budget_item_id' => $budgetItemId,
         ]);
         return $this;
     }

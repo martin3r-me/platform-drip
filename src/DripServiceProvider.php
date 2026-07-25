@@ -162,8 +162,6 @@ class DripServiceProvider extends ServiceProvider
             $registry->register(new \Platform\Drip\Tools\RawLogsTool());
             $registry->register(new \Platform\Drip\Tools\CategoriesToolCrud());
             $registry->register(new \Platform\Drip\Tools\RulesToolCrud());
-            // Budget eingemottet (2026-07): Tool deregistriert bis Forecast-Modul. Datei/Models bleiben erhalten.
-            // $registry->register(new \Platform\Drip\Tools\BudgetItemsToolCrud());
             $registry->register(new \Platform\Drip\Tools\CashflowAnalyticsTool());
             $registry->register(new \Platform\Drip\Tools\DripTeamSettingsToolCrud());
         } catch (\Throwable $e) {
@@ -213,8 +211,6 @@ class DripServiceProvider extends ServiceProvider
                 \Platform\Drip\Console\Commands\AnalyzeRawLogsCommand::class,
                 \Platform\Drip\Console\Commands\DeduplicateTransactionsCommand::class,
                 \Platform\Drip\Console\Commands\WipeTransactionsCommand::class,
-                \Platform\Drip\Console\Commands\DetectRecurringBudgetsCommand::class,
-                \Platform\Drip\Console\Commands\GenerateBudgetPeriodsCommand::class,
                 \Platform\Drip\Console\Commands\BuildCashflowSnapshotsCommand::class,
                 \Platform\Drip\Console\Commands\SyncCashflowSignalsCommand::class,
                 \Platform\Drip\Console\Commands\SyncMossDataCommand::class,

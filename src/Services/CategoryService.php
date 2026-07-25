@@ -6,7 +6,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Platform\Drip\Models\BankTransaction;
 use Platform\Drip\Models\BankTransactionCategory;
-use Platform\Drip\Models\BudgetItem;
 use Platform\Drip\Models\RecurringPattern;
 
 /**
@@ -18,7 +17,7 @@ use Platform\Drip\Models\RecurringPattern;
  *  - Richtungs-Vererbung (Unterkategorie erbt Richtung des Parents beim Anlegen)
  *  - Namens-Eindeutigkeit je Ebene (team_id + parent_id)
  * und hängt beim Löschen alle Referenzen sauber auf den Parent um (keine
- * verwaisten Transaktionen/Regeln/Budgets).
+ * verwaisten Transaktionen/Regeln).
  *
  * Integritätsfehler werden als {@see CategoryException} (mit Feldbezug) geworfen.
  */
@@ -53,11 +52,11 @@ class CategoryService
 
     /**
      * Löscht eine Kategorie und hängt alle Referenzen auf den Parent um.
-     * Hat die Kategorie keinen Parent, werden Transaktionen/Budgets entkoppelt
+     * Hat die Kategorie keinen Parent, werden Transaktionen entkoppelt
      * (category_id = null) und ins Leere zeigende Regeln gelöscht.
      * Unterkategorien rücken auf die Hauptebene.
      *
-     * @return array{transactions:int,budgets:int,rules_repointed:int,rules_deleted:int,children_promoted:int}
+     * @return array{transactions:int,rules_repointed:int,rules_deleted:int,children_promoted:int}
      */
     public function delete(BankTransactionCategory $category): array
     {
@@ -66,10 +65,6 @@ class CategoryService
 
         return DB::transaction(function () use ($category, $teamId, $parentId) {
             $transactions = BankTransaction::where('team_id', $teamId)
-                ->where('category_id', $category->id)
-                ->update(['category_id' => $parentId]);
-
-            $budgets = BudgetItem::where('team_id', $teamId)
                 ->where('category_id', $category->id)
                 ->update(['category_id' => $parentId]);
 
@@ -83,7 +78,6 @@ class CategoryService
 
             return [
                 'transactions' => $transactions,
-                'budgets' => $budgets,
                 'rules_repointed' => $rulesRepointed,
                 'rules_deleted' => $rulesDeleted,
                 'children_promoted' => $childrenPromoted,
