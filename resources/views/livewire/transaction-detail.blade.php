@@ -159,6 +159,35 @@
                     @if($cpAgent)
                         <x-nx-property-row icon="heroicon-o-building-office" label="BIC"><span class="font-mono">{{ $cpAgent }}</span></x-nx-property-row>
                     @endif
+
+                    @if($gegenparteiAvailable)
+                        <x-nx-property-row icon="heroicon-o-building-office-2" label="Org-Entity">
+                            @if($resolvedGegenpartei)
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <x-nx-badge variant="success" dot>{{ $resolvedGegenpartei['name'] }}</x-nx-badge>
+                                    @if($resolvedGegenpartei['code'])
+                                        <span class="font-mono text-[11px] text-[color:var(--nx-faint)]">{{ $resolvedGegenpartei['code'] }}</span>
+                                    @endif
+                                    <x-nx-button variant="ghost" size="sm" wire:click="unmapGegenpartei">Zuordnung lösen</x-nx-button>
+                                </div>
+                            @elseif($counterpartyIban)
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <div class="min-w-[16rem] flex-1">
+                                        <x-nx-input-select size="sm" :options="$gegenparteiOptions" nullable nullLabel="Entity wählen…" wire:model.live="gegenparteiEntityId" />
+                                    </div>
+                                    <x-nx-button variant="secondary" size="sm" wire:click="saveGegenpartei" :disabled="!$gegenparteiEntityId">Per IBAN zuordnen</x-nx-button>
+                                </div>
+                            @else
+                                <span class="text-[color:var(--nx-faint)]">keine IBAN (Kartenzahlung) — Zuordnung per Name folgt später</span>
+                            @endif
+                        </x-nx-property-row>
+                    @endif
+
+                    @if($gegenparteiResult)
+                        <div class="pt-2">
+                            <x-nx-callout variant="success" icon="heroicon-o-check-circle">{{ $gegenparteiResult }}</x-nx-callout>
+                        </div>
+                    @endif
                 </x-nx-card>
             </x-nx-section>
         @endif

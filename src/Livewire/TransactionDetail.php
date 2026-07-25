@@ -6,6 +6,7 @@ use Livewire\Component;
 use Platform\Drip\Models\BankTransaction;
 use Platform\Drip\Models\BankTransactionCategory;
 use Platform\Drip\Services\CategorizationService;
+use Platform\Drip\Services\GegenparteiService;
 use Platform\Drip\Services\KontierungService;
 use Illuminate\Support\Carbon;
 
@@ -22,7 +23,14 @@ class TransactionDetail extends Component
     public array $kontierung = [];
     public ?string $kontierungResult = null;
 
-    public function mount(BankTransaction $transaction, KontierungService $kontierung)
+    /** Gegenpartei (Umwelt): IBAN → Org-Entity. */
+    public bool $gegenparteiAvailable = false;
+    public ?string $counterpartyIban = null;
+    public ?array $resolvedGegenpartei = null;
+    public ?int $gegenparteiEntityId = null;
+    public ?string $gegenparteiResult = null;
+
+    public function mount(BankTransaction $transaction, KontierungService $kontierung, GegenparteiService $gegenpartei)
     {
         abort_unless($transaction->team_id === auth()->user()->current_team_id, 403);
 
@@ -31,6 +39,37 @@ class TransactionDetail extends Component
 
         $this->kontierungAvailable = $kontierung->available();
         $this->kontierung = $kontierung->forTransaction($transaction->id);
+
+        // Gegenpartei (Umwelt-Seite): richtungsaufgelöste IBAN → Entity.
+        $this->gegenparteiAvailable = $gegenpartei->available();
+        $this->counterpartyIban = $transaction->counterparty_iban
+            ?: ($transaction->direction === 'debit' ? $transaction->creditor_account_iban : $transaction->debtor_account_iban);
+        $this->resolvedGegenpartei = $gegenpartei->resolveIban($this->counterpartyIban, (int) $transaction->team_id);
+    }
+
+    public function saveGegenpartei(GegenparteiService $gegenpartei): void
+    {
+        if (!$this->counterpartyIban || !$this->gegenparteiEntityId) {
+            return;
+        }
+
+        $gegenpartei->mapIban($this->counterpartyIban, (int) $this->gegenparteiEntityId, (int) $this->transaction->team_id);
+        $this->resolvedGegenpartei = $gegenpartei->resolveIban($this->counterpartyIban, (int) $this->transaction->team_id);
+        $this->gegenparteiEntityId = null;
+        $this->gegenparteiResult = $this->resolvedGegenpartei
+            ? 'Gegenpartei „' . $this->resolvedGegenpartei['name'] . '" per IBAN zugeordnet.'
+            : null;
+    }
+
+    public function unmapGegenpartei(GegenparteiService $gegenpartei): void
+    {
+        if (!$this->counterpartyIban) {
+            return;
+        }
+
+        $gegenpartei->unmapIban($this->counterpartyIban, (int) $this->transaction->team_id);
+        $this->resolvedGegenpartei = null;
+        $this->gegenparteiResult = 'IBAN-Zuordnung entfernt.';
     }
 
     public function addKontierung(): void
@@ -166,7 +205,7 @@ class TransactionDetail extends Component
     //     $this->redirect(route('drip.budgets') . '?' . $params);
     // }
 
-    public function render(KontierungService $kontierung)
+    public function render(KontierungService $kontierung, GegenparteiService $gegenpartei)
     {
         $teamId = (int) auth()->user()->current_team_id;
 
@@ -176,10 +215,14 @@ class TransactionDetail extends Component
 
         $kontierungSum = array_sum(array_map(fn ($r) => (float) ($r['percentage'] ?? 0), $this->kontierung));
 
+        // Entity-Optionen nur laden, wenn eine IBAN da und noch nicht aufgelöst ist.
+        $needsGegenparteiPicker = $this->gegenparteiAvailable && $this->counterpartyIban && !$this->resolvedGegenpartei;
+
         return view('drip::livewire.transaction-detail', [
             'categories' => $categories,
             'kontierungOptions' => $this->kontierungAvailable ? $kontierung->recipientOptions() : [],
             'kontierungSum' => $kontierungSum,
+            'gegenparteiOptions' => $needsGegenparteiPicker ? $gegenpartei->entityOptions($teamId) : [],
         ])->layout('platform::layouts.app');
     }
 }
