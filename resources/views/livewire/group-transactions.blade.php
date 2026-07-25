@@ -1,7 +1,6 @@
 <x-ui-page>
-    @include('drip::partials.styles')
     <x-slot name="navbar">
-        <x-ui-page-navbar title="{{ $group->name }}" />
+        <x-ui-page-navbar title="{{ $group->name }}" icon="heroicon-o-banknotes" />
     </x-slot>
 
     <x-slot name="actionbar">
@@ -11,200 +10,158 @@
             ['label' => 'Transaktionen'],
         ]">
             <x-slot name="left">
-                <span class="text-[13px] text-gray-500">{{ $totalCount }} Transaktionen</span>
+                <span class="text-sm text-[color:var(--nx-muted)]">{{ $totalCount }} Transaktionen</span>
             </x-slot>
         </x-ui-page-actionbar>
     </x-slot>
 
-    <x-ui-page-container>
+    <x-slot name="sidebar">
+        @include('drip::partials.inner-sidebar')
+    </x-slot>
 
-        {{-- Summary Cards --}}
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
-            <div class="bg-white rounded-2xl shadow-sm p-6">
-                <div class="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Einnahmen</div>
-                <div class="mt-1 text-xl font-bold tabular-nums text-green-600">
+    <x-ui-page-container width="contained">
+
+        {{-- Summary --}}
+        <x-nx-stat-grid cols="3">
+            <x-nx-card>
+                <div class="text-xs font-medium uppercase tracking-wide text-[color:var(--nx-muted)]">Einnahmen</div>
+                <div class="mt-2 text-xl font-semibold tabular-nums text-green-600">
                     +{{ number_format($totalIncome, 2, ',', '.') }} &euro;
                 </div>
-            </div>
-            <div class="bg-white rounded-2xl shadow-sm p-6">
-                <div class="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Ausgaben</div>
-                <div class="mt-1 text-xl font-bold tabular-nums text-red-600">
+            </x-nx-card>
+            <x-nx-card>
+                <div class="text-xs font-medium uppercase tracking-wide text-[color:var(--nx-muted)]">Ausgaben</div>
+                <div class="mt-2 text-xl font-semibold tabular-nums text-red-600">
                     -{{ number_format($totalExpenses, 2, ',', '.') }} &euro;
                 </div>
-            </div>
-            <div class="bg-white rounded-2xl shadow-sm p-6">
-                <div class="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Saldo</div>
-                <div class="mt-1 text-xl font-bold tabular-nums {{ $totalBalance >= 0 ? 'text-green-600' : 'text-red-600' }}">
+            </x-nx-card>
+            <x-nx-card>
+                <div class="text-xs font-medium uppercase tracking-wide text-[color:var(--nx-muted)]">Saldo</div>
+                <div class="mt-2 text-xl font-semibold tabular-nums {{ $totalBalance >= 0 ? 'text-green-600' : 'text-red-600' }}">
                     {{ $totalBalance >= 0 ? '+' : '' }}{{ number_format($totalBalance, 2, ',', '.') }} &euro;
                 </div>
-            </div>
-        </div>
+            </x-nx-card>
+        </x-nx-stat-grid>
 
         {{-- Transactions Table --}}
-        <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
+        @php
+            $rowCatOptions = collect($categories)->map(fn ($cat) => [
+                'value' => $cat->id,
+                'label' => ($cat->parent_id ? '└ ' : '') . $cat->name,
+            ])->all();
+        @endphp
+        <x-nx-card flush>
             @if ($transactions->count() > 0)
-                <div class="overflow-x-auto">
-                    <table class="min-w-full">
-                        <thead>
-                            <tr class="bg-gray-50">
-                                <th scope="col" class="px-6 py-3 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-gray-900" wire:click="sortBy('booked_at')">
-                                    <div class="flex items-center gap-1">
-                                        Datum
-                                        @if ($sortBy === 'booked_at')
-                                            @svg($sortDirection === 'asc' ? 'heroicon-o-chevron-up' : 'heroicon-o-chevron-down', 'w-3 h-3')
-                                        @endif
+                <x-nx-table>
+                    <x-nx-table-header>
+                        <x-nx-table-header-cell sortable sortField="booked_at" :currentSort="$sortBy" :sortDirection="$sortDirection">Datum</x-nx-table-header-cell>
+                        <x-nx-table-header-cell>Richtung</x-nx-table-header-cell>
+                        <x-nx-table-header-cell sortable sortField="amount" :currentSort="$sortBy" :sortDirection="$sortDirection">Betrag</x-nx-table-header-cell>
+                        <x-nx-table-header-cell>Gegenpartei</x-nx-table-header-cell>
+                        <x-nx-table-header-cell>Verwendungszweck</x-nx-table-header-cell>
+                        <x-nx-table-header-cell>Kategorie</x-nx-table-header-cell>
+                        <x-nx-table-header-cell>Konto</x-nx-table-header-cell>
+                    </x-nx-table-header>
+                    <x-nx-table-body>
+                        @foreach ($transactions as $transaction)
+                            <x-nx-table-row :clickable="true" :href="route('drip.transactions.show', $transaction)">
+                                <x-nx-table-cell>
+                                    <span class="whitespace-nowrap text-[color:var(--nx-text)]">{{ $transaction->booked_at?->format('d.m.Y') ?? '-' }}</span>
+                                </x-nx-table-cell>
+                                <x-nx-table-cell>
+                                    <x-nx-badge :variant="$transaction->direction === 'credit' ? 'success' : 'danger'">
+                                        {{ $transaction->direction === 'credit' ? 'Einnahme' : 'Ausgabe' }}
+                                    </x-nx-badge>
+                                </x-nx-table-cell>
+                                <x-nx-table-cell>
+                                    <span class="font-medium tabular-nums {{ $transaction->direction === 'credit' ? 'text-green-600' : 'text-red-600' }}">
+                                        {{ $transaction->direction === 'credit' ? '+' : '-' }}{{ number_format($transaction->amount, 2, ',', '.') }} {{ $transaction->currency }}
+                                    </span>
+                                </x-nx-table-cell>
+                                <x-nx-table-cell>
+                                    <div class="font-medium text-[color:var(--nx-text)]">
+                                        {{ $transaction->counterparty_name ?? ($transaction->direction === 'debit' ? $transaction->creditor_name : $transaction->debtor_name) ?? '-' }}
                                     </div>
-                                </th>
-                                <th scope="col" class="px-6 py-3 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">
-                                    Richtung
-                                </th>
-                                <th scope="col" class="px-6 py-3 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-gray-900" wire:click="sortBy('amount')">
-                                    <div class="flex items-center gap-1">
-                                        Betrag
-                                        @if ($sortBy === 'amount')
-                                            @svg($sortDirection === 'asc' ? 'heroicon-o-chevron-up' : 'heroicon-o-chevron-down', 'w-3 h-3')
-                                        @endif
+                                    @php
+                                        $displayIban = $transaction->counterparty_iban ?? ($transaction->direction === 'debit' ? $transaction->creditor_account_iban : $transaction->debtor_account_iban);
+                                    @endphp
+                                    @if($displayIban)
+                                        <div class="mt-0.5 font-mono text-[11px] text-[color:var(--nx-faint)]">
+                                            {{ Str::limit($displayIban, 22) }}
+                                        </div>
+                                    @endif
+                                </x-nx-table-cell>
+                                <x-nx-table-cell>
+                                    <div class="max-w-xs truncate text-[color:var(--nx-muted)]">
+                                        {{ $transaction->remittance_information ?? $transaction->reference ?? '-' }}
                                     </div>
-                                </th>
-                                <th scope="col" class="px-6 py-3 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">
-                                    Gegenpartei
-                                </th>
-                                <th scope="col" class="px-6 py-3 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">
-                                    Verwendungszweck
-                                </th>
-                                <th scope="col" class="px-6 py-3 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">
-                                    Kategorie
-                                </th>
-                                <th scope="col" class="px-6 py-3 text-left text-[11px] font-medium text-gray-500 uppercase tracking-wider">
-                                    Konto
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-100">
-                            @foreach ($transactions as $transaction)
-                                <tr class="hover:bg-blue-50/50 cursor-pointer transition-colors" onclick="window.location='{{ route('drip.transactions.show', $transaction) }}'">
-                                    <td class="px-6 py-3.5 whitespace-nowrap text-[13px] text-gray-900">
-                                        {{ $transaction->booked_at?->format('d.m.Y') ?? '-' }}
-                                    </td>
-                                    <td class="px-6 py-3.5 whitespace-nowrap">
-                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[11px] font-medium {{ $transaction->direction === 'credit' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700' }}">
-                                            {{ $transaction->direction === 'credit' ? 'Einnahme' : 'Ausgabe' }}
-                                        </span>
-                                    </td>
-                                    <td class="px-6 py-3.5 whitespace-nowrap text-[13px]">
-                                        <span class="font-medium tabular-nums {{ $transaction->direction === 'credit' ? 'text-green-600' : 'text-red-600' }}">
-                                            {{ $transaction->direction === 'credit' ? '+' : '-' }}{{ number_format($transaction->amount, 2, ',', '.') }} {{ $transaction->currency }}
-                                        </span>
-                                    </td>
-                                    <td class="px-6 py-3.5 text-[13px] text-gray-900">
-                                        <div>
-                                            <div class="font-medium">
-                                                {{ $transaction->counterparty_name ?? ($transaction->direction === 'debit' ? $transaction->creditor_name : $transaction->debtor_name) ?? '-' }}
-                                            </div>
-                                            @php
-                                                $displayIban = $transaction->counterparty_iban ?? ($transaction->direction === 'debit' ? $transaction->creditor_account_iban : $transaction->debtor_account_iban);
-                                            @endphp
-                                            @if($displayIban)
-                                                <div class="text-[11px] text-gray-400 font-mono mt-0.5">
-                                                    {{ Str::limit($displayIban, 22) }}
-                                                </div>
-                                            @endif
-                                        </div>
-                                    </td>
-                                    <td class="px-6 py-3.5 text-[13px] text-gray-500">
-                                        <div class="max-w-xs truncate">
-                                            {{ $transaction->remittance_information ?? $transaction->reference ?? '-' }}
-                                        </div>
-                                    </td>
-                                    <td class="px-6 py-3.5 text-[13px] text-gray-500" onclick="event.stopPropagation()">
-                                        <select wire:change="updateCategory({{ $transaction->id }}, $event.target.value)"
-                                                class="px-1.5 py-0.5 rounded border border-transparent hover:border-gray-200 focus:border-blue-500 text-[13px] bg-transparent focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer {{ $transaction->category ? 'text-gray-900' : 'text-gray-400' }}">
-                                            <option value="">—</option>
-                                            @foreach ($categories as $cat)
-                                                <option value="{{ $cat->id }}" @selected($transaction->category_id === $cat->id)>
-                                                    {{ $cat->parent_id ? '└ ' : '' }}{{ $cat->name }}
-                                                </option>
-                                            @endforeach
-                                        </select>
-                                    </td>
-                                    <td class="px-6 py-3.5 text-[13px] text-gray-500">
-                                        {{ $transaction->bankAccount->name }}
-                                    </td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
+                                </x-nx-table-cell>
+                                <x-nx-table-cell onclick="event.stopPropagation()">
+                                    <x-nx-input-select
+                                        size="sm"
+                                        :options="$rowCatOptions"
+                                        nullable
+                                        nullLabel="—"
+                                        :value="$transaction->category_id"
+                                        wire:change="updateCategory({{ $transaction->id }}, $event.target.value)" />
+                                </x-nx-table-cell>
+                                <x-nx-table-cell>
+                                    <span class="text-[color:var(--nx-muted)]">{{ $transaction->bankAccount->name }}</span>
+                                </x-nx-table-cell>
+                            </x-nx-table-row>
+                        @endforeach
+                    </x-nx-table-body>
+                </x-nx-table>
 
                 @if ($hasMore)
-                    <div class="px-6 py-4 border-t border-gray-100 text-center">
-                        <button wire:click="loadMore"
-                                class="inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-[13px] font-medium text-gray-600 bg-gray-50 hover:bg-gray-100 transition-colors">
+                    <div class="border-t border-[color:var(--nx-line)] p-4 text-center">
+                        <x-nx-button variant="secondary" wire:click="loadMore">
                             @svg('heroicon-o-arrow-down', 'w-4 h-4')
                             Weitere laden
-                            <span class="text-gray-400">({{ $transactions->count() }} von {{ $totalCount }})</span>
-                        </button>
+                            <span class="text-[color:var(--nx-faint)]">({{ $transactions->count() }} von {{ $totalCount }})</span>
+                        </x-nx-button>
                     </div>
                 @endif
             @else
-                <div class="text-center py-16">
-                    <div class="text-gray-400 mb-3">
-                        @svg('heroicon-o-banknotes', 'w-12 h-12 mx-auto')
-                    </div>
-                    <h3 class="text-xl font-bold text-gray-900 mb-1">Keine Transaktionen</h3>
-                    <p class="text-[13px] text-gray-500">
-                        @if ($search)
-                            Keine Transaktionen gefunden f&uuml;r &ldquo;{{ $search }}&rdquo;
-                        @else
-                            Diese Gruppe hat noch keine Transaktionen.
-                        @endif
-                    </p>
-                </div>
+                <x-nx-empty icon="heroicon-o-banknotes">
+                    @if ($search)
+                        Keine Transaktionen gefunden f&uuml;r &ldquo;{{ $search }}&rdquo;
+                    @else
+                        Diese Gruppe hat noch keine Transaktionen.
+                    @endif
+                </x-nx-empty>
             @endif
-        </div>
+        </x-nx-card>
 
     </x-ui-page-container>
 
     <x-slot name="activity">
-        <x-ui-page-sidebar title="Filter" width="w-80" side="right" :defaultOpen="true" storeKey="activityOpen">
-            <div class="p-4 space-y-4">
-                <div>
-                    <label class="block text-[11px] font-medium text-gray-500 uppercase tracking-wide mb-1.5">Suche</label>
-                    <input type="text" wire:model.live.debounce.300ms="search" placeholder="Transaktionen durchsuchen..."
-                           class="w-full px-3 py-1.5 rounded-md border border-gray-200 text-[13px] text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                </div>
+        <x-ui-page-sidebar title="Filter" icon="heroicon-o-funnel" width="w-80" side="right" :defaultOpen="true" storeKey="activityOpen">
+            @php
+                $filterCatOptions = collect($categories)->map(fn ($cat) => [
+                    'value' => $cat->id,
+                    'label' => ($cat->parent_id ? '└ ' : '') . $cat->name,
+                ])->prepend(['value' => 'none', 'label' => 'Ohne Kategorie'])->all();
+            @endphp
+            <div class="space-y-4 p-4">
+                <x-nx-input-text
+                    label="Suche"
+                    placeholder="Transaktionen durchsuchen..."
+                    wire:model.live.debounce.300ms="search" />
 
-                <div>
-                    <label class="block text-[11px] font-medium text-gray-500 uppercase tracking-wide mb-1.5">Kategorie</label>
-                    <select wire:model.live="categoryFilter"
-                            class="w-full px-3 py-1.5 rounded-md border border-gray-200 text-[13px] text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                        <option value="">Alle</option>
-                        <option value="none">Ohne Kategorie</option>
-                        @foreach ($categories as $cat)
-                            <option value="{{ $cat->id }}">
-                                {{ $cat->parent_id ? '└ ' : '' }}{{ $cat->name }}
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
+                <x-nx-input-select
+                    label="Kategorie"
+                    :options="$filterCatOptions"
+                    nullable
+                    nullLabel="Alle"
+                    wire:model.live="categoryFilter" />
 
-                <div>
-                    <label class="block text-[11px] font-medium text-gray-500 uppercase tracking-wide mb-1.5">Richtung</label>
-                    <div class="space-y-1.5">
-                        <label class="flex items-center gap-2 cursor-pointer px-2 py-1 rounded-md hover:bg-gray-50">
-                            <input type="radio" wire:model.live="direction" value="" class="text-blue-600 focus:ring-blue-500">
-                            <span class="text-[13px] text-gray-700">Alle</span>
-                        </label>
-                        <label class="flex items-center gap-2 cursor-pointer px-2 py-1 rounded-md hover:bg-gray-50">
-                            <input type="radio" wire:model.live="direction" value="credit" class="text-green-600 focus:ring-green-500">
-                            <span class="text-[13px] text-gray-700">Einnahmen</span>
-                        </label>
-                        <label class="flex items-center gap-2 cursor-pointer px-2 py-1 rounded-md hover:bg-gray-50">
-                            <input type="radio" wire:model.live="direction" value="debit" class="text-red-600 focus:ring-red-500">
-                            <span class="text-[13px] text-gray-700">Ausgaben</span>
-                        </label>
-                    </div>
-                </div>
+                <x-nx-input-select
+                    label="Richtung"
+                    :options="[['value' => 'credit', 'label' => 'Einnahmen'], ['value' => 'debit', 'label' => 'Ausgaben']]"
+                    nullable
+                    nullLabel="Alle"
+                    wire:model.live="direction" />
             </div>
         </x-ui-page-sidebar>
     </x-slot>

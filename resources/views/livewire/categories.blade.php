@@ -1,7 +1,10 @@
 <x-ui-page>
-    @include('drip::partials.styles')
     <x-slot name="navbar">
-        <x-ui-page-navbar title="Kategorien" />
+        <x-ui-page-navbar title="Kategorien" icon="heroicon-o-tag" />
+    </x-slot>
+
+    <x-slot name="sidebar">
+        @include('drip::partials.inner-sidebar')
     </x-slot>
 
     <x-slot name="actionbar">
@@ -11,145 +14,118 @@
         ]" />
     </x-slot>
 
-    <x-ui-page-container>
+    <x-ui-page-container width="contained">
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
             {{-- Links: Kategorien-Baum --}}
             <div class="lg:col-span-2">
-                @if ($categories->count() > 0)
-                    <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
-                        @foreach ($categories as $category)
-                            {{-- Root-Kategorie --}}
-                            <div class="flex items-center justify-between px-6 py-4 {{ !$loop->last ? 'border-b border-gray-100' : '' }}">
-                                <div class="flex items-center gap-3">
-                                    <div class="w-3 h-3 rounded-full" style="background-color: {{ $category->color ?? '#6B7280' }}"></div>
-                                    <span class="text-sm font-medium text-gray-900">{{ $category->name }}</span>
-                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 text-gray-600">
-                                        {{ $category->transactions_count }}
-                                    </span>
-                                </div>
-                                <div class="flex items-center gap-1">
-                                    <button type="button" wire:click="edit({{ $category->id }})"
-                                            class="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
-                                        @svg('heroicon-o-pencil-square', 'w-4 h-4')
-                                    </button>
-                                    <button type="button" wire:click="delete({{ $category->id }})"
-                                            wire:confirm="Kategorie '{{ $category->name }}' wirklich löschen? Unterkategorien werden zu Root-Kategorien."
-                                            class="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors">
-                                        @svg('heroicon-o-trash', 'w-4 h-4')
-                                    </button>
-                                </div>
-                            </div>
+                <x-nx-section title="Kategorien" icon="heroicon-o-tag" :hint="$categories->count()">
+                    @if ($categories->count() > 0)
+                        <x-nx-card flush>
+                            <ul class="divide-y divide-[color:var(--nx-line)]">
+                                @foreach ($categories as $category)
+                                    {{-- Root-Kategorie --}}
+                                    <x-nx-list-item :title="$category->name" :meta="$category->transactions_count">
+                                        <x-slot name="leading">
+                                            <span class="block w-3 h-3 rounded-full" style="background-color: {{ $category->color ?? 'var(--nx-muted)' }}"></span>
+                                        </x-slot>
+                                        <x-slot name="trailing">
+                                            <x-nx-button variant="ghost" size="sm" icon wire:click="edit({{ $category->id }})">
+                                                @svg('heroicon-o-pencil-square', 'w-4 h-4')
+                                            </x-nx-button>
+                                            <x-nx-button variant="ghost" size="sm" icon
+                                                         wire:click="delete({{ $category->id }})"
+                                                         wire:confirm="Kategorie '{{ $category->name }}' wirklich löschen? Unterkategorien werden zu Root-Kategorien.">
+                                                @svg('heroicon-o-trash', 'w-4 h-4')
+                                            </x-nx-button>
+                                        </x-slot>
+                                    </x-nx-list-item>
 
-                            {{-- Children --}}
-                            @foreach ($category->children as $child)
-                                <div class="flex items-center justify-between px-6 py-4 pl-14 {{ !($loop->parent->last && $loop->last) ? 'border-b border-gray-100' : '' }} bg-gray-50/50">
-                                    <div class="flex items-center gap-3">
-                                        <div class="w-3 h-3 rounded-full" style="background-color: {{ $child->color ?? '#6B7280' }}"></div>
-                                        <span class="text-sm text-gray-700">{{ $child->name }}</span>
-                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 text-gray-500">
-                                            {{ $child->transactions_count }}
-                                        </span>
-                                    </div>
-                                    <div class="flex items-center gap-1">
-                                        <button type="button" wire:click="edit({{ $child->id }})"
-                                                class="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
-                                            @svg('heroicon-o-pencil-square', 'w-4 h-4')
-                                        </button>
-                                        <button type="button" wire:click="delete({{ $child->id }})"
-                                                wire:confirm="Kategorie '{{ $child->name }}' wirklich löschen?"
-                                                class="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors">
-                                            @svg('heroicon-o-trash', 'w-4 h-4')
-                                        </button>
-                                    </div>
-                                </div>
-                            @endforeach
-                        @endforeach
-                    </div>
-                @else
-                    <div class="bg-white rounded-2xl shadow-sm p-12 text-center">
-                        <div class="text-gray-400 mb-4">
-                            @svg('heroicon-o-tag', 'w-12 h-12 mx-auto')
-                        </div>
-                        <h3 class="text-xl font-bold text-gray-900 mb-1">Noch keine Kategorien</h3>
-                        <p class="text-[13px] text-gray-500">Erstelle eine Kategorie, um Transaktionen zu organisieren.</p>
-                    </div>
-                @endif
+                                    {{-- Children --}}
+                                    @foreach ($category->children as $child)
+                                        <x-nx-list-item :title="$child->name" :meta="$child->transactions_count" class="pl-10">
+                                            <x-slot name="leading">
+                                                <span class="block w-3 h-3 rounded-full" style="background-color: {{ $child->color ?? 'var(--nx-muted)' }}"></span>
+                                            </x-slot>
+                                            <x-slot name="trailing">
+                                                <x-nx-button variant="ghost" size="sm" icon wire:click="edit({{ $child->id }})">
+                                                    @svg('heroicon-o-pencil-square', 'w-4 h-4')
+                                                </x-nx-button>
+                                                <x-nx-button variant="ghost" size="sm" icon
+                                                             wire:click="delete({{ $child->id }})"
+                                                             wire:confirm="Kategorie '{{ $child->name }}' wirklich löschen?">
+                                                    @svg('heroicon-o-trash', 'w-4 h-4')
+                                                </x-nx-button>
+                                            </x-slot>
+                                        </x-nx-list-item>
+                                    @endforeach
+                                @endforeach
+                            </ul>
+                        </x-nx-card>
+                    @else
+                        <x-nx-card>
+                            <x-nx-empty icon="heroicon-o-tag">
+                                Noch keine Kategorien — erstelle eine, um Transaktionen zu organisieren.
+                            </x-nx-empty>
+                        </x-nx-card>
+                    @endif
+                </x-nx-section>
             </div>
 
             {{-- Rechts: Formular --}}
             <div class="lg:col-span-1">
-                <div class="bg-white rounded-2xl shadow-sm p-6">
-                    <h3 class="text-xl font-bold text-gray-900 mb-4">
-                        {{ $editingId ? 'Kategorie bearbeiten' : 'Kategorie erstellen' }}
-                    </h3>
+                <x-nx-section :title="$editingId ? 'Kategorie bearbeiten' : 'Kategorie erstellen'" icon="heroicon-o-plus-circle">
+                    <x-nx-card>
+                        <form wire:submit="save" class="space-y-4">
+                            <x-nx-input-text
+                                name="form.name"
+                                label="Name"
+                                wire:model="form.name"
+                                required
+                                placeholder="z.B. Lebensmittel" />
 
-                    <form wire:submit="save" class="space-y-4">
-                        {{-- Name --}}
-                        <div>
-                            <label for="category-name" class="block text-[13px] font-medium text-gray-700 mb-1">Name</label>
-                            <input type="text" id="category-name" wire:model="form.name" required
-                                   class="w-full px-3 py-1.5 rounded-md border border-gray-200 text-[13px] text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                                   placeholder="z.B. Lebensmittel">
-                            @error('form.name')
-                                <p class="mt-1 text-[11px] text-red-600">{{ $message }}</p>
-                            @enderror
-                        </div>
+                            <x-nx-input-select
+                                name="form.color"
+                                label="Farbe"
+                                wire:model="form.color"
+                                nullable
+                                nullLabel="Keine Farbe"
+                                :options="[
+                                    ['value' => '#6B7280', 'label' => 'Grau'],
+                                    ['value' => '#EF4444', 'label' => 'Rot'],
+                                    ['value' => '#F97316', 'label' => 'Orange'],
+                                    ['value' => '#EAB308', 'label' => 'Gelb'],
+                                    ['value' => '#22C55E', 'label' => 'Grün'],
+                                    ['value' => '#3B82F6', 'label' => 'Blau'],
+                                    ['value' => '#6366F1', 'label' => 'Indigo'],
+                                    ['value' => '#A855F7', 'label' => 'Lila'],
+                                    ['value' => '#EC4899', 'label' => 'Pink'],
+                                ]" />
 
-                        {{-- Farbe --}}
-                        <div>
-                            <label for="category-color" class="block text-[13px] font-medium text-gray-700 mb-1">Farbe</label>
-                            <select id="category-color" wire:model="form.color"
-                                    class="w-full px-3 py-1.5 rounded-md border border-gray-200 text-[13px] text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                                <option value="">Keine Farbe</option>
-                                <option value="#6B7280">Grau</option>
-                                <option value="#EF4444">Rot</option>
-                                <option value="#F97316">Orange</option>
-                                <option value="#EAB308">Gelb</option>
-                                <option value="#22C55E">Grün</option>
-                                <option value="#3B82F6">Blau</option>
-                                <option value="#6366F1">Indigo</option>
-                                <option value="#A855F7">Lila</option>
-                                <option value="#EC4899">Pink</option>
-                            </select>
-                            @error('form.color')
-                                <p class="mt-1 text-[11px] text-red-600">{{ $message }}</p>
-                            @enderror
-                        </div>
+                            <x-nx-input-select
+                                name="form.parent_id"
+                                label="Übergeordnete Kategorie"
+                                wire:model="form.parent_id"
+                                nullable
+                                nullLabel="Keine (Root-Kategorie)"
+                                optionValue="id"
+                                optionLabel="name"
+                                :options="$rootCategories->reject(fn ($root) => $root->id === $editingId)->values()" />
 
-                        {{-- Parent --}}
-                        <div>
-                            <label for="category-parent" class="block text-[13px] font-medium text-gray-700 mb-1">Übergeordnete Kategorie</label>
-                            <select id="category-parent" wire:model="form.parent_id"
-                                    class="w-full px-3 py-1.5 rounded-md border border-gray-200 text-[13px] text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
-                                <option value="">Keine (Root-Kategorie)</option>
-                                @foreach ($rootCategories as $root)
-                                    @if ($root->id !== $editingId)
-                                        <option value="{{ $root->id }}">{{ $root->name }}</option>
-                                    @endif
-                                @endforeach
-                            </select>
-                            @error('form.parent_id')
-                                <p class="mt-1 text-[11px] text-red-600">{{ $message }}</p>
-                            @enderror
-                        </div>
-
-                        {{-- Buttons --}}
-                        <div class="flex items-center gap-2 pt-2">
-                            <button type="submit"
-                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-green-600 text-white text-[13px] font-medium hover:bg-green-700 transition-colors">
-                                @svg('heroicon-o-check', 'w-4 h-4')
-                                {{ $editingId ? 'Speichern' : 'Erstellen' }}
-                            </button>
-                            @if ($editingId)
-                                <button type="button" wire:click="cancel"
-                                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-gray-200 text-gray-700 text-[13px] font-medium hover:bg-gray-50 transition-colors">
-                                    Abbrechen
-                                </button>
-                            @endif
-                        </div>
-                    </form>
-                </div>
+                            <div class="flex items-center gap-2 pt-2">
+                                <x-nx-button type="submit" variant="primary">
+                                    @svg('heroicon-o-check', 'w-4 h-4')
+                                    {{ $editingId ? 'Speichern' : 'Erstellen' }}
+                                </x-nx-button>
+                                @if ($editingId)
+                                    <x-nx-button type="button" variant="ghost" wire:click="cancel">
+                                        Abbrechen
+                                    </x-nx-button>
+                                @endif
+                            </div>
+                        </form>
+                    </x-nx-card>
+                </x-nx-section>
             </div>
 
         </div>
