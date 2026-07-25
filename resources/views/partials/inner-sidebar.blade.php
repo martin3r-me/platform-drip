@@ -17,5 +17,8 @@
         <x-nx-button variant="ghost" class="w-full justify-start" :href="route('drip.rules')" wire:navigate>
             @svg('heroicon-o-funnel', 'w-4 h-4') Regeln
         </x-nx-button>
+        <x-nx-button variant="ghost" class="w-full justify-start" :href="route('drip.invoices')" wire:navigate>
+            @svg('heroicon-o-receipt-percent', 'w-4 h-4') Belege
+        </x-nx-button>
     </div>
 </x-ui-page-sidebar>

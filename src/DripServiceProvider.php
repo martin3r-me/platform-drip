@@ -195,6 +195,12 @@ class DripServiceProvider extends ServiceProvider
                 ->dailyAt('04:00')
                 ->withoutOverlapping()
                 ->onOneServer();
+
+            // Ausgangsrechnungen (easybill) spiegeln + gegen Bank-Eingänge abgleichen: 04:30
+            $schedule->command('drip:sync-invoices')
+                ->dailyAt('04:30')
+                ->withoutOverlapping()
+                ->onOneServer();
         });
     }
 
@@ -214,6 +220,7 @@ class DripServiceProvider extends ServiceProvider
                 \Platform\Drip\Console\Commands\BuildCashflowSnapshotsCommand::class,
                 \Platform\Drip\Console\Commands\SyncCashflowSignalsCommand::class,
                 \Platform\Drip\Console\Commands\SyncMossDataCommand::class,
+                \Platform\Drip\Console\Commands\SyncInvoicesCommand::class,
                 \Platform\Drip\Console\Commands\BackfillDisregardedCommand::class,
             ]);
         }
