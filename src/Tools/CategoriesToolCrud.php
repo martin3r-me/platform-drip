@@ -8,8 +8,9 @@ use Platform\Core\Contracts\ToolMetadataContract;
 use Platform\Core\Contracts\ToolResult;
 use Platform\Drip\Models\BankTransaction;
 use Platform\Drip\Models\BankTransactionCategory;
+use Platform\Drip\Services\CategoryException;
+use Platform\Drip\Services\CategoryService;
 use Platform\Drip\Tools\Concerns\ResolvesDripTeam;
-use Illuminate\Support\Str;
 
 class CategoriesToolCrud implements ToolContract, ToolMetadataContract
 {
@@ -138,31 +139,21 @@ class CategoriesToolCrud implements ToolContract, ToolMetadataContract
 
     protected function create(array $arguments, int $teamId, ToolContext $context): ToolResult
     {
-        $name = $arguments['name'] ?? null;
-        if (!$name) {
-            return ToolResult::error('VALIDATION_ERROR', 'name ist erforderlich.');
+        try {
+            $category = app(CategoryService::class)->create($teamId, [
+                'name' => $arguments['name'] ?? null,
+                'color' => $arguments['color'] ?? null,
+                'direction' => $arguments['direction'] ?? null,
+                'parent_id' => $arguments['parent_id'] ?? null,
+                'user_id' => $context->user?->id,
+            ]);
+        } catch (CategoryException $e) {
+            return ToolResult::error('VALIDATION_ERROR', $e->getMessage());
         }
 
-        $category = BankTransactionCategory::create([
-            'name' => $name,
-            'slug' => Str::slug($name),
-            'color' => $arguments['color'] ?? null,
-            'direction' => $arguments['direction'] ?? 'debit',
-            'parent_id' => $arguments['parent_id'] ?? null,
-            'team_id' => $teamId,
-            'user_id' => $context->user?->id,
-        ]);
-
         return ToolResult::success([
-            'message' => "Kategorie '{$name}' erstellt.",
-            'category' => [
-                'id' => $category->id,
-                'name' => $category->name,
-                'slug' => $category->slug,
-                'color' => $category->color,
-                'direction' => $category->direction,
-                'parent_id' => $category->parent_id,
-            ],
+            'message' => "Kategorie '{$category->name}' erstellt.",
+            'category' => $this->present($category),
         ]);
     }
 
@@ -173,31 +164,27 @@ class CategoriesToolCrud implements ToolContract, ToolMetadataContract
             return ToolResult::error('VALIDATION_ERROR', 'category_id ist erforderlich.');
         }
 
-        $category = BankTransactionCategory::where('team_id', $teamId)->findOrFail($id);
+        $category = BankTransactionCategory::forTeam($teamId)->findOrFail($id);
 
-        $data = array_filter([
-            'name' => $arguments['name'] ?? null,
-            'color' => $arguments['color'] ?? null,
-            'direction' => $arguments['direction'] ?? null,
-            'parent_id' => array_key_exists('parent_id', $arguments) ? $arguments['parent_id'] : null,
-        ], fn ($v) => $v !== null);
-
-        if (isset($data['name'])) {
-            $data['slug'] = Str::slug($data['name']);
+        $data = [];
+        foreach (['name', 'color', 'direction'] as $key) {
+            if (array_key_exists($key, $arguments)) {
+                $data[$key] = $arguments[$key];
+            }
+        }
+        if (array_key_exists('parent_id', $arguments)) {
+            $data['parent_id'] = $arguments['parent_id'];
         }
 
-        $category->update($data);
+        try {
+            app(CategoryService::class)->update($category, $data);
+        } catch (CategoryException $e) {
+            return ToolResult::error('VALIDATION_ERROR', $e->getMessage());
+        }
 
         return ToolResult::success([
             'message' => "Kategorie '{$category->name}' aktualisiert.",
-            'category' => [
-                'id' => $category->id,
-                'name' => $category->name,
-                'slug' => $category->slug,
-                'color' => $category->color,
-                'direction' => $category->direction,
-                'parent_id' => $category->parent_id,
-            ],
+            'category' => $this->present($category),
         ]);
     }
 
@@ -208,16 +195,28 @@ class CategoriesToolCrud implements ToolContract, ToolMetadataContract
             return ToolResult::error('VALIDATION_ERROR', 'category_id ist erforderlich.');
         }
 
-        $category = BankTransactionCategory::where('team_id', $teamId)->findOrFail($id);
+        $category = BankTransactionCategory::forTeam($teamId)->findOrFail($id);
         $name = $category->name;
 
-        // Move children to root
-        BankTransactionCategory::where('parent_id', $category->id)
-            ->update(['parent_id' => null]);
+        $summary = app(CategoryService::class)->delete($category);
 
-        $category->delete();
+        return ToolResult::success([
+            'message' => "Kategorie '{$name}' gelöscht.",
+            'reassigned' => $summary,
+        ]);
+    }
 
-        return ToolResult::success(['message' => "Kategorie '{$name}' gelöscht."]);
+    protected function present(BankTransactionCategory $category): array
+    {
+        return [
+            'id' => $category->id,
+            'name' => $category->name,
+            'slug' => $category->slug,
+            'color' => $category->color,
+            'direction' => $category->direction,
+            'default_tax_rate' => $category->default_tax_rate,
+            'parent_id' => $category->parent_id,
+        ];
     }
 
     protected function assign(array $arguments, int $teamId): ToolResult
