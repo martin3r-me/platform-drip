@@ -309,7 +309,7 @@
                                         :subtitle="($t->booked_at?->format('d.m.Y') ?? '-') . ($t->remittance_information ? ' · ' . Str::limit($t->remittance_information, 40) : '')">
                             <x-slot name="trailing">
                                 <span class="text-[13px] font-medium tabular-nums {{ $t->direction === 'credit' ? 'text-green-600' : 'text-red-600' }}">
-                                    {{ $t->direction === 'credit' ? '+' : '-' }}{{ number_format($t->amount, 2, ',', '.') }} {{ $t->currency }}
+                                    {{ $t->direction === 'credit' ? '+' : '-' }}{{ number_format(abs((float) $t->amount), 2, ',', '.') }} {{ $t->currency }}
                                 </span>
                             </x-slot>
                         </x-nx-list-item>

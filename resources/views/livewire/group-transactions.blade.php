@@ -75,7 +75,7 @@
                                 </x-nx-table-cell>
                                 <x-nx-table-cell>
                                     <span class="font-medium tabular-nums {{ $transaction->direction === 'credit' ? 'text-green-600' : 'text-red-600' }}">
-                                        {{ $transaction->direction === 'credit' ? '+' : '-' }}{{ number_format($transaction->amount, 2, ',', '.') }} {{ $transaction->currency }}
+                                        {{ $transaction->direction === 'credit' ? '+' : '-' }}{{ number_format(abs((float) $transaction->amount), 2, ',', '.') }} {{ $transaction->currency }}
                                     </span>
                                 </x-nx-table-cell>
                                 <x-nx-table-cell>
