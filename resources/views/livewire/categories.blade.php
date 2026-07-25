@@ -11,7 +11,7 @@
 
     {{-- LINKS: Kategorie-Baum als Navigation --}}
     <x-slot name="sidebar">
-        <x-ui-page-sidebar title="Kategorien" icon="heroicon-o-tag" width="w-72" :defaultOpen="true" side="left" storeKey="dripCategoryTree">
+        <x-ui-page-sidebar title="Kategorien" icon="heroicon-o-tag" width="w-72" :defaultOpen="true" side="left" storeKey="sidebarOpen">
             <div class="flex h-full flex-col">
                 <div class="flex-1 overflow-y-auto p-2">
                     @foreach ($groupMeta as $dir => [$title, $icon])
@@ -169,7 +169,7 @@
 
     {{-- RECHTS: Edit-Peek-Panel --}}
     <x-slot name="activity">
-        <x-ui-page-sidebar title="Kategorie" icon="heroicon-o-pencil-square" width="w-80" side="right" :defaultOpen="false" storeKey="dripCategoryPanel">
+        <x-ui-page-sidebar title="Kategorie" icon="heroicon-o-pencil-square" width="w-80" side="right" :defaultOpen="false" storeKey="activityOpen">
             <div class="p-4">
                 @if (! $panelOpen)
                     <div class="flex flex-col items-center gap-3 py-10 text-center">
