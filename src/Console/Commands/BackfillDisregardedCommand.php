@@ -10,33 +10,25 @@ class BackfillDisregardedCommand extends Command
 {
     protected $signature = 'drip:backfill-disregarded {--team= : Nur ein Team}';
 
-    protected $description = 'Setzt is_disregarded für bestehende MOSS-Transaktionen anhand des gespeicherten metadata (abgelehnte/gelöschte Kartenzahlungen).';
+    protected $description = 'Bewertet is_disregarded für bestehende MOSS-Transaktionen anhand des gespeicherten metadata neu (abgelehnte/gelöschte Kartenzahlungen).';
 
-    public function handle(): int
+    public function handle(MossSyncService $sync): int
     {
-        $query = BankTransaction::query()->where('transaction_id', 'like', 'moss_%');
         if ($team = $this->option('team')) {
-            $query->where('team_id', (int) $team);
+            $teamIds = [(int) $team];
+        } else {
+            $teamIds = BankTransaction::where('transaction_id', 'like', 'moss_%')
+                ->distinct()
+                ->pluck('team_id')
+                ->all();
         }
 
-        $checked = 0;
-        $updated = 0;
+        $total = 0;
+        foreach ($teamIds as $teamId) {
+            $total += $sync->backfillDisregarded((int) $teamId);
+        }
 
-        $query->chunkById(500, function ($txs) use (&$checked, &$updated) {
-            foreach ($txs as $tx) {
-                $checked++;
-                $meta = is_array($tx->metadata) ? $tx->metadata : [];
-                $disregarded = MossSyncService::isDisregardedExpense($meta);
-
-                if ((bool) $tx->is_disregarded !== $disregarded) {
-                    // Direktes Update — keine Model-Events/Encryption anfassen.
-                    BankTransaction::whereKey($tx->id)->update(['is_disregarded' => $disregarded]);
-                    $updated++;
-                }
-            }
-        });
-
-        $this->info("MOSS-Transaktionen geprüft: {$checked}, als 'nicht berücksichtigt' markiert/aktualisiert: {$updated}.");
+        $this->info("Aktualisiert: {$total} MOSS-Transaktion(en) über " . count($teamIds) . ' Team(s).');
 
         return self::SUCCESS;
     }

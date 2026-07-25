@@ -72,10 +72,40 @@ class MossSyncService
             // Don't throw — accounts were already synced successfully
         }
 
+        // Selbstkorrektur: is_disregarded aus dem gespeicherten metadata neu bewerten
+        // (fängt u. a. bereits gelöschte Expenses ab, die nicht mehr aus der API kommen).
+        $disregardedFlagged = $this->backfillDisregarded((int) $team->id);
+
         return [
             'accounts_synced' => $accountsSynced,
             'transactions_synced' => $transactionsSynced,
+            'disregarded_flagged' => $disregardedFlagged,
         ];
+    }
+
+    /**
+     * Bewertet is_disregarded für alle MOSS-Transaktionen eines Teams anhand des
+     * gespeicherten metadata neu. Idempotent — aktualisiert nur geänderte.
+     * Gibt die Anzahl geänderter Transaktionen zurück.
+     */
+    public function backfillDisregarded(int $teamId): int
+    {
+        $updated = 0;
+
+        BankTransaction::where('team_id', $teamId)
+            ->where('transaction_id', 'like', 'moss_%')
+            ->chunkById(500, function ($txs) use (&$updated) {
+                foreach ($txs as $tx) {
+                    $meta = is_array($tx->metadata) ? $tx->metadata : [];
+                    $disregarded = self::isDisregardedExpense($meta);
+                    if ((bool) $tx->is_disregarded !== $disregarded) {
+                        BankTransaction::whereKey($tx->id)->update(['is_disregarded' => $disregarded]);
+                        $updated++;
+                    }
+                }
+            });
+
+        return $updated;
     }
 
     /**
