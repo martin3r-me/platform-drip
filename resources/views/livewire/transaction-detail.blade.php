@@ -87,6 +87,57 @@
             </x-nx-card>
         </x-nx-section>
 
+        {{-- Kontierung: Leistungsempfänger (Org-Entities) mit %-Anteil --}}
+        @if ($kontierungAvailable)
+            <x-nx-section title="Kontierung" icon="heroicon-o-building-office-2" hint="Leistungsempfänger">
+                <x-nx-card>
+                    @if ($kontierungResult)
+                        <x-nx-callout variant="success" icon="heroicon-o-check-circle">{{ $kontierungResult }}</x-nx-callout>
+                    @endif
+                    @error('kontierung')
+                        <x-nx-callout variant="danger" icon="heroicon-o-exclamation-triangle">{{ $message }}</x-nx-callout>
+                    @enderror
+
+                    <p class="mb-3 text-xs text-[color:var(--nx-muted)]">
+                        Wem wird diese {{ $transaction->direction === 'credit' ? 'Einnahme' : 'Ausgabe' }} (anteilig) zugerechnet? Der nicht verteilte Rest bleibt beim Kontoinhaber.
+                    </p>
+
+                    <div class="space-y-2">
+                        @forelse ($kontierung as $index => $row)
+                            <div class="flex items-start gap-2" wire:key="kontierung-{{ $index }}">
+                                <div class="min-w-0 flex-1">
+                                    <x-nx-input-select size="sm" :options="$kontierungOptions" nullable nullLabel="Empfänger wählen…"
+                                        wire:model.live="kontierung.{{ $index }}.dimension_value_id" />
+                                </div>
+                                <div class="w-24 shrink-0">
+                                    <x-nx-input-number size="sm" min="0" max="100" placeholder="%"
+                                        wire:model.live="kontierung.{{ $index }}.percentage" />
+                                </div>
+                                <x-nx-button variant="ghost" icon wire:click="removeKontierung({{ $index }})">
+                                    @svg('heroicon-o-x-mark', 'w-4 h-4')
+                                </x-nx-button>
+                            </div>
+                        @empty
+                            <p class="text-sm text-[color:var(--nx-faint)]">Noch keine Kontierung — diese Buchung zählt komplett beim Kontoinhaber.</p>
+                        @endforelse
+                    </div>
+
+                    <div class="mt-3 flex flex-wrap items-center justify-between gap-2">
+                        <x-nx-button variant="ghost" size="sm" wire:click="addKontierung">
+                            @svg('heroicon-o-plus', 'w-4 h-4') Empfänger hinzufügen
+                        </x-nx-button>
+                        <span class="text-xs tabular-nums {{ $kontierungSum > 100 ? 'text-[color:var(--nx-danger)]' : 'text-[color:var(--nx-muted)]' }}">
+                            Verteilt: {{ rtrim(rtrim(number_format($kontierungSum, 1, ',', '.'), '0'), ',') }} % · Rest {{ rtrim(rtrim(number_format(max(0, 100 - $kontierungSum), 1, ',', '.'), '0'), ',') }} % &rarr; Kontoinhaber
+                        </span>
+                    </div>
+
+                    <div class="mt-3">
+                        <x-nx-button variant="primary" wire:click="saveKontierung">Kontierung speichern</x-nx-button>
+                    </div>
+                </x-nx-card>
+            </x-nx-section>
+        @endif
+
         {{-- Gegenpartei --}}
         @php
             $cpName = $transaction->counterparty_name

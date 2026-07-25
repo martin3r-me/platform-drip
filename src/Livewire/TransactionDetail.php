@@ -6,6 +6,7 @@ use Livewire\Component;
 use Platform\Drip\Models\BankTransaction;
 use Platform\Drip\Models\BankTransactionCategory;
 use Platform\Drip\Services\CategorizationService;
+use Platform\Drip\Services\KontierungService;
 use Illuminate\Support\Carbon;
 
 class TransactionDetail extends Component
@@ -16,12 +17,60 @@ class TransactionDetail extends Component
     /** Vorschlag nach manueller Zuordnung: gleiche Gegenpartei mitziehen. */
     public ?array $learnSuggestion = null;
 
-    public function mount(BankTransaction $transaction)
+    /** Kontierung: Leistungsempfänger (Org-Entities) mit %-Anteil. */
+    public bool $kontierungAvailable = false;
+    public array $kontierung = [];
+    public ?string $kontierungResult = null;
+
+    public function mount(BankTransaction $transaction, KontierungService $kontierung)
     {
         abort_unless($transaction->team_id === auth()->user()->current_team_id, 403);
 
         $this->transaction = $transaction->load(['bankAccount.group', 'category']);
         $this->categoryId = $transaction->category_id;
+
+        $this->kontierungAvailable = $kontierung->available();
+        $this->kontierung = $kontierung->forTransaction($transaction->id);
+    }
+
+    public function addKontierung(): void
+    {
+        $this->kontierung[] = ['dimension_value_id' => null, 'percentage' => null];
+    }
+
+    public function removeKontierung(int $index): void
+    {
+        unset($this->kontierung[$index]);
+        $this->kontierung = array_values($this->kontierung);
+    }
+
+    public function saveKontierung(KontierungService $kontierung): void
+    {
+        $this->resetErrorBag('kontierung');
+
+        $rows = [];
+        $sum = 0.0;
+        foreach ($this->kontierung as $row) {
+            $valueId = (int) ($row['dimension_value_id'] ?? 0);
+            $pct = (float) ($row['percentage'] ?? 0);
+            if ($valueId <= 0 || $pct <= 0) {
+                continue;
+            }
+            $rows[] = ['dimension_value_id' => $valueId, 'percentage' => $pct];
+            $sum += $pct;
+        }
+
+        if ($sum > 100.0) {
+            $this->addError('kontierung', 'Die Summe der Anteile darf 100 % nicht überschreiten (aktuell ' . rtrim(rtrim(number_format($sum, 1, ',', '.'), '0'), ',') . ' %).');
+            return;
+        }
+
+        $kontierung->syncForTransaction($this->transaction->id, (int) $this->transaction->team_id, $rows);
+
+        $this->kontierung = $kontierung->forTransaction($this->transaction->id);
+        $this->kontierungResult = $rows === []
+            ? 'Kontierung entfernt.'
+            : count($rows) . ' Empfänger kontiert (' . rtrim(rtrim(number_format($sum, 1, ',', '.'), '0'), ',') . ' %).';
     }
 
     public function updatedCategoryId($value): void
@@ -117,7 +166,7 @@ class TransactionDetail extends Component
     //     $this->redirect(route('drip.budgets') . '?' . $params);
     // }
 
-    public function render()
+    public function render(KontierungService $kontierung)
     {
         $teamId = (int) auth()->user()->current_team_id;
 
@@ -125,8 +174,12 @@ class TransactionDetail extends Component
             ->orderBy('name')
             ->get();
 
+        $kontierungSum = array_sum(array_map(fn ($r) => (float) ($r['percentage'] ?? 0), $this->kontierung));
+
         return view('drip::livewire.transaction-detail', [
             'categories' => $categories,
+            'kontierungOptions' => $this->kontierungAvailable ? $kontierung->recipientOptions() : [],
+            'kontierungSum' => $kontierungSum,
         ])->layout('platform::layouts.app');
     }
 }
