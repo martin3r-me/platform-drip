@@ -7,14 +7,18 @@ namespace Platform\Drip\Services;
  * Kontierung: eine Transaktion wird über die `cost-driver`-Dimension anteilig
  * an Organisations-Entities (Leistungsempfänger) gebunden.
  *
- * Bewusst generisch: die Empfänger kommen live aus der Organisation (alle
- * aktiven cost-driver-Werte) — wächst die Org, wachsen die Optionen. Richtungs-
- * neutral (Einnahmen wie Ausgaben). Bricht nicht, wenn das Org-Modul fehlt.
+ * Die Empfänger kommen live aus der Organisation (aktive cost-driver-Werte) —
+ * wächst die Org, wachsen die Optionen. Gefiltert auf Operationen: auf die
+ * Umwelt wird NICHT kontiert (das ist die Gegenpartei-Seite). Richtungsneutral
+ * (Einnahmen wie Ausgaben). Bricht nicht, wenn das Org-Modul fehlt.
  */
 class KontierungService
 {
     public const DIMENSION = 'cost-driver';
     public const CONTEXT_TYPE = 'drip_bank_transaction';
+
+    /** Entity-Typ-Gruppe der Umwelt — auf diese Seite wird nicht kontiert. */
+    public const ENVIRONMENT_GROUP = 'Umwelt';
 
     public function available(): bool
     {
@@ -25,7 +29,11 @@ class KontierungService
     }
 
     /**
-     * Auswählbare Empfänger (alle aktiven cost-driver-Werte, live aus der Org).
+     * Auswählbare Empfänger: aktive cost-driver-Werte OHNE die Umwelt-Seite.
+     * Ein cost-driver-Wert trägt seine Quell-Entity in `metadata.source_entity_id`;
+     * gehört diese zur Typ-Gruppe „Umwelt", fliegt der Wert raus (auf die Umwelt
+     * kontieren wir nicht — das ist die Gegenpartei). Werte ohne Quell-Entity
+     * (manuell angelegt) bleiben erhalten.
      *
      * @return array<int, array{value:int, label:string}>
      */
@@ -37,16 +45,43 @@ class KontierungService
 
         $def = \Platform\Organization\Models\OrganizationDimensionDefinition::findByKey(self::DIMENSION);
 
-        return \Platform\Organization\Models\OrganizationDimensionValue::query()
+        $values = \Platform\Organization\Models\OrganizationDimensionValue::query()
             ->where('dimension_definition_id', $def->id)
             ->where('is_active', true)
             ->orderBy('name')
-            ->get(['id', 'name', 'code'])
+            ->get(['id', 'name', 'code', 'metadata']);
+
+        $environmentEntityIds = $this->environmentEntityIds(
+            $values->pluck('metadata.source_entity_id')->filter()->unique()->values()->all()
+        );
+
+        return $values
+            ->reject(fn ($v) => in_array($v->metadata['source_entity_id'] ?? null, $environmentEntityIds, true))
             ->map(fn ($v) => [
                 'value' => (int) $v->id,
                 'label' => $v->code ? $v->name . ' · ' . $v->code : $v->name,
             ])
             ->values()
+            ->all();
+    }
+
+    /**
+     * Ermittelt aus einer Menge Entity-IDs jene, die zur Umwelt-Typgruppe gehören.
+     *
+     * @param  array<int, int>  $entityIds
+     * @return array<int, int>
+     */
+    private function environmentEntityIds(array $entityIds): array
+    {
+        if ($entityIds === [] || !class_exists(\Platform\Organization\Models\OrganizationEntity::class)) {
+            return [];
+        }
+
+        return \Platform\Organization\Models\OrganizationEntity::query()
+            ->whereIn('id', $entityIds)
+            ->whereHas('type.group', fn ($q) => $q->where('name', self::ENVIRONMENT_GROUP))
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
             ->all();
     }
 
