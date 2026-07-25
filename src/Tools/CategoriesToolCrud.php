@@ -23,7 +23,7 @@ class CategoriesToolCrud implements ToolContract, ToolMetadataContract
 
     public function getDescription(): string
     {
-        return 'CRUD /drip/categories - Verwaltet Transaktionskategorien. action=list (default), action=create (name required, color/parent_id optional), action=update (category_id + Felder), action=delete (category_id), action=assign (category_id + counterparty_pattern für Bulk-Zuweisung per LIKE-Match auf counterparty_name, oder transaction_ids für explizite IDs).';
+        return 'CRUD /drip/categories - Verwaltet Transaktionskategorien. action=list (default), action=create (name required, color/parent_id optional), action=update (category_id + Felder), action=delete (category_id), action=assign (category_id + counterparty_pattern für Bulk-Zuweisung per Teilstring-Match auf counterparty_name, oder transaction_ids für explizite IDs).';
     }
 
     public function getSchema(): array
@@ -38,7 +38,7 @@ class CategoriesToolCrud implements ToolContract, ToolMetadataContract
                 ],
                 'counterparty_pattern' => [
                     'type' => 'string',
-                    'description' => 'LIKE-Pattern für counterparty_name (für assign, z.B. "DKV%"). Matched alle TXs mit diesem Pattern.',
+                    'description' => 'Teilstring für counterparty_name (für assign, case-insensitive, z.B. "DKV"). Matched alle TXs, deren Gegenpartei diesen Text enthält.',
                 ],
                 'transaction_ids' => [
                     'type' => 'array',
@@ -47,7 +47,7 @@ class CategoriesToolCrud implements ToolContract, ToolMetadataContract
                 ],
                 'reference_pattern' => [
                     'type' => 'string',
-                    'description' => 'LIKE-Pattern für reference/remittance (für assign, z.B. "%Ausleihung%").',
+                    'description' => 'Teilstring für reference (für assign, case-insensitive, z.B. "Ausleihung").',
                 ],
                 'category_id' => [
                     'type' => 'integer',
@@ -227,27 +227,50 @@ class CategoriesToolCrud implements ToolContract, ToolMetadataContract
         }
 
         // Verify category exists
-        BankTransactionCategory::where('team_id', $teamId)->findOrFail($categoryId);
+        $category = BankTransactionCategory::forTeam($teamId)->findOrFail($categoryId);
 
-        $query = BankTransaction::where('team_id', $teamId);
-
+        // Explizite IDs: direkter, sicherer Weg.
         if (!empty($arguments['transaction_ids'])) {
-            $query->whereIn('id', $arguments['transaction_ids']);
-        } elseif (!empty($arguments['counterparty_pattern']) || !empty($arguments['reference_pattern'])) {
-            if (!empty($arguments['counterparty_pattern'])) {
-                $query->where('counterparty_name', 'like', $arguments['counterparty_pattern']);
-            }
-            if (!empty($arguments['reference_pattern'])) {
-                $query->where('reference', 'like', $arguments['reference_pattern']);
-            }
-        } else {
+            $count = BankTransaction::where('team_id', $teamId)
+                ->whereIn('id', $arguments['transaction_ids'])
+                ->update(['category_id' => $categoryId]);
+
+            return ToolResult::success([
+                'message' => "{$count} Transaktionen der Kategorie '{$category->name}' zugewiesen.",
+                'updated_count' => $count,
+                'category_id' => $categoryId,
+            ]);
+        }
+
+        $cpNeedle = !empty($arguments['counterparty_pattern']) ? mb_strtolower(trim($arguments['counterparty_pattern'], '%')) : null;
+        $refNeedle = !empty($arguments['reference_pattern']) ? mb_strtolower(trim($arguments['reference_pattern'], '%')) : null;
+
+        if ($cpNeedle === null && $refNeedle === null) {
             return ToolResult::error('VALIDATION_ERROR', 'transaction_ids, counterparty_pattern oder reference_pattern erforderlich.');
         }
 
-        $count = $query->count();
-        $query->update(['category_id' => $categoryId]);
+        // counterparty_name/reference sind verschlüsselt → Matching in PHP (Teilstring, case-insensitive, AND).
+        $ids = [];
+        BankTransaction::where('team_id', $teamId)
+            ->chunkById(500, function ($txs) use ($cpNeedle, $refNeedle, &$ids) {
+                foreach ($txs as $tx) {
+                    $ok = true;
+                    if ($cpNeedle !== null) {
+                        $ok = $ok && is_string($tx->counterparty_name) && str_contains(mb_strtolower($tx->counterparty_name), $cpNeedle);
+                    }
+                    if ($refNeedle !== null) {
+                        $ok = $ok && is_string($tx->reference) && str_contains(mb_strtolower($tx->reference), $refNeedle);
+                    }
+                    if ($ok) {
+                        $ids[] = $tx->id;
+                    }
+                }
+            });
 
-        $category = BankTransactionCategory::find($categoryId);
+        $count = 0;
+        if (!empty($ids)) {
+            $count = BankTransaction::where('team_id', $teamId)->whereIn('id', $ids)->update(['category_id' => $categoryId]);
+        }
 
         return ToolResult::success([
             'message' => "{$count} Transaktionen der Kategorie '{$category->name}' zugewiesen.",

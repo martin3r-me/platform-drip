@@ -3,14 +3,25 @@
 namespace Platform\Drip\Services;
 
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 use Platform\Drip\Models\BankTransaction;
 use Platform\Drip\Models\RecurringPattern;
 
+/**
+ * Auto-Kategorisierungs-Engine. Regeln (RecurringPattern) matchen Transaktionen
+ * über Matcher (AND-Logik) und weisen eine Kategorie zu.
+ *
+ * Invarianten:
+ *  - Nur AKTIVE Regeln werden ausgewertet.
+ *  - Regeln werden nach PRIORITÄT (desc), dann id (asc) ausgewertet →
+ *    deterministischer Gewinner bei mehreren Treffern.
+ *  - Auto-Zuordnung überschreibt NIE eine bestehende Kategorie (nur unkategorisierte).
+ */
 class CategorizationService
 {
     /**
-     * Categorize a single transaction against all rules for its team.
-     * Returns the matched category_id or null.
+     * Kategorisiert eine einzelne Transaktion gegen alle Regeln ihres Teams.
+     * Gibt die getroffene category_id oder null zurück.
      */
     public function categorizeTransaction(BankTransaction $tx, ?Collection $rules = null): ?int
     {
@@ -23,10 +34,9 @@ class CategorizationService
             }
 
             if ($this->matchesRule($tx, $matchers)) {
-                $defaults = $rule->defaults;
-                $categoryId = $defaults['category_id'] ?? $rule->bank_transaction_category_id ?? null;
+                $categoryId = $rule->targetCategoryId();
                 if ($categoryId) {
-                    return (int) $categoryId;
+                    return $categoryId;
                 }
             }
         }
@@ -35,8 +45,8 @@ class CategorizationService
     }
 
     /**
-     * Categorize all uncategorized transactions for a team.
-     * Returns the number of categorized transactions.
+     * Wendet alle Regeln auf alle unkategorisierten Transaktionen eines Teams an.
+     * Gibt die Anzahl neu kategorisierter Transaktionen zurück.
      */
     public function categorizeUncategorized(int $teamId): int
     {
@@ -64,8 +74,8 @@ class CategorizationService
     }
 
     /**
-     * Apply a single rule to all uncategorized transactions for a team.
-     * Returns the number of categorized transactions.
+     * Wendet eine einzelne Regel auf alle unkategorisierten Transaktionen an.
+     * Gibt die Anzahl kategorisierter Transaktionen zurück.
      */
     public function applyRule(RecurringPattern $rule): int
     {
@@ -74,8 +84,7 @@ class CategorizationService
             return 0;
         }
 
-        $defaults = $rule->defaults;
-        $categoryId = $defaults['category_id'] ?? $rule->bank_transaction_category_id ?? null;
+        $categoryId = $rule->targetCategoryId();
         if (!$categoryId) {
             return 0;
         }
@@ -98,7 +107,7 @@ class CategorizationService
     }
 
     /**
-     * Count how many transactions would match a rule (for preview).
+     * Zählt, wie viele Transaktionen eine Regel matchen würde (für Vorschau).
      */
     public function countMatches(RecurringPattern $rule, bool $uncategorizedOnly = true): int
     {
@@ -125,8 +134,74 @@ class CategorizationService
         return $count;
     }
 
+    // ── Lernen aus manueller Zuordnung ──────────────────────────────────────
+
     /**
-     * Check if a transaction matches all matchers (AND logic).
+     * Anzahl weiterer UNKATEGORISIERTER Transaktionen mit derselben Gegenpartei
+     * (ohne die übergebene). Nutzt den deterministischen counterparty_name_hash.
+     */
+    public function countUncategorizedForCounterparty(BankTransaction $tx): int
+    {
+        $hash = $tx->counterparty_name_hash;
+        if (!$hash) {
+            return 0;
+        }
+
+        return BankTransaction::where('team_id', $tx->team_id)
+            ->where('counterparty_name_hash', $hash)
+            ->whereNull('category_id')
+            ->where('id', '!=', $tx->id)
+            ->count();
+    }
+
+    /**
+     * Weist alle Transaktionen mit demselben Gegenpartei-Hash einer Kategorie zu.
+     * Standardmäßig nur unkategorisierte (überschreibt keine bestehende Zuordnung).
+     * Gibt die Anzahl aktualisierter Transaktionen zurück.
+     */
+    public function applyToCounterparty(int $teamId, string $counterpartyHash, int $categoryId, bool $uncategorizedOnly = true): int
+    {
+        $query = BankTransaction::where('team_id', $teamId)
+            ->where('counterparty_name_hash', $counterpartyHash);
+
+        if ($uncategorizedOnly) {
+            $query->whereNull('category_id');
+        }
+
+        return $query->update(['category_id' => $categoryId]);
+    }
+
+    /**
+     * Legt eine dauerhafte Regel "counterparty_name equals <name> → Kategorie" an
+     * (idempotenter, eindeutiger Name). Priorität hoch, damit gelernte
+     * Exakt-Regeln vor generischen contains-Regeln greifen.
+     */
+    public function createCounterpartyRule(int $teamId, string $counterpartyName, int $categoryId, ?int $userId = null): RecurringPattern
+    {
+        $base = 'Auto: ' . Str::limit($counterpartyName, 240, '');
+        $name = $base;
+        $i = 2;
+        while (RecurringPattern::forTeam($teamId)->where('name', $name)->exists()) {
+            $name = $base . ' (' . $i . ')';
+            $i++;
+        }
+
+        return RecurringPattern::create([
+            'team_id' => $teamId,
+            'user_id' => $userId,
+            'name' => $name,
+            'matchers' => [['field' => 'counterparty_name', 'op' => 'equals', 'value' => $counterpartyName]],
+            'defaults' => ['category_id' => $categoryId],
+            'bank_transaction_category_id' => $categoryId,
+            'priority' => 10,
+            'is_active' => true,
+        ]);
+    }
+
+    // ── Matching-Kern ───────────────────────────────────────────────────────
+
+    /**
+     * Prüft, ob eine Transaktion ALLE Matcher erfüllt (AND-Logik).
      */
     public function matchesRule(BankTransaction $tx, array $matchers): bool
     {
@@ -180,10 +255,17 @@ class CategorizationService
         };
     }
 
+    /**
+     * Lädt die auszuwertenden Regeln: nur aktiv, mit Matchern, nach Priorität
+     * (desc) und id (asc) → deterministische Reihenfolge.
+     */
     protected function loadRules(int $teamId): Collection
     {
-        return RecurringPattern::where('team_id', $teamId)
+        return RecurringPattern::forTeam($teamId)
+            ->active()
             ->whereNotNull('matchers')
+            ->orderByDesc('priority')
+            ->orderBy('id')
             ->get();
     }
 }

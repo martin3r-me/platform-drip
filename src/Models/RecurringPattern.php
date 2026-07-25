@@ -16,13 +16,15 @@ class RecurringPattern extends Model
     protected $fillable = [
         'uuid', 'team_id', 'user_id',
         'name', 'frequency', 'day_of_month', 'weekday', 'matchers', 'defaults',
-        'bank_transaction_category_id',
+        'bank_transaction_category_id', 'priority', 'is_active',
     ];
 
     use Encryptable;
 
     protected $casts = [
         // matchers und defaults werden via Encryptable als EncryptedJson gecastet
+        'priority' => 'integer',
+        'is_active' => 'boolean',
     ];
 
     protected array $encryptable = [
@@ -57,6 +59,20 @@ class RecurringPattern extends Model
     public function scopeForTeam($query, int $teamId)
     {
         return $query->where('team_id', $teamId);
+    }
+
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
+    }
+
+    /** Ziel-Kategorie der Regel — FK-Spalte bevorzugt, defaults als Fallback. */
+    public function targetCategoryId(): ?int
+    {
+        $id = $this->bank_transaction_category_id
+            ?? (is_array($this->defaults) ? ($this->defaults['category_id'] ?? null) : null);
+
+        return $id ? (int) $id : null;
     }
 
     public function scopeVisibleFor($query, \Platform\Core\Models\User $user)

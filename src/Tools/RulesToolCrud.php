@@ -22,7 +22,7 @@ class RulesToolCrud implements ToolContract, ToolMetadataContract
 
     public function getDescription(): string
     {
-        return 'CRUD /drip/rules - Verwaltet Auto-Kategorisierungsregeln. action=list (default), action=create (name + category_id + matchers required), action=update (rule_id + Felder), action=delete (rule_id), action=test (rule_id — zeigt Match-Count), action=apply (rule_id — wendet Regel auf unkategorisierte TXs an). Matcher-Format: [{"field":"counterparty_name","op":"contains","value":"DKV"}]. Felder: counterparty_name, reference, creditor_name, amount, counterparty_iban, remittance_information. Ops: contains, starts_with, equals, gte, lte.';
+        return 'CRUD /drip/rules - Verwaltet Auto-Kategorisierungsregeln. action=list (default), action=create (name + category_id + matchers required), action=update (rule_id + Felder), action=delete (rule_id), action=test (rule_id — zeigt Match-Count), action=apply (rule_id — wendet Regel auf unkategorisierte TXs an), action=apply_all (alle aktiven Regeln nach Priorität). Optional bei create/update: priority (höher gewinnt), is_active. Matcher-Format: [{"field":"counterparty_name","op":"contains","value":"DKV"}]. Felder: counterparty_name, reference, creditor_name, amount, counterparty_iban, remittance_information. Ops: contains, starts_with, equals, gte, lte.';
     }
 
     public function getSchema(): array
@@ -32,12 +32,20 @@ class RulesToolCrud implements ToolContract, ToolMetadataContract
             'properties' => [
                 'action' => [
                     'type' => 'string',
-                    'enum' => ['list', 'create', 'update', 'delete', 'test', 'apply'],
-                    'description' => 'Aktion: list, create, update, delete, test, apply. Default: list.',
+                    'enum' => ['list', 'create', 'update', 'delete', 'test', 'apply', 'apply_all'],
+                    'description' => 'Aktion: list, create, update, delete, test, apply, apply_all (alle aktiven Regeln nach Priorität auf unkategorisierte TXs). Default: list.',
                 ],
                 'rule_id' => [
                     'type' => 'integer',
                     'description' => 'Regel-ID (für update/delete/test/apply).',
+                ],
+                'priority' => [
+                    'type' => 'integer',
+                    'description' => 'Priorität der Regel (höher gewinnt bei mehreren Treffern, Default 0). Für create/update.',
+                ],
+                'is_active' => [
+                    'type' => 'boolean',
+                    'description' => 'Ob die Regel aktiv ausgewertet wird (Default true). Für create/update.',
                 ],
                 'name' => [
                     'type' => 'string',
@@ -84,6 +92,7 @@ class RulesToolCrud implements ToolContract, ToolMetadataContract
                 'delete' => $this->delete($arguments, $teamId),
                 'test' => $this->test($arguments, $teamId),
                 'apply' => $this->apply($arguments, $teamId),
+                'apply_all' => $this->applyAll($teamId),
                 default => $this->list($teamId),
             };
         } catch (\Throwable $e) {
@@ -96,6 +105,7 @@ class RulesToolCrud implements ToolContract, ToolMetadataContract
         $rules = RecurringPattern::where('team_id', $teamId)
             ->whereNotNull('matchers')
             ->with('category')
+            ->orderByDesc('priority')
             ->orderBy('name')
             ->get();
 
@@ -104,6 +114,8 @@ class RulesToolCrud implements ToolContract, ToolMetadataContract
             return [
                 'id' => $rule->id,
                 'name' => $rule->name,
+                'priority' => $rule->priority,
+                'is_active' => $rule->is_active,
                 'matchers' => $rule->matchers,
                 'defaults' => $rule->defaults,
                 'category' => $cat ? [
@@ -147,6 +159,8 @@ class RulesToolCrud implements ToolContract, ToolMetadataContract
             'matchers' => $matchers,
             'defaults' => ['category_id' => $categoryId],
             'bank_transaction_category_id' => $categoryId,
+            'priority' => (int) ($arguments['priority'] ?? 0),
+            'is_active' => array_key_exists('is_active', $arguments) ? (bool) $arguments['is_active'] : true,
         ]);
 
         return ToolResult::success([
@@ -179,6 +193,12 @@ class RulesToolCrud implements ToolContract, ToolMetadataContract
             BankTransactionCategory::where('team_id', $teamId)->findOrFail($arguments['category_id']);
             $rule->defaults = ['category_id' => $arguments['category_id']];
             $rule->bank_transaction_category_id = $arguments['category_id'];
+        }
+        if (array_key_exists('priority', $arguments)) {
+            $rule->priority = (int) $arguments['priority'];
+        }
+        if (array_key_exists('is_active', $arguments)) {
+            $rule->is_active = (bool) $arguments['is_active'];
         }
 
         $rule->save();
@@ -241,6 +261,17 @@ class RulesToolCrud implements ToolContract, ToolMetadataContract
             'message' => "Regel '{$rule->name}' auf {$count} Transaktion(en) angewendet.",
             'applied_count' => $count,
             'rule_id' => $rule->id,
+        ]);
+    }
+
+    protected function applyAll(int $teamId): ToolResult
+    {
+        $count = app(CategorizationService::class)->categorizeUncategorized($teamId);
+
+        return ToolResult::success([
+            'message' => "{$count} unkategorisierte Transaktion(en) über alle aktiven Regeln zugeordnet.",
+            'applied_count' => $count,
+            'team_id' => $teamId,
         ]);
     }
 

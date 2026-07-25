@@ -14,6 +14,8 @@ class Rules extends Component
     public string $formName = '';
     public ?int $formCategoryId = null;
     public array $formMatchers = [];
+    public int $formPriority = 0;
+    public bool $formIsActive = true;
 
     public ?string $testResult = null;
 
@@ -26,6 +28,8 @@ class Rules extends Component
             'formMatchers.*.field' => ['required', 'string', 'in:counterparty_name,reference,creditor_name,amount,counterparty_iban,remittance_information'],
             'formMatchers.*.op' => ['required', 'string', 'in:contains,starts_with,equals,gte,lte'],
             'formMatchers.*.value' => ['required', 'string', 'max:500'],
+            'formPriority' => ['required', 'integer', 'min:0', 'max:1000'],
+            'formIsActive' => ['boolean'],
         ];
     }
 
@@ -51,6 +55,8 @@ class Rules extends Component
             'matchers' => $this->formMatchers,
             'defaults' => ['category_id' => $this->formCategoryId],
             'bank_transaction_category_id' => $this->formCategoryId,
+            'priority' => $this->formPriority,
+            'is_active' => $this->formIsActive,
         ];
 
         if ($this->editingId) {
@@ -71,8 +77,10 @@ class Rules extends Component
 
         $this->editingId = $rule->id;
         $this->formName = $rule->name ?? '';
-        $this->formCategoryId = $rule->defaults['category_id'] ?? $rule->bank_transaction_category_id ?? null;
+        $this->formCategoryId = $rule->targetCategoryId();
         $this->formMatchers = is_array($rule->matchers) ? $rule->matchers : [];
+        $this->formPriority = (int) ($rule->priority ?? 0);
+        $this->formIsActive = (bool) ($rule->is_active ?? true);
 
         $this->testResult = null;
     }
@@ -83,8 +91,27 @@ class Rules extends Component
         $this->formName = '';
         $this->formCategoryId = null;
         $this->formMatchers = [];
+        $this->formPriority = 0;
+        $this->formIsActive = true;
         $this->testResult = null;
         $this->resetValidation();
+    }
+
+    public function applyAllRules(): void
+    {
+        $teamId = (int) auth()->user()?->current_team_id;
+        $count = app(CategorizationService::class)->categorizeUncategorized($teamId);
+
+        $this->testResult = $count > 0
+            ? "{$count} unkategorisierte Transaktion(en) automatisch zugeordnet."
+            : 'Keine unkategorisierten Transaktionen passten auf eine aktive Regel.';
+    }
+
+    public function toggleActive(int $id): void
+    {
+        $teamId = (int) auth()->user()?->current_team_id;
+        $rule = RecurringPattern::where('team_id', $teamId)->findOrFail($id);
+        $rule->update(['is_active' => ! $rule->is_active]);
     }
 
     public function delete(int $id): void
@@ -126,6 +153,7 @@ class Rules extends Component
         $rules = RecurringPattern::where('team_id', $teamId)
             ->whereNotNull('matchers')
             ->with('category')
+            ->orderByDesc('priority')
             ->orderBy('name')
             ->get();
 

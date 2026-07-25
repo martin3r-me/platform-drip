@@ -17,6 +17,22 @@
 
     <x-ui-page-container width="contained">
 
+        {{-- Lern-Vorschlag nach manueller Zuordnung --}}
+        @if($learnSuggestion)
+            <x-nx-callout variant="info" icon="heroicon-o-sparkles" title="Gleiche Gegenpartei zuordnen?">
+                <span class="font-medium">{{ $learnSuggestion['count'] }}</span> weitere unkategorisierte Transaktion(en) von
+                <span class="font-medium">„{{ \Illuminate\Support\Str::limit($learnSuggestion['counterparty'], 40) }}"</span>
+                könnten ebenfalls <span class="font-medium">{{ $learnSuggestion['category_name'] }}</span> sein.
+                <x-slot name="action">
+                    <div class="flex items-center gap-2">
+                        <x-nx-button variant="primary" size="sm" wire:click="applyLearnToAll">Alle zuordnen</x-nx-button>
+                        <x-nx-button variant="secondary" size="sm" wire:click="applyLearnAndRemember">+ Regel merken</x-nx-button>
+                        <x-nx-button variant="ghost" size="sm" wire:click="dismissLearn">Verwerfen</x-nx-button>
+                    </div>
+                </x-slot>
+            </x-nx-callout>
+        @endif
+
         {{-- Header: Amount + Direction + Date --}}
         <x-nx-card>
             <div class="flex items-center justify-between">

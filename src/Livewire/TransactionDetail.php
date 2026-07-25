@@ -5,12 +5,16 @@ namespace Platform\Drip\Livewire;
 use Livewire\Component;
 use Platform\Drip\Models\BankTransaction;
 use Platform\Drip\Models\BankTransactionCategory;
+use Platform\Drip\Services\CategorizationService;
 use Illuminate\Support\Carbon;
 
 class TransactionDetail extends Component
 {
     public BankTransaction $transaction;
     public ?int $categoryId = null;
+
+    /** Vorschlag nach manueller Zuordnung: gleiche Gegenpartei mitziehen. */
+    public ?array $learnSuggestion = null;
 
     public function mount(BankTransaction $transaction)
     {
@@ -22,11 +26,54 @@ class TransactionDetail extends Component
 
     public function updatedCategoryId($value): void
     {
-        $this->transaction->update([
-            'category_id' => $value ?: null,
-        ]);
-
+        $categoryId = $value ?: null;
+        $this->transaction->update(['category_id' => $categoryId]);
         $this->transaction->refresh()->load('category');
+
+        $this->learnSuggestion = null;
+        if ($categoryId && $this->transaction->counterparty_name) {
+            $teamId = (int) auth()->user()->current_team_id;
+            $count = app(CategorizationService::class)->countUncategorizedForCounterparty($this->transaction);
+            if ($count > 0) {
+                $category = BankTransactionCategory::forTeam($teamId)->find($categoryId);
+                $this->learnSuggestion = [
+                    'counterparty' => $this->transaction->counterparty_name,
+                    'hash' => $this->transaction->counterparty_name_hash,
+                    'category_id' => (int) $categoryId,
+                    'category_name' => $category?->name ?? '',
+                    'count' => $count,
+                ];
+            }
+        }
+    }
+
+    public function applyLearnToAll(): void
+    {
+        if (!$this->learnSuggestion) {
+            return;
+        }
+        $teamId = (int) auth()->user()->current_team_id;
+        $s = $this->learnSuggestion;
+        app(CategorizationService::class)->applyToCounterparty($teamId, $s['hash'], $s['category_id']);
+        $this->learnSuggestion = null;
+    }
+
+    public function applyLearnAndRemember(): void
+    {
+        if (!$this->learnSuggestion) {
+            return;
+        }
+        $teamId = (int) auth()->user()->current_team_id;
+        $s = $this->learnSuggestion;
+        $service = app(CategorizationService::class);
+        $service->createCounterpartyRule($teamId, $s['counterparty'], $s['category_id'], auth()->id());
+        $service->applyToCounterparty($teamId, $s['hash'], $s['category_id']);
+        $this->learnSuggestion = null;
+    }
+
+    public function dismissLearn(): void
+    {
+        $this->learnSuggestion = null;
     }
 
     // Budget eingemottet (2026-07): "Budget aus Transaktion anlegen" deaktiviert bis Forecast-Modul.

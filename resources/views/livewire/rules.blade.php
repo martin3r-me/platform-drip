@@ -11,7 +11,13 @@
         <x-ui-page-actionbar :breadcrumbs="[
             ['label' => 'Drip', 'href' => route('drip.dashboard'), 'icon' => 'chart-bar'],
             ['label' => 'Regeln'],
-        ]" />
+        ]">
+            <x-nx-button variant="primary" wire:click="applyAllRules"
+                         wire:confirm="Alle aktiven Regeln auf unkategorisierte Transaktionen anwenden?">
+                @svg('heroicon-o-bolt', 'w-4 h-4')
+                Alle Regeln anwenden
+            </x-nx-button>
+        </x-ui-page-actionbar>
     </x-slot>
 
     <x-ui-page-container width="contained">
@@ -35,7 +41,7 @@
                                     $cat = $rule->category;
                                     $matchers = is_array($rule->matchers) ? $rule->matchers : [];
                                 @endphp
-                                <div class="flex items-start justify-between gap-3 px-4 py-3 {{ !$loop->last ? 'border-b border-[color:var(--nx-line)]' : '' }}">
+                                <div class="flex items-start justify-between gap-3 px-4 py-3 {{ !$loop->last ? 'border-b border-[color:var(--nx-line)]' : '' }} {{ $rule->is_active ? '' : 'opacity-50' }}">
                                     <div class="flex-1 min-w-0">
                                         <div class="flex items-center gap-2 mb-1">
                                             <span class="text-sm font-medium text-[color:var(--nx-text)]">{{ $rule->name }}</span>
@@ -45,6 +51,12 @@
                                                     {{ $cat->name }}
                                                 </x-nx-badge>
                                             @endif
+                                            @if(($rule->priority ?? 0) > 0)
+                                                <span class="text-[11px] tabular-nums text-[color:var(--nx-faint)]" title="Priorität">P{{ $rule->priority }}</span>
+                                            @endif
+                                            @unless($rule->is_active)
+                                                <x-nx-badge variant="warning">inaktiv</x-nx-badge>
+                                            @endunless
                                         </div>
                                         <div class="flex flex-wrap gap-1.5">
                                             @foreach($matchers as $m)
@@ -55,6 +67,9 @@
                                         </div>
                                     </div>
                                     <div class="flex items-center gap-1 shrink-0">
+                                        <x-nx-button variant="ghost" icon wire:click="toggleActive({{ $rule->id }})" title="{{ $rule->is_active ? 'Deaktivieren' : 'Aktivieren' }}">
+                                            @svg($rule->is_active ? 'heroicon-o-eye' : 'heroicon-o-eye-slash', 'w-4 h-4')
+                                        </x-nx-button>
                                         <x-nx-button variant="ghost" icon wire:click="testRule({{ $rule->id }})" title="Testen">
                                             @svg('heroicon-o-beaker', 'w-4 h-4')
                                         </x-nx-button>
@@ -135,6 +150,16 @@
                                 @error('formMatchers')
                                     <p class="mt-1 text-xs text-[color:var(--nx-danger)]">{{ $message }}</p>
                                 @enderror
+                            </div>
+
+                            <div class="flex items-end gap-3">
+                                <div class="w-28">
+                                    <x-nx-input-number label="Priorität" errorKey="formPriority" wire:model="formPriority" min="0" max="1000" hint="höher zuerst" />
+                                </div>
+                                <label class="flex items-center gap-2 pb-2 text-sm text-[color:var(--nx-text)]">
+                                    <input type="checkbox" wire:model="formIsActive" class="rounded border-[color:var(--nx-line-strong)]">
+                                    Aktiv
+                                </label>
                             </div>
 
                             {{-- Buttons --}}
