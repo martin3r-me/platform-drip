@@ -96,6 +96,25 @@ class BankTransaction extends Model
                 $model->team_id = $model->bankAccount->team_id;
             }
         });
+
+        // Live-Automatch: ein neuer Eingang wird sofort gegen die offenen
+        // Ausgangsrechnungen geprüft (deckt alle Import-Wege ab: MOSS,
+        // GoCardless, …). Rein lokal (kein easybill-Call), defensiv — ein
+        // Fehler darf den Import nie brechen.
+        static::created(function (self $model) {
+            if ($model->direction !== 'credit' || $model->is_disregarded) {
+                return;
+            }
+
+            try {
+                app(\Platform\Drip\Services\InvoiceMatchService::class)->matchTransaction($model);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Drip: Live-Rechnungsabgleich fehlgeschlagen', [
+                    'transaction_id' => $model->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        });
     }
 
     public function bankAccount(): BelongsTo
