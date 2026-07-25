@@ -168,17 +168,29 @@
                                     @if($resolvedGegenpartei['code'])
                                         <span class="font-mono text-[11px] text-[color:var(--nx-faint)]">{{ $resolvedGegenpartei['code'] }}</span>
                                     @endif
-                                    <x-nx-button variant="ghost" size="sm" wire:click="unmapGegenpartei">Zuordnung lösen</x-nx-button>
-                                </div>
-                            @elseif($counterpartyIban)
-                                <div class="flex flex-wrap items-center gap-2">
-                                    <div class="min-w-[16rem] flex-1">
-                                        <x-nx-input-select size="sm" :options="$gegenparteiOptions" nullable nullLabel="Entity wählen…" wire:model.live="gegenparteiEntityId" />
-                                    </div>
-                                    <x-nx-button variant="secondary" size="sm" wire:click="saveGegenpartei" :disabled="!$gegenparteiEntityId">Per IBAN zuordnen</x-nx-button>
+                                    <x-nx-button variant="ghost" size="sm" wire:click="clearGegenpartei">Zuordnung lösen</x-nx-button>
                                 </div>
                             @else
-                                <span class="text-[color:var(--nx-faint)]">keine IBAN (Kartenzahlung) — Zuordnung per Name folgt später</span>
+                                <div class="flex flex-col gap-2">
+                                    {{-- Ein-Klick-Vorschlag aus der IBAN, falls auflösbar --}}
+                                    @if($gegenparteiSuggestion)
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            <span class="text-[color:var(--nx-faint)]">aus IBAN:</span>
+                                            <x-nx-badge variant="info" dot>{{ $gegenparteiSuggestion['name'] }}</x-nx-badge>
+                                            <x-nx-button variant="secondary" size="sm" wire:click="applyGegenparteiSuggestion">Übernehmen</x-nx-button>
+                                        </div>
+                                    @endif
+                                    {{-- Manuelle Auswahl (auch ohne IBAN, z. B. Kartenzahlung) --}}
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <div class="min-w-[16rem] flex-1">
+                                            <x-nx-input-select size="sm" :options="$gegenparteiOptions" nullable nullLabel="Entity wählen…" wire:model.live="gegenparteiEntityId" />
+                                        </div>
+                                        <x-nx-button variant="secondary" size="sm" wire:click="saveGegenpartei" :disabled="!$gegenparteiEntityId">Zuordnen</x-nx-button>
+                                    </div>
+                                    @if($counterpartyIban)
+                                        <span class="text-[11px] text-[color:var(--nx-faint)]">IBAN wird beim Zuordnen an der Entity gelernt → gleichartige Transaktionen lösen sich künftig automatisch auf.</span>
+                                    @endif
+                                </div>
                             @endif
                         </x-nx-property-row>
                     @endif

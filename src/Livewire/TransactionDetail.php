@@ -23,10 +23,11 @@ class TransactionDetail extends Component
     public array $kontierung = [];
     public ?string $kontierungResult = null;
 
-    /** Gegenpartei (Umwelt): IBAN → Org-Entity. */
+    /** Gegenpartei (Umwelt): entity-Link an der Transaktion; IBAN nur Auflöser. */
     public bool $gegenparteiAvailable = false;
     public ?string $counterpartyIban = null;
-    public ?array $resolvedGegenpartei = null;
+    public ?array $resolvedGegenpartei = null;   // aktueller entity-Link (die Gegenpartei)
+    public ?array $gegenparteiSuggestion = null; // Vorschlag aus IBAN, noch nicht gesetzt
     public ?int $gegenparteiEntityId = null;
     public ?string $gegenparteiResult = null;
 
@@ -40,36 +41,72 @@ class TransactionDetail extends Component
         $this->kontierungAvailable = $kontierung->available();
         $this->kontierung = $kontierung->forTransaction($transaction->id);
 
-        // Gegenpartei (Umwelt-Seite): richtungsaufgelöste IBAN → Entity.
+        // Gegenpartei (Umwelt-Seite): aktueller entity-Link. Fehlt er, aber die
+        // Transaktion trägt eine (richtungsaufgelöste) IBAN, schlagen wir die
+        // per IBAN aufgelöste Entity als Ein-Klick-Zuordnung vor.
         $this->gegenparteiAvailable = $gegenpartei->available();
         $this->counterpartyIban = $transaction->counterparty_iban
             ?: ($transaction->direction === 'debit' ? $transaction->creditor_account_iban : $transaction->debtor_account_iban);
-        $this->resolvedGegenpartei = $gegenpartei->resolveIban($this->counterpartyIban, (int) $transaction->team_id);
+        $this->resolvedGegenpartei = $gegenpartei->forTransaction((int) $transaction->id);
+        if (!$this->resolvedGegenpartei && $this->counterpartyIban) {
+            $this->gegenparteiSuggestion = $gegenpartei->resolveIban($this->counterpartyIban, (int) $transaction->team_id);
+        }
     }
 
     public function saveGegenpartei(GegenparteiService $gegenpartei): void
     {
-        if (!$this->counterpartyIban || !$this->gegenparteiEntityId) {
+        if (!$this->gegenparteiEntityId) {
             return;
         }
 
-        $gegenpartei->mapIban($this->counterpartyIban, (int) $this->gegenparteiEntityId, (int) $this->transaction->team_id);
-        $this->resolvedGegenpartei = $gegenpartei->resolveIban($this->counterpartyIban, (int) $this->transaction->team_id);
+        // Manuelle Zuordnung: entity-Link setzen. Falls eine IBAN vorliegt,
+        // gleich als Identifier lernen → gleichartige Transaktionen lösen sich
+        // künftig automatisch auf.
+        $gegenpartei->setForTransaction(
+            (int) $this->transaction->id,
+            (int) $this->gegenparteiEntityId,
+            (int) $this->transaction->team_id,
+            $this->counterpartyIban ?: null,
+        );
+
+        $this->resolvedGegenpartei = $gegenpartei->forTransaction((int) $this->transaction->id);
+        $this->gegenparteiSuggestion = null;
         $this->gegenparteiEntityId = null;
         $this->gegenparteiResult = $this->resolvedGegenpartei
-            ? 'Gegenpartei „' . $this->resolvedGegenpartei['name'] . '" per IBAN zugeordnet.'
+            ? 'Gegenpartei „' . $this->resolvedGegenpartei['name'] . '" gesetzt.'
             : null;
     }
 
-    public function unmapGegenpartei(GegenparteiService $gegenpartei): void
+    public function applyGegenparteiSuggestion(GegenparteiService $gegenpartei): void
     {
-        if (!$this->counterpartyIban) {
+        if (!$this->gegenparteiSuggestion) {
             return;
         }
 
-        $gegenpartei->unmapIban($this->counterpartyIban, (int) $this->transaction->team_id);
+        $gegenpartei->setForTransaction(
+            (int) $this->transaction->id,
+            (int) $this->gegenparteiSuggestion['id'],
+            (int) $this->transaction->team_id,
+            $this->counterpartyIban ?: null,
+        );
+
+        $this->resolvedGegenpartei = $gegenpartei->forTransaction((int) $this->transaction->id);
+        $this->gegenparteiResult = $this->resolvedGegenpartei
+            ? 'Gegenpartei „' . $this->resolvedGegenpartei['name'] . '" aus IBAN übernommen.'
+            : null;
+        $this->gegenparteiSuggestion = null;
+    }
+
+    public function clearGegenpartei(GegenparteiService $gegenpartei): void
+    {
+        $gegenpartei->clearForTransaction((int) $this->transaction->id);
         $this->resolvedGegenpartei = null;
-        $this->gegenparteiResult = 'IBAN-Zuordnung entfernt.';
+
+        // Nach dem Lösen wieder einen IBAN-Vorschlag anbieten, falls vorhanden.
+        if ($this->counterpartyIban) {
+            $this->gegenparteiSuggestion = $gegenpartei->resolveIban($this->counterpartyIban, (int) $this->transaction->team_id);
+        }
+        $this->gegenparteiResult = 'Gegenpartei-Zuordnung entfernt.';
     }
 
     public function addKontierung(): void
@@ -215,8 +252,9 @@ class TransactionDetail extends Component
 
         $kontierungSum = array_sum(array_map(fn ($r) => (float) ($r['percentage'] ?? 0), $this->kontierung));
 
-        // Entity-Optionen nur laden, wenn eine IBAN da und noch nicht aufgelöst ist.
-        $needsGegenparteiPicker = $this->gegenparteiAvailable && $this->counterpartyIban && !$this->resolvedGegenpartei;
+        // Entity-Optionen laden, solange noch keine Gegenpartei gesetzt ist
+        // (manuelle Auswahl geht auch ohne IBAN, z. B. Kartenzahlung).
+        $needsGegenparteiPicker = $this->gegenparteiAvailable && !$this->resolvedGegenpartei;
 
         return view('drip::livewire.transaction-detail', [
             'categories' => $categories,
