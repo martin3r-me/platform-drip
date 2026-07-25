@@ -162,7 +162,8 @@ class DripServiceProvider extends ServiceProvider
             $registry->register(new \Platform\Drip\Tools\RawLogsTool());
             $registry->register(new \Platform\Drip\Tools\CategoriesToolCrud());
             $registry->register(new \Platform\Drip\Tools\RulesToolCrud());
-            $registry->register(new \Platform\Drip\Tools\BudgetItemsToolCrud());
+            // Budget eingemottet (2026-07): Tool deregistriert bis Forecast-Modul. Datei/Models bleiben erhalten.
+            // $registry->register(new \Platform\Drip\Tools\BudgetItemsToolCrud());
             $registry->register(new \Platform\Drip\Tools\CashflowAnalyticsTool());
             $registry->register(new \Platform\Drip\Tools\DripTeamSettingsToolCrud());
         } catch (\Throwable $e) {
@@ -191,12 +192,6 @@ class DripServiceProvider extends ServiceProvider
                 ->withoutOverlapping()
                 ->onOneServer();
 
-            // Liquiditätsforecast: nach jedem Bank-Sync (03:30 + 14:30)
-            $schedule->command('drip:compute-liquidity')
-                ->twiceDailyAt(3, 14, 30)
-                ->withoutOverlapping()
-                ->onOneServer();
-
             // Cashflow-Signals: 1x täglich um 04:00 Uhr
             $schedule->command('drip:sync-signals')
                 ->dailyAt('04:00')
@@ -220,7 +215,6 @@ class DripServiceProvider extends ServiceProvider
                 \Platform\Drip\Console\Commands\WipeTransactionsCommand::class,
                 \Platform\Drip\Console\Commands\DetectRecurringBudgetsCommand::class,
                 \Platform\Drip\Console\Commands\GenerateBudgetPeriodsCommand::class,
-                \Platform\Drip\Console\Commands\ComputeLiquidityCommand::class,
                 \Platform\Drip\Console\Commands\BuildCashflowSnapshotsCommand::class,
                 \Platform\Drip\Console\Commands\SyncCashflowSignalsCommand::class,
                 \Platform\Drip\Console\Commands\SyncMossDataCommand::class,

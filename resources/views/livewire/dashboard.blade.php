@@ -41,90 +41,6 @@
             </div>
         @endif
 
-        {{-- Summary Row: Budget Summary + Cash Runway --}}
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-            {{-- Budget Summary --}}
-            @if(!empty($budgetSummary) && $budgetSummary['total'] > 0)
-                <div class="bg-white rounded-2xl shadow-sm p-6">
-                    <div class="flex items-center justify-between mb-3">
-                        <h2 class="text-lg font-bold text-gray-900">Budget-Uebersicht</h2>
-                        <a href="{{ route('drip.budgets') }}" wire:navigate class="text-[11px] text-blue-600 hover:text-blue-700">Details</a>
-                    </div>
-                    <div class="grid grid-cols-3 gap-4 mb-3">
-                        <div>
-                            <div class="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Gesamtbudget</div>
-                            <div class="text-lg font-bold tabular-nums text-gray-900">{{ number_format($budgetSummary['total'], 0, ',', '.') }} &euro;</div>
-                        </div>
-                        <div>
-                            <div class="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Verbraucht</div>
-                            <div class="text-lg font-bold tabular-nums {{ $budgetSummary['percent'] > 100 ? 'text-red-600' : 'text-gray-900' }}">
-                                {{ number_format($budgetSummary['actual'], 0, ',', '.') }} &euro;
-                                <span class="text-[11px] font-normal text-gray-400">({{ $budgetSummary['percent'] }}%)</span>
-                            </div>
-                        </div>
-                        <div>
-                            <div class="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Verbleibend</div>
-                            <div class="text-lg font-bold tabular-nums {{ $budgetSummary['remaining'] >= 0 ? 'text-green-600' : 'text-red-600' }}">
-                                {{ number_format($budgetSummary['remaining'], 0, ',', '.') }} &euro;
-                            </div>
-                        </div>
-                    </div>
-                    @php
-                        $summaryBarColor = $budgetSummary['percent'] <= 80 ? 'bg-green-500' : ($budgetSummary['percent'] <= 100 ? 'bg-yellow-500' : 'bg-red-500');
-                    @endphp
-                    <div class="h-2.5 bg-gray-100 rounded-full overflow-hidden mb-2">
-                        <div class="{{ $summaryBarColor }} h-2.5 rounded-full transition-all" style="width: {{ min($budgetSummary['percent'], 100) }}%"></div>
-                    </div>
-                    <div class="flex items-center gap-4 text-[11px]">
-                        @if($budgetSummary['at_risk'] > 0)
-                            <span class="text-yellow-600">{{ $budgetSummary['at_risk'] }} {{ $budgetSummary['at_risk'] === 1 ? 'Budget' : 'Budgets' }} at risk</span>
-                        @endif
-                        @if($budgetSummary['exceeded'] > 0)
-                            <span class="text-red-600">{{ $budgetSummary['exceeded'] }} ueberschritten</span>
-                        @endif
-                    </div>
-                </div>
-            @endif
-
-            {{-- Cash Runway --}}
-            @if(!empty($cashRunway) && $cashRunway['label'] !== '-')
-                @php
-                    $runwayColors = match($cashRunway['color']) {
-                        'green' => ['bg' => 'bg-green-50', 'text' => 'text-green-600', 'bar' => 'bg-green-500', 'ring' => 'ring-green-200'],
-                        'yellow' => ['bg' => 'bg-yellow-50', 'text' => 'text-yellow-600', 'bar' => 'bg-yellow-500', 'ring' => 'ring-yellow-200'],
-                        'red' => ['bg' => 'bg-red-50', 'text' => 'text-red-600', 'bar' => 'bg-red-500', 'ring' => 'ring-red-200'],
-                        default => ['bg' => 'bg-gray-50', 'text' => 'text-gray-600', 'bar' => 'bg-gray-400', 'ring' => 'ring-gray-200'],
-                    };
-                @endphp
-                <div class="{{ $runwayColors['bg'] }} rounded-2xl shadow-sm p-6">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <div class="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Cash Runway</div>
-                            <div class="mt-1 text-4xl font-bold tabular-nums {{ $runwayColors['text'] }}">
-                                {{ $cashRunway['label'] }}
-                            </div>
-                            <div class="mt-1 text-[11px] text-gray-500">
-                                @if($cashRunway['days'] === null && $cashRunway['label'] === '∞')
-                                    Kein Negativsaldo im Prognosezeitraum
-                                @elseif($cashRunway['days'] !== null)
-                                    bis projizierter Saldo &le; 0 &euro;
-                                @endif
-                            </div>
-                        </div>
-                        <div class="shrink-0">
-                            <svg class="w-16 h-16" viewBox="0 0 36 36">
-                                <path class="text-gray-200" stroke="currentColor" stroke-width="3" fill="none"
-                                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                                <path class="{{ str_replace('bg-', 'text-', $runwayColors['bar']) }}" stroke="currentColor" stroke-width="3" fill="none"
-                                      stroke-dasharray="{{ $cashRunway['percent'] }}, 100" stroke-linecap="round"
-                                      d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                            </svg>
-                        </div>
-                    </div>
-                </div>
-            @endif
-        </div>
-
         {{-- Controls: Period Type + Month Dropdown + Comparison Mode --}}
         <div class="flex items-center gap-4 mb-6 flex-wrap">
             {{-- Period Type Switcher --}}
@@ -316,18 +232,6 @@
                                 <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
                                     <div class="h-1.5 rounded-full" style="width: {{ $maxAmount > 0 ? round($cat['amount'] / $maxAmount * 100) : 0 }}%; background-color: {{ $cat['color'] }}"></div>
                                 </div>
-                                @if(isset($categoryBudgets[$cat['category_id']]))
-                                    @php
-                                        $cb = $categoryBudgets[$cat['category_id']];
-                                        $budgetBarColor = $cb['percent'] <= 100 ? 'bg-green-400' : ($cb['percent'] <= 120 ? 'bg-yellow-400' : 'bg-red-400');
-                                    @endphp
-                                    <div class="flex items-center gap-2 mt-1">
-                                        <div class="flex-1 h-1 bg-gray-100 rounded-full overflow-hidden">
-                                            <div class="{{ $budgetBarColor }} h-1 rounded-full" style="width: {{ min($cb['percent'], 100) }}%"></div>
-                                        </div>
-                                        <span class="text-[9px] tabular-nums text-gray-400 shrink-0">Budget: {{ $cb['percent'] }}%</span>
-                                    </div>
-                                @endif
                             </div>
                         @endforeach
                     </div>
@@ -437,39 +341,6 @@
                             <p class="text-[13px] text-gray-400">Keine Transaktionen in diesem Zeitraum</p>
                         </div>
                     @endif
-                </div>
-            </div>
-        @endif
-
-        {{-- Budget-Status --}}
-        @if(count($budgetOverview) > 0)
-            <div class="bg-white rounded-2xl shadow-sm p-6 mb-6">
-                <div class="flex items-center justify-between mb-4">
-                    <h2 class="text-lg font-bold text-gray-900">Budget-Status</h2>
-                    <a href="{{ route('drip.budgets') }}" wire:navigate class="text-[11px] text-blue-600 hover:text-blue-700">
-                        Alle Budgets
-                        @if($budgetSuggestionsCount > 0)
-                            <span class="ml-1 inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-700">{{ $budgetSuggestionsCount }} {{ $budgetSuggestionsCount === 1 ? 'Vorschlag' : 'Vorschlaege' }}</span>
-                        @endif
-                    </a>
-                </div>
-                <div class="space-y-2.5">
-                    @foreach($budgetOverview as $b)
-                        @php
-                            $barColor = $b['percent'] <= 100 ? 'bg-green-500' : ($b['percent'] <= 120 ? 'bg-yellow-500' : 'bg-red-500');
-                            $barWidth = min($b['percent'], 100);
-                        @endphp
-                        <div class="flex items-center gap-3">
-                            <div class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: {{ $b['category_color'] }}"></div>
-                            <div class="w-28 text-[13px] text-gray-700 truncate shrink-0">{{ $b['name'] }}</div>
-                            <div class="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                                <div class="{{ $barColor }} h-2 rounded-full" style="width: {{ $barWidth }}%"></div>
-                            </div>
-                            <div class="text-[12px] font-medium tabular-nums text-gray-600 shrink-0 w-32 text-right">
-                                {{ number_format($b['actual'], 0, ',', '.') }} / {{ number_format($b['budget'], 0, ',', '.') }} &euro;
-                            </div>
-                        </div>
-                    @endforeach
                 </div>
             </div>
         @endif

@@ -8,9 +8,7 @@ use Platform\Drip\Models\BankAccountBalance;
 use Platform\Drip\Models\BankAccountGroup;
 use Platform\Drip\Models\BankTransaction;
 use Platform\Drip\Models\BankTransactionCategory;
-use Platform\Drip\Models\BudgetItem;
 use Platform\Drip\Models\CashflowSnapshot;
-use Platform\Drip\Models\LiquidityForecast;
 use Platform\Drip\Services\CashflowSnapshotService;
 use Illuminate\Support\Carbon;
 
@@ -22,12 +20,7 @@ class Dashboard extends Component
 
     public float $totalBalance = 0;
 
-    public array $budgetOverview = [];
-    public int $budgetSuggestionsCount = 0;
-
-    public array $budgetSummary = [];
     public array $alerts = [];
-    public array $cashRunway = [];
 
     public $groups = [];
     public $recentTransactions = [];
@@ -45,7 +38,6 @@ class Dashboard extends Component
     public array $trend = [];
     public array $categoryTrend = [];
     public array $categoryTransactions = [];
-    public array $categoryBudgets = [];
 
     public function mount(): void
     {
@@ -70,30 +62,7 @@ class Dashboard extends Component
             ->map(fn ($balances) => $balances->sortByDesc('retrieved_at')->first())
             ->sum(fn ($b) => (float) ($b->amount ?? $b->balance ?? 0));
 
-        // Budget overview
-        $budgetItems = BudgetItem::where('team_id', $teamId)->active()->with('category')->get();
-        $budgetMonthStart = now()->startOfMonth();
-
-        $this->budgetOverview = $budgetItems->map(function (BudgetItem $item) use ($teamId, $budgetMonthStart) {
-            $fulfillment = $item->fulfillmentForMonth($budgetMonthStart, $teamId);
-            return [
-                'name' => $item->name,
-                'category_color' => $item->category?->color ?? '#6B7280',
-                'budget' => $fulfillment['budget'],
-                'actual' => $fulfillment['actual'],
-                'percent' => $fulfillment['percent'],
-            ];
-        })->toArray();
-
-        $this->budgetSuggestionsCount = BudgetItem::where('team_id', $teamId)->suggested()->count();
-
-        // Budget Summary
-        $this->budgetSummary = $this->loadBudgetSummary($this->budgetOverview);
-
-        // Cash Runway
-        $this->cashRunway = $this->loadCashRunway($teamId);
-
-        // Alerts
+        // Alerts (Cashflow: offene Kategorisierung etc.)
         $this->alerts = $this->loadAlerts($teamId);
 
         $this->lastSyncAt = BankAccount::where('team_id', $teamId)
@@ -151,11 +120,9 @@ class Dashboard extends Component
         if ($this->selectedCategoryId) {
             $this->loadCategoryTrend($teamId);
             $this->loadCategoryTransactions($teamId);
-            $this->loadCategoryBudgets($teamId);
         } else {
             $this->categoryTrend = [];
             $this->categoryTransactions = [];
-            $this->categoryBudgets = [];
         }
     }
 
@@ -170,7 +137,6 @@ class Dashboard extends Component
         $this->topCounterparties = $this->loadTopCounterparties($teamId);
         $this->comparison = $this->loadComparison($teamId);
         $this->trend = $this->loadTrend($teamId);
-        $this->categoryBudgets = $this->loadAllCategoryBudgets($teamId);
     }
 
     protected function loadAvailableMonths(): void
@@ -525,107 +491,9 @@ class Dashboard extends Component
             ->toArray();
     }
 
-    protected function loadCategoryBudgets(int $teamId): void
-    {
-        if (!$this->selectedCategoryId) {
-            $this->categoryBudgets = [];
-            return;
-        }
-
-        $monthStart = Carbon::createFromFormat('Y-m', $this->selectedMonth)->startOfMonth();
-
-        $this->categoryBudgets = BudgetItem::where('team_id', $teamId)
-            ->where('category_id', $this->selectedCategoryId)
-            ->active()
-            ->get()
-            ->map(function (BudgetItem $item) use ($teamId, $monthStart) {
-                $fulfillment = $item->fulfillmentForMonth($monthStart, $teamId);
-                return [
-                    'name' => $item->name,
-                    'budget' => $fulfillment['budget'],
-                    'actual' => $fulfillment['actual'],
-                    'percent' => $fulfillment['percent'],
-                ];
-            })
-            ->toArray();
-    }
-
-    protected function loadAllCategoryBudgets(int $teamId): array
-    {
-        $monthStart = Carbon::createFromFormat('Y-m', $this->selectedMonth)->startOfMonth();
-
-        $budgetItems = BudgetItem::where('team_id', $teamId)
-            ->active()
-            ->whereNotNull('category_id')
-            ->get();
-
-        $result = [];
-        foreach ($budgetItems as $item) {
-            $fulfillment = $item->fulfillmentForMonth($monthStart, $teamId);
-            $catId = (int) $item->category_id;
-            if (!isset($result[$catId])) {
-                $result[$catId] = ['budget' => 0, 'actual' => 0];
-            }
-            $result[$catId]['budget'] += $fulfillment['budget'];
-            $result[$catId]['actual'] += $fulfillment['actual'];
-        }
-
-        foreach ($result as $catId => &$data) {
-            $data['percent'] = $data['budget'] > 0 ? round($data['actual'] / $data['budget'] * 100, 1) : 0;
-        }
-
-        return $result;
-    }
-
-    // ── Existing helper methods ──
-
-    protected function loadBudgetSummary(array $budgetOverview): array
-    {
-        if (empty($budgetOverview)) {
-            return [];
-        }
-
-        $total = array_sum(array_column($budgetOverview, 'budget'));
-        $actual = array_sum(array_column($budgetOverview, 'actual'));
-        $remaining = $total - $actual;
-        $percent = $total > 0 ? round($actual / $total * 100, 1) : 0;
-        $atRisk = count(array_filter($budgetOverview, fn ($b) => $b['percent'] >= 80 && $b['percent'] < 100));
-        $exceeded = count(array_filter($budgetOverview, fn ($b) => $b['percent'] >= 100));
-
-        return [
-            'total' => $total,
-            'actual' => $actual,
-            'remaining' => $remaining,
-            'percent' => $percent,
-            'at_risk' => $atRisk,
-            'exceeded' => $exceeded,
-        ];
-    }
-
     protected function loadAlerts(int $teamId): array
     {
         $alerts = [];
-
-        $over80 = count(array_filter($this->budgetOverview, fn ($b) => $b['percent'] >= 80 && $b['percent'] < 100));
-        $exceeded = count(array_filter($this->budgetOverview, fn ($b) => $b['percent'] >= 100));
-
-        if ($exceeded > 0) {
-            $alerts[] = [
-                'type' => 'danger',
-                'icon' => 'exclamation-triangle',
-                'message' => $exceeded . ' ' . ($exceeded === 1 ? 'Budget ueberschritten' : 'Budgets ueberschritten'),
-                'link' => route('drip.budgets'),
-            ];
-        }
-
-        if ($over80 > 0) {
-            $alerts[] = [
-                'type' => 'warning',
-                'icon' => 'exclamation-triangle',
-                'message' => $over80 . ' ' . ($over80 === 1 ? 'Budget' : 'Budgets') . ' ueber 80%',
-                'link' => route('drip.budgets'),
-            ];
-        }
 
         $uncategorized = BankTransaction::where('team_id', $teamId)
             ->whereNull('category_id')
@@ -649,61 +517,7 @@ class Dashboard extends Component
             ];
         }
 
-        if ($this->budgetSuggestionsCount > 0) {
-            $alerts[] = [
-                'type' => 'primary',
-                'icon' => 'light-bulb',
-                'message' => $this->budgetSuggestionsCount . ' unbestaetigte ' . ($this->budgetSuggestionsCount === 1 ? 'Vorschlag' : 'Vorschlaege'),
-                'link' => route('drip.budgets'),
-            ];
-        }
-
-        $negativeDay = LiquidityForecast::where('team_id', $teamId)
-            ->where('forecast_date', '>=', now()->startOfDay())
-            ->where('forecast_date', '<=', now()->addDays(30))
-            ->where('projected_balance', '<', 0)
-            ->orderBy('forecast_date')
-            ->first();
-
-        if ($negativeDay) {
-            $alerts[] = [
-                'type' => 'danger',
-                'icon' => 'arrow-trending-down',
-                'message' => 'Negativsaldo am ' . $negativeDay->forecast_date->format('d.m.Y') . ' prognostiziert',
-                'link' => route('drip.liquidity'),
-            ];
-        }
-
         return $alerts;
-    }
-
-    protected function loadCashRunway(int $teamId): array
-    {
-        $forecasts = LiquidityForecast::where('team_id', $teamId)
-            ->where('forecast_date', '>=', now()->startOfDay())
-            ->orderBy('forecast_date')
-            ->get(['forecast_date', 'projected_balance']);
-
-        if ($forecasts->isEmpty()) {
-            return ['days' => null, 'label' => '-', 'color' => 'gray', 'percent' => 0];
-        }
-
-        $negativeDay = $forecasts->first(fn ($f) => (float) $f->projected_balance <= 0);
-
-        if (!$negativeDay) {
-            return ['days' => null, 'label' => '∞', 'color' => 'green', 'percent' => 100];
-        }
-
-        $days = (int) now()->startOfDay()->diffInDays($negativeDay->forecast_date);
-
-        if ($days > 180) {
-            return ['days' => $days, 'label' => '>6 Monate', 'color' => 'green', 'percent' => 100];
-        }
-
-        $color = $days >= 180 ? 'green' : ($days >= 90 ? 'yellow' : 'red');
-        $percent = min(round($days / 180 * 100), 100);
-
-        return ['days' => $days, 'label' => $days . ' Tage', 'color' => $color, 'percent' => $percent];
     }
 
     public function render()

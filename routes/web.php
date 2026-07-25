@@ -8,8 +8,9 @@ Route::get('/banks', Platform\Drip\Livewire\Banks::class)->name('drip.banks');
 Route::get('/groups/{group}', Platform\Drip\Livewire\GroupTransactions::class)->name('drip.groups.show');
 Route::get('/categories', Platform\Drip\Livewire\Categories::class)->name('drip.categories');
 Route::get('/rules', Platform\Drip\Livewire\Rules::class)->name('drip.rules');
-Route::get('/budgets', Platform\Drip\Livewire\Budgets::class)->name('drip.budgets');
-Route::get('/liquidity', Platform\Drip\Livewire\LiquidityPlanning::class)->name('drip.liquidity');
+// Budget eingemottet (2026-07): Route deaktiviert bis Forecast-Modul. Models/Daten/Service bleiben erhalten.
+// Route::get('/budgets', Platform\Drip\Livewire\Budgets::class)->name('drip.budgets');
+// Liquiditaet entfernt (2026-07): Duplikat, wandert ins Forecast-Modul.
 Route::get('/transactions/{transaction}', Platform\Drip\Livewire\TransactionDetail::class)->name('drip.transactions.show');
 
 // GoCardless Callback

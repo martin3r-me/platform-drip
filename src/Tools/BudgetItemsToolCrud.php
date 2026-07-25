@@ -9,7 +9,6 @@ use Platform\Core\Contracts\ToolResult;
 use Platform\Drip\Models\BudgetItem;
 use Platform\Drip\Models\BudgetItemPeriod;
 use Platform\Drip\Services\BudgetPeriodService;
-use Platform\Drip\Services\LiquidityPlanningService;
 use Platform\Drip\Services\RecurringDetectionService;
 use Platform\Drip\Tools\Concerns\ResolvesDripTeam;
 
@@ -24,7 +23,7 @@ class BudgetItemsToolCrud implements ToolContract, ToolMetadataContract
 
     public function getDescription(): string
     {
-        return 'CRUD /drip/budgets - Verwaltet Budget-Items (Soll/Ist pro Kategorie). action=list (default, inkl. Ist-Werte, optional month=YYYY-MM, status=active|suggested|paused|archived), action=create (end_date/start_date optional — begrenzt Periodenanzahl), action=update, action=delete, action=suggestions (offene Vorschlaege), action=confirm (budget_id), action=dismiss (budget_id), action=detect (erkennt wiederkehrende Muster), action=periods (budget_id, optional status/date_from/date_to), action=skip_period (period_id), action=adjust_period (period_id + planned_amount), action=liquidity (months_ahead).';
+        return 'CRUD /drip/budgets - Verwaltet Budget-Items (Soll/Ist pro Kategorie). action=list (default, inkl. Ist-Werte, optional month=YYYY-MM, status=active|suggested|paused|archived), action=create (end_date/start_date optional — begrenzt Periodenanzahl), action=update, action=delete, action=suggestions (offene Vorschlaege), action=confirm (budget_id), action=dismiss (budget_id), action=detect (erkennt wiederkehrende Muster), action=periods (budget_id, optional status/date_from/date_to), action=skip_period (period_id), action=adjust_period (period_id + planned_amount).';
     }
 
     public function getSchema(): array
@@ -34,8 +33,8 @@ class BudgetItemsToolCrud implements ToolContract, ToolMetadataContract
             'properties' => [
                 'action' => [
                     'type' => 'string',
-                    'enum' => ['list', 'create', 'update', 'delete', 'suggestions', 'confirm', 'dismiss', 'detect', 'periods', 'skip_period', 'adjust_period', 'liquidity'],
-                    'description' => 'Aktion: list, create, update, delete, suggestions, confirm, dismiss, detect, periods, skip_period, adjust_period, liquidity. Default: list.',
+                    'enum' => ['list', 'create', 'update', 'delete', 'suggestions', 'confirm', 'dismiss', 'detect', 'periods', 'skip_period', 'adjust_period'],
+                    'description' => 'Aktion: list, create, update, delete, suggestions, confirm, dismiss, detect, periods, skip_period, adjust_period. Default: list.',
                 ],
                 'budget_id' => [
                     'type' => 'integer',
@@ -78,10 +77,6 @@ class BudgetItemsToolCrud implements ToolContract, ToolMetadataContract
                 'planned_amount' => [
                     'type' => 'number',
                     'description' => 'Geplanter Betrag fuer adjust_period.',
-                ],
-                'months_ahead' => [
-                    'type' => 'integer',
-                    'description' => 'Monate voraus fuer Liquiditaetsplanung (default 6).',
                 ],
                 'date_from' => [
                     'type' => 'string',
@@ -163,7 +158,6 @@ class BudgetItemsToolCrud implements ToolContract, ToolMetadataContract
                 'periods' => $this->periods($arguments, $teamId),
                 'skip_period' => $this->skipPeriod($arguments, $teamId),
                 'adjust_period' => $this->adjustPeriod($arguments, $teamId),
-                'liquidity' => $this->liquidity($arguments, $teamId),
                 default => $this->list($arguments, $teamId),
             };
         } catch (\Throwable $e) {
@@ -515,19 +509,6 @@ class BudgetItemsToolCrud implements ToolContract, ToolMetadataContract
                 'id' => $period->id,
                 'planned_amount' => (float) $period->planned_amount,
             ],
-        ]);
-    }
-
-    protected function liquidity(array $arguments, int $teamId): ToolResult
-    {
-        $monthsAhead = $arguments['months_ahead'] ?? 6;
-        $service = app(LiquidityPlanningService::class);
-        $plan = $service->buildPlan($teamId, (int) $monthsAhead);
-
-        return ToolResult::success([
-            'data' => $plan,
-            'months_ahead' => $monthsAhead,
-            'team_id' => $teamId,
         ]);
     }
 

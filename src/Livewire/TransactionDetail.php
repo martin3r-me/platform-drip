@@ -29,44 +29,46 @@ class TransactionDetail extends Component
         $this->transaction->refresh()->load('category');
     }
 
-    public function createBudgetFromTransaction(): void
-    {
-        $teamId = (int) auth()->user()->current_team_id;
-        $tx = $this->transaction;
-
-        $counterparty = $tx->counterparty_name;
-        $direction = $tx->direction;
-
-        // Find all TXs with same counterparty + direction for avg calculation
-        $similarTxs = BankTransaction::where('team_id', $teamId)
-            ->where('direction', $direction)
-            ->get()
-            ->filter(fn ($t) => $t->counterparty_name === $counterparty);
-
-        $avgAmount = $similarTxs->count() > 0
-            ? round($similarTxs->avg(fn ($t) => abs((float) $t->amount)), 2)
-            : abs((float) $tx->amount);
-
-        // Calculate most common day of month
-        $days = $similarTxs
-            ->map(fn ($t) => $t->booked_at?->day)
-            ->filter()
-            ->countBy()
-            ->sortDesc();
-        $typicalDay = $days->keys()->first() ?? $tx->booked_at?->day;
-
-        $params = http_build_query(array_filter([
-            'prefill' => 1,
-            'name' => $counterparty ?: 'Budget',
-            'amount' => $avgAmount,
-            'direction' => $direction,
-            'category_id' => $tx->category_id,
-            'bank_account_id' => $tx->bank_account_id,
-            'day_of_month' => $typicalDay,
-        ]));
-
-        $this->redirect(route('drip.budgets') . '?' . $params);
-    }
+    // Budget eingemottet (2026-07): "Budget aus Transaktion anlegen" deaktiviert bis Forecast-Modul.
+    // Reaktivieren, sobald die drip.budgets-Route (oder das Forecast-Modul) wieder existiert.
+    // public function createBudgetFromTransaction(): void
+    // {
+    //     $teamId = (int) auth()->user()->current_team_id;
+    //     $tx = $this->transaction;
+    //
+    //     $counterparty = $tx->counterparty_name;
+    //     $direction = $tx->direction;
+    //
+    //     // Find all TXs with same counterparty + direction for avg calculation
+    //     $similarTxs = BankTransaction::where('team_id', $teamId)
+    //         ->where('direction', $direction)
+    //         ->get()
+    //         ->filter(fn ($t) => $t->counterparty_name === $counterparty);
+    //
+    //     $avgAmount = $similarTxs->count() > 0
+    //         ? round($similarTxs->avg(fn ($t) => abs((float) $t->amount)), 2)
+    //         : abs((float) $tx->amount);
+    //
+    //     // Calculate most common day of month
+    //     $days = $similarTxs
+    //         ->map(fn ($t) => $t->booked_at?->day)
+    //         ->filter()
+    //         ->countBy()
+    //         ->sortDesc();
+    //     $typicalDay = $days->keys()->first() ?? $tx->booked_at?->day;
+    //
+    //     $params = http_build_query(array_filter([
+    //         'prefill' => 1,
+    //         'name' => $counterparty ?: 'Budget',
+    //         'amount' => $avgAmount,
+    //         'direction' => $direction,
+    //         'category_id' => $tx->category_id,
+    //         'bank_account_id' => $tx->bank_account_id,
+    //         'day_of_month' => $typicalDay,
+    //     ]));
+    //
+    //     $this->redirect(route('drip.budgets') . '?' . $params);
+    // }
 
     public function render()
     {

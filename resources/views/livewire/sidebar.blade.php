@@ -24,17 +24,6 @@
         </x-ui-sidebar-list>
     @endif
 
-    <x-ui-sidebar-list label="Analyse">
-        <x-ui-sidebar-item :href="route('drip.budgets')">
-            @svg('heroicon-o-calculator', 'w-4 h-4 text-[var(--ui-secondary)]')
-            <span class="ml-2 text-sm">Budgets</span>
-        </x-ui-sidebar-item>
-        <x-ui-sidebar-item :href="route('drip.liquidity')">
-            @svg('heroicon-o-chart-bar-square', 'w-4 h-4 text-[var(--ui-secondary)]')
-            <span class="ml-2 text-sm">Liquiditaet</span>
-        </x-ui-sidebar-item>
-    </x-ui-sidebar-list>
-
     <x-ui-sidebar-list label="Einstellungen">
         <x-ui-sidebar-item :href="route('drip.categories')">
             @svg('heroicon-o-tag', 'w-4 h-4 text-[var(--ui-secondary)]')
@@ -64,15 +53,6 @@
                     <span class="w-3 h-3 rounded-full" style="background-color: {{ $group->color ?? '#6B7280' }}"></span>
                 </a>
             @endforeach
-
-            <div class="border-t border-[var(--ui-border)] my-1"></div>
-
-            <a href="{{ route('drip.budgets') }}" wire:navigate class="flex items-center justify-center p-2 rounded-md text-[var(--ui-secondary)] hover:bg-[var(--ui-muted-5)]">
-                @svg('heroicon-o-calculator', 'w-5 h-5')
-            </a>
-            <a href="{{ route('drip.liquidity') }}" wire:navigate class="flex items-center justify-center p-2 rounded-md text-[var(--ui-secondary)] hover:bg-[var(--ui-muted-5)]">
-                @svg('heroicon-o-chart-bar-square', 'w-5 h-5')
-            </a>
 
             <div class="border-t border-[var(--ui-border)] my-1"></div>
 
