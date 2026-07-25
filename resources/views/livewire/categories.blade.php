@@ -3,8 +3,49 @@
         <x-ui-page-navbar title="Kategorien" icon="heroicon-o-tag" />
     </x-slot>
 
+    @php
+        $dot = fn ($c) => $c ? (str_starts_with($c, '#') ? $c : 'var(--nx-tone-' . $c . ')') : 'var(--nx-tone-slate)';
+        $money = fn ($v) => number_format($v, 0, ',', '.') . ' €';
+        $groupMeta = ['credit' => ['Einnahmen', 'heroicon-o-arrow-down-left'], 'debit' => ['Ausgaben', 'heroicon-o-arrow-up-right'], 'both' => ['Beides', 'heroicon-o-arrows-right-left']];
+    @endphp
+
+    {{-- LINKS: Kategorie-Baum als Navigation --}}
     <x-slot name="sidebar">
-        @include('drip::partials.inner-sidebar')
+        <x-ui-page-sidebar title="Kategorien" icon="heroicon-o-tag" width="w-72" :defaultOpen="true" side="left" storeKey="dripCategoryTree">
+            <div class="flex h-full flex-col">
+                <div class="flex-1 overflow-y-auto p-2">
+                    @foreach ($groupMeta as $dir => [$title, $icon])
+                        @php $nodes = $groups[$dir] ?? []; @endphp
+                        @if (count($nodes) > 0)
+                            <div class="px-2 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wide text-[color:var(--nx-faint)]">{{ $title }}</div>
+                            @foreach ($nodes as $node)
+                                @php $cat = $node['cat']; @endphp
+                                <button type="button" wire:click="selectCategory({{ $cat->id }})"
+                                    class="group flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-[color:var(--nx-hover)] {{ $selectedCategoryId === $cat->id ? 'bg-[color:var(--nx-hover)]' : '' }}">
+                                    <span class="h-2.5 w-2.5 shrink-0 rounded-full" style="background-color: {{ $dot($cat->color) }}"></span>
+                                    <span class="min-w-0 flex-1 truncate text-sm text-[color:var(--nx-text)]">{{ $cat->name }}</span>
+                                    <span class="shrink-0 text-[11px] tabular-nums text-[color:var(--nx-faint)]">{{ $node['total_cnt'] }}</span>
+                                </button>
+                                @foreach ($node['children'] as $child)
+                                    @php $cc = $child['cat']; @endphp
+                                    <button type="button" wire:click="selectCategory({{ $cc->id }})"
+                                        class="group flex w-full items-center gap-2 rounded-md py-1.5 pl-6 pr-2 text-left transition-colors hover:bg-[color:var(--nx-hover)] {{ $selectedCategoryId === $cc->id ? 'bg-[color:var(--nx-hover)]' : '' }}">
+                                        <span class="h-2 w-2 shrink-0 rounded-full" style="background-color: {{ $dot($cc->color) }}"></span>
+                                        <span class="min-w-0 flex-1 truncate text-sm text-[color:var(--nx-muted)]">{{ $cc->name }}</span>
+                                        <span class="shrink-0 text-[11px] tabular-nums text-[color:var(--nx-faint)]">{{ $child['cnt'] }}</span>
+                                    </button>
+                                @endforeach
+                            @endforeach
+                        @endif
+                    @endforeach
+                </div>
+                <div class="border-t border-[color:var(--nx-line)] p-2">
+                    <x-nx-button variant="secondary" class="w-full justify-center" wire:click="create">
+                        @svg('heroicon-o-plus', 'w-4 h-4') Neue Kategorie
+                    </x-nx-button>
+                </div>
+            </div>
+        </x-ui-page-sidebar>
     </x-slot>
 
     <x-slot name="actionbar">
@@ -22,96 +63,118 @@
                     @endforeach
                 </div>
             </x-slot>
-
-            <x-nx-button variant="primary" wire:click="create">
-                @svg('heroicon-o-plus', 'w-4 h-4')
-                Neue Kategorie
-            </x-nx-button>
         </x-ui-page-actionbar>
     </x-slot>
 
-    @php
-        $dot = fn ($c) => $c ? (str_starts_with($c, '#') ? $c : 'var(--nx-tone-' . $c . ')') : 'var(--nx-tone-slate)';
-        $money = fn ($v) => number_format($v, 0, ',', '.') . ' €';
-        $groupMeta = ['credit' => ['Einnahmen', 'heroicon-o-arrow-down-left'], 'debit' => ['Ausgaben', 'heroicon-o-arrow-up-right'], 'both' => ['Beides', 'heroicon-o-arrows-right-left']];
-    @endphp
-
+    {{-- MITTE: Transaktionen der gewählten Kategorie --}}
     <x-ui-page-container width="contained">
 
-        {{-- Deckungsgrad --}}
-        <x-nx-stat-grid cols="3">
-            <x-nx-stat label="Kategorisiert" :value="$coverage['pct'] . ' %'" :hint="$coverage['categorized'] . ' von ' . $coverage['total'] . ' Transaktionen'" icon="heroicon-o-check-circle" />
-            <x-nx-stat label="Unkategorisiert" :value="(string) $coverage['uncategorized']" hint="noch offen" icon="heroicon-o-question-mark-circle" />
-            <x-nx-stat label="Kategorien" :value="(string) ($rootCategories->count())" hint="Hauptkategorien" icon="heroicon-o-tag" />
-        </x-nx-stat-grid>
+        @if (! $selected)
+            {{-- Startbild: Deckungsgrad --}}
+            <x-nx-stat-grid cols="3">
+                <x-nx-stat label="Kategorisiert" :value="$coverage['pct'] . ' %'" :hint="$coverage['categorized'] . ' von ' . $coverage['total'] . ' Transaktionen'" icon="heroicon-o-check-circle" />
+                <x-nx-stat label="Unkategorisiert" :value="(string) $coverage['uncategorized']" hint="noch offen" icon="heroicon-o-question-mark-circle" />
+                <x-nx-stat label="Kategorien" :value="(string) ($rootCategories->count())" hint="Hauptkategorien" icon="heroicon-o-tag" />
+            </x-nx-stat-grid>
 
-        {{-- Gruppen nach Richtung --}}
-        @php $hasAny = collect($groups)->flatten(1)->isNotEmpty(); @endphp
-
-        @if (! $hasAny)
-            <x-nx-empty icon="heroicon-o-tag">
-                Noch keine Kategorien angelegt.
-                <x-slot name="action">
-                    <x-nx-button variant="primary" wire:click="create">Erste Kategorie anlegen</x-nx-button>
-                </x-slot>
+            <x-nx-empty icon="heroicon-o-cursor-arrow-rays">
+                Wähle links eine Kategorie, um ihre Transaktionen zu sehen.
             </x-nx-empty>
-        @endif
+        @else
+            {{-- Kopf der gewählten Kategorie --}}
+            <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+                <div class="flex items-center gap-3">
+                    <span class="h-3.5 w-3.5 shrink-0 rounded-full" style="background-color: {{ $dot($selected->color) }}"></span>
+                    <h1 class="text-2xl font-semibold tracking-tight text-[color:var(--nx-text)]">{{ $selected->name }}</h1>
+                    <span class="text-sm text-[color:var(--nx-muted)]">{{ $selectedCount }} Transaktionen</span>
+                    @if ($selected->default_tax_rate !== null)
+                        <x-nx-badge variant="neutral">{{ (int) $selected->default_tax_rate }} % USt</x-nx-badge>
+                    @endif
+                </div>
+                <x-nx-button variant="secondary" wire:click="edit({{ $selected->id }})">
+                    @svg('heroicon-o-pencil-square', 'w-4 h-4') Bearbeiten
+                </x-nx-button>
+            </div>
 
-        @foreach ($groupMeta as $dir => [$title, $icon])
-            @php $nodes = $groups[$dir] ?? []; @endphp
-            @if (count($nodes) > 0)
-                @php $groupVol = collect($nodes)->sum('total_vol'); @endphp
-                <x-nx-section :title="$title" :icon="$icon" :hint="$money($groupVol)">
-                    <x-nx-card flush>
-                        <ul class="divide-y divide-[color:var(--nx-line)]">
-                            @foreach ($nodes as $node)
-                                @php $cat = $node['cat']; @endphp
-                                {{-- Hauptkategorie --}}
-                                <li>
-                                    <button type="button" wire:click="edit({{ $cat->id }})"
-                                        class="group flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-[color:var(--nx-hover)] {{ $editingId === $cat->id ? 'bg-[color:var(--nx-hover)]' : '' }}">
-                                        <span class="h-2.5 w-2.5 shrink-0 rounded-full" style="background-color: {{ $dot($cat->color) }}"></span>
-                                        <span class="min-w-0 flex-1 truncate text-sm font-medium text-[color:var(--nx-text)]">{{ $cat->name }}</span>
-                                        @if ($cat->default_tax_rate !== null)
-                                            <x-nx-badge variant="neutral">{{ (int) $cat->default_tax_rate }} % USt</x-nx-badge>
-                                        @endif
-                                        <span class="shrink-0 text-xs tabular-nums text-[color:var(--nx-faint)]">{{ $node['total_cnt'] }}×</span>
-                                        <span class="w-28 shrink-0 text-right text-sm font-medium tabular-nums text-[color:var(--nx-text)]">{{ $money($node['total_vol']) }}</span>
-                                    </button>
-                                </li>
-                                {{-- Unterkategorien --}}
-                                @foreach ($node['children'] as $child)
-                                    @php $cc = $child['cat']; @endphp
-                                    <li>
-                                        <button type="button" wire:click="edit({{ $cc->id }})"
-                                            class="group flex w-full items-center gap-3 py-2 pl-10 pr-4 text-left transition-colors hover:bg-[color:var(--nx-hover)] {{ $editingId === $cc->id ? 'bg-[color:var(--nx-hover)]' : '' }}">
-                                            <span class="h-2 w-2 shrink-0 rounded-full" style="background-color: {{ $dot($cc->color) }}"></span>
-                                            <span class="min-w-0 flex-1 truncate text-sm text-[color:var(--nx-muted)]">{{ $cc->name }}</span>
-                                            @if ($cc->default_tax_rate !== null)
-                                                <x-nx-badge variant="neutral">{{ (int) $cc->default_tax_rate }} % USt</x-nx-badge>
-                                            @endif
-                                            <span class="shrink-0 text-xs tabular-nums text-[color:var(--nx-faint)]">{{ $child['cnt'] }}×</span>
-                                            <span class="w-28 shrink-0 text-right text-sm tabular-nums text-[color:var(--nx-muted)]">{{ $money($child['vol']) }}</span>
-                                        </button>
-                                    </li>
-                                @endforeach
-                            @endforeach
-                        </ul>
-                    </x-nx-card>
-                </x-nx-section>
+            {{-- Lern-Feedback --}}
+            @if($learnResult)
+                <x-nx-callout variant="success" icon="heroicon-o-check-circle">{{ $learnResult }}</x-nx-callout>
             @endif
-        @endforeach
+            @if($learnSuggestion)
+                <x-nx-callout variant="info" icon="heroicon-o-sparkles" title="Gleiche Gegenpartei zuordnen?">
+                    <span class="font-medium">{{ $learnSuggestion['count'] }}</span> weitere unkategorisierte Transaktion(en) von
+                    <span class="font-medium">„{{ \Illuminate\Support\Str::limit($learnSuggestion['counterparty'], 40) }}"</span>
+                    könnten ebenfalls <span class="font-medium">{{ $learnSuggestion['category_name'] }}</span> sein.
+                    <x-slot name="action">
+                        <div class="flex items-center gap-2">
+                            <x-nx-button variant="primary" size="sm" wire:click="applyLearnToAll">Alle zuordnen</x-nx-button>
+                            <x-nx-button variant="secondary" size="sm" wire:click="applyLearnAndRemember">+ Regel merken</x-nx-button>
+                            <x-nx-button variant="ghost" size="sm" wire:click="dismissLearn">Verwerfen</x-nx-button>
+                        </div>
+                    </x-slot>
+                </x-nx-callout>
+            @endif
+
+            {{-- Transaktionsliste --}}
+            @if (count($transactions) > 0)
+                <x-nx-card flush>
+                    <x-nx-table>
+                        <x-nx-table-header>
+                            <x-nx-table-header-cell>Datum</x-nx-table-header-cell>
+                            <x-nx-table-header-cell>Gegenpartei</x-nx-table-header-cell>
+                            <x-nx-table-header-cell>Konto</x-nx-table-header-cell>
+                            <x-nx-table-header-cell>Kategorie</x-nx-table-header-cell>
+                            <x-nx-table-header-cell align="right">Betrag</x-nx-table-header-cell>
+                        </x-nx-table-header>
+                        <x-nx-table-body>
+                            @foreach ($transactions as $t)
+                                <x-nx-table-row wire:key="tx-{{ $t->id }}">
+                                    <x-nx-table-cell>
+                                        <a href="{{ route('drip.transactions.show', $t) }}" wire:navigate class="text-[color:var(--nx-muted)] hover:text-[color:var(--nx-text)]">
+                                            {{ $t->booked_at?->format('d.m.Y') ?? '-' }}
+                                        </a>
+                                    </x-nx-table-cell>
+                                    <x-nx-table-cell>
+                                        <span class="text-[color:var(--nx-text)]">{{ $t->counterparty_name ?? '(unbekannt)' }}</span>
+                                    </x-nx-table-cell>
+                                    <x-nx-table-cell>
+                                        <span class="text-[color:var(--nx-muted)]">{{ $t->bankAccount->name ?? '-' }}</span>
+                                    </x-nx-table-cell>
+                                    <x-nx-table-cell>
+                                        <x-nx-input-select size="sm" :options="$categoryOptions" :value="$t->category_id"
+                                            wire:change="updateTransactionCategory({{ $t->id }}, $event.target.value)" />
+                                    </x-nx-table-cell>
+                                    <x-nx-table-cell align="right">
+                                        <span class="font-medium tabular-nums {{ $t->direction === 'credit' ? 'text-green-600' : 'text-red-600' }}">
+                                            {{ $t->direction === 'credit' ? '+' : '-' }}{{ number_format(abs((float) $t->amount), 2, ',', '.') }} {{ $t->currency }}
+                                        </span>
+                                    </x-nx-table-cell>
+                                </x-nx-table-row>
+                            @endforeach
+                        </x-nx-table-body>
+                    </x-nx-table>
+                </x-nx-card>
+
+                @if ($selectedCount > count($transactions))
+                    <div class="mt-4 text-center">
+                        <x-nx-button variant="secondary" wire:click="loadMore">Weitere laden ({{ count($transactions) }} / {{ $selectedCount }})</x-nx-button>
+                    </div>
+                @endif
+            @else
+                <x-nx-empty icon="heroicon-o-banknotes">Keine Transaktionen in dieser Kategorie.</x-nx-empty>
+            @endif
+        @endif
 
     </x-ui-page-container>
 
-    {{-- Peek-Panel rechts: Anlegen/Bearbeiten --}}
+    {{-- RECHTS: Edit-Peek-Panel --}}
     <x-slot name="activity">
-        <x-ui-page-sidebar title="Kategorie" icon="heroicon-o-pencil-square" width="w-80" side="right" :defaultOpen="true" storeKey="dripCategoryPanel">
+        <x-ui-page-sidebar title="Kategorie" icon="heroicon-o-pencil-square" width="w-80" side="right" :defaultOpen="false" storeKey="dripCategoryPanel">
             <div class="p-4">
                 @if (! $panelOpen)
                     <div class="flex flex-col items-center gap-3 py-10 text-center">
-                        @svg('heroicon-o-cursor-arrow-rays', 'w-8 h-8 text-[color:var(--nx-faint)]')
-                        <p class="text-sm text-[color:var(--nx-muted)]">Wähle eine Kategorie zum Bearbeiten oder lege eine neue an.</p>
+                        @svg('heroicon-o-pencil-square', 'w-8 h-8 text-[color:var(--nx-faint)]')
+                        <p class="text-sm text-[color:var(--nx-muted)]">„Bearbeiten" öffnet hier das Formular, oder lege eine neue Kategorie an.</p>
                         <x-nx-button variant="secondary" wire:click="create">
                             @svg('heroicon-o-plus', 'w-4 h-4') Neue Kategorie
                         </x-nx-button>
@@ -124,7 +187,6 @@
 
                         <x-nx-input-text name="cat_name" label="Name" wire:model="form.name" placeholder="z. B. Software & Tools" required errorKey="form.name" />
 
-                        {{-- Tone-Farbwähler --}}
                         <div>
                             <div class="mb-1 text-xs font-medium text-[color:var(--nx-text)]">Farbe</div>
                             <div class="flex flex-wrap items-center gap-2">
