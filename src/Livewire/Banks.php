@@ -141,6 +141,7 @@ class Banks extends Component
         ]);
 
         $data = $this->groupForm;
+        $data['team_id'] = (int) auth()->user()?->current_team_id; // serverseitig, nie aus dem Formular
         BankAccountGroup::create($data);
         $this->groupForm = ['name' => '', 'color' => null];
         $this->showGroupModal = false;
@@ -148,15 +149,19 @@ class Banks extends Component
 
     public function saveAccount(): void
     {
+        $teamId = (int) auth()->user()?->current_team_id;
+
         $this->validate([
             'accountForm.name' => ['required', 'string', 'max:255'],
             'accountForm.iban' => ['nullable', 'string', 'max:255'],
             'accountForm.currency' => ['required', 'string', 'size:3'],
             'accountForm.institution_id' => ['nullable', Rule::exists('drip_institutions', 'id')],
-            'accountForm.group_id' => ['nullable', Rule::exists('drip_bank_account_groups', 'id')],
+            // group_id nur aus dem EIGENEN Team zulassen (kein teamübergreifendes Zuweisen).
+            'accountForm.group_id' => ['nullable', Rule::exists('drip_bank_account_groups', 'id')->where('team_id', $teamId)],
         ]);
 
         $data = $this->accountForm;
+        $data['team_id'] = $teamId; // serverseitig, nie aus dem Formular
         $data['provider'] = 'manual';
         BankAccount::create($data);
         $this->accountForm = ['name' => '', 'iban' => '', 'currency' => 'EUR', 'institution_id' => null, 'group_id' => null];
@@ -171,15 +176,20 @@ class Banks extends Component
 
     public function assignToGroup($groupId)
     {
+        $teamId = (int) auth()->user()?->current_team_id;
+
         if ($this->selectedAccountId) {
-            $account = BankAccount::find($this->selectedAccountId);
-            if ($account) {
-                $account->update(['group_id' => $groupId]);
+            // Konto UND Ziel-Gruppe müssen dem eigenen Team gehören (IDOR-Schutz).
+            $account = BankAccount::forTeam($teamId)->find($this->selectedAccountId);
+            $group = $groupId ? BankAccountGroup::forTeam($teamId)->find($groupId) : null;
+
+            if ($account && ($group || $groupId === null)) {
+                $account->update(['group_id' => $group?->id]);
                 // Normalisierung nach Gruppenwechsel anstoßen
                 app(TransactionService::class)->normalizeAccounts((int) $account->team_id, [$account->id], null);
             }
         }
-        
+
         $this->showGroupSelectionModal = false;
         $this->selectedAccountId = null;
     }

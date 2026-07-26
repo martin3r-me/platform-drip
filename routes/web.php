@@ -21,9 +21,18 @@ Route::get('/transactions/{transaction}/receipt', function (
     $file = $receipts->firstFileContent($transaction);
     abort_if(!$file, 404, 'Kein Beleg gefunden.');
 
+    // Content-Type auf erwartete Belegtypen begrenzen (PDF/Bild), sonst neutral.
+    $mime = $file['mime'] ?? 'application/octet-stream';
+    if ($mime !== 'application/pdf' && !str_starts_with($mime, 'image/')) {
+        $mime = 'application/octet-stream';
+    }
+
+    // Dateiname für den Header sanitizen (kein CRLF/Quote → keine Header-Injection).
+    $safeName = preg_replace('/[^\w.\- ]+/u', '_', $file['filename'] ?? 'beleg') ?: 'beleg';
+
     return response(base64_decode($file['data_base64']))
-        ->header('Content-Type', $file['mime'] ?? 'application/octet-stream')
-        ->header('Content-Disposition', 'inline; filename="' . addslashes($file['filename'] ?? 'beleg') . '"');
+        ->header('Content-Type', $mime)
+        ->header('Content-Disposition', 'inline; filename="' . $safeName . '"');
 })->name('drip.transactions.receipt');
 
 // GoCardless Callback

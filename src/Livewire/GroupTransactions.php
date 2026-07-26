@@ -27,6 +27,8 @@ class GroupTransactions extends Component
 
     public function mount(BankAccountGroup $group)
     {
+        abort_unless((int) $group->team_id === (int) auth()->user()->current_team_id, 403);
+
         $this->group = $group;
     }
 
