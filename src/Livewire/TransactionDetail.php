@@ -32,7 +32,12 @@ class TransactionDetail extends Component
     public ?int $gegenparteiEntityId = null;
     public ?string $gegenparteiResult = null;
 
-    public function mount(BankTransaction $transaction, KontierungService $kontierung, GegenparteiService $gegenpartei)
+    /** MOSS-Beleg: Live geprüft (Datei existiert wirklich in MOSS, nicht nur Status-Snapshot). */
+    public bool $isMossReceipt = false;
+    public bool $mossHasReceipt = false;
+    public ?string $mossReceiptStatus = null;
+
+    public function mount(BankTransaction $transaction, KontierungService $kontierung, GegenparteiService $gegenpartei, MossReceiptService $mossReceipts)
     {
         abort_unless($transaction->team_id === auth()->user()->current_team_id, 403);
 
@@ -51,6 +56,15 @@ class TransactionDetail extends Component
         $this->resolvedGegenpartei = $gegenpartei->forTransaction((int) $transaction->id);
         if (!$this->resolvedGegenpartei && $this->counterpartyIban) {
             $this->gegenparteiSuggestion = $gegenpartei->resolveIban($this->counterpartyIban, (int) $transaction->team_id);
+        }
+
+        // MOSS-Beleg: einmalig LIVE prüfen (der gespeicherte receiptStatus ist
+        // nur ein Snapshot vom letzten Sync und veraltet schnell). Der Status
+        // dient als Zusatz-Hinweis, maßgeblich ist die echte Datei.
+        $this->isMossReceipt = $mossReceipts->isMossTransaction($transaction);
+        if ($this->isMossReceipt) {
+            $this->mossReceiptStatus = $mossReceipts->receiptStatus($transaction);
+            $this->mossHasReceipt = count($mossReceipts->files($transaction)) > 0;
         }
     }
 
@@ -202,7 +216,7 @@ class TransactionDetail extends Component
         $this->learnSuggestion = null;
     }
 
-    public function render(KontierungService $kontierung, GegenparteiService $gegenpartei, MossReceiptService $mossReceipts)
+    public function render(KontierungService $kontierung, GegenparteiService $gegenpartei)
     {
         $teamId = (int) auth()->user()->current_team_id;
 
@@ -216,17 +230,11 @@ class TransactionDetail extends Component
         // (manuelle Auswahl geht auch ohne IBAN, z. B. Kartenzahlung).
         $needsGegenparteiPicker = $this->gegenparteiAvailable && !$this->resolvedGegenpartei;
 
-        // MOSS-Beleg: Status aus dem gespeicherten Metadata (kein API-Call).
-        $isMoss = $mossReceipts->isMossTransaction($this->transaction);
-
         return view('drip::livewire.transaction-detail', [
             'categories' => $categories,
             'kontierungOptions' => $this->kontierungAvailable ? $kontierung->recipientOptions() : [],
             'kontierungSum' => $kontierungSum,
             'gegenparteiOptions' => $needsGegenparteiPicker ? $gegenpartei->entityOptions($teamId) : [],
-            'isMossReceipt' => $isMoss,
-            'mossReceiptStatus' => $isMoss ? $mossReceipts->receiptStatus($this->transaction) : null,
-            'mossHasReceipt' => $isMoss && $mossReceipts->hasReceipt($this->transaction),
         ])->layout('platform::layouts.app');
     }
 }
