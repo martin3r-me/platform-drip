@@ -5,6 +5,7 @@ namespace Platform\Drip\Livewire;
 use Livewire\Component;
 use Platform\Drip\Models\BankTransaction;
 use Platform\Drip\Models\BankTransactionCategory;
+use Platform\Drip\Services\CategorizationService;
 
 /**
  * Posteingang: Triage der unkategorisierten Transaktionen. Jede TX wird
@@ -19,6 +20,10 @@ class Posteingang extends Component
     public bool $showSkipped = false;
 
     public ?string $result = null;
+
+    /** Vorschlag nach manueller Zuordnung: gleiche Gegenpartei mitziehen. */
+    public ?array $learnSuggestion = null;
+    public ?string $learnResult = null;
 
     public function updatedShowSkipped(): void
     {
@@ -46,10 +51,57 @@ class Posteingang extends Component
     /** Kategorie zuweisen (räumt ein evtl. gesetztes Park-Flag ab). */
     public function assign(int $transactionId, $categoryId): void
     {
-        $this->find($transactionId)->update([
-            'category_id' => $categoryId ?: null,
-            'category_skipped' => false,
-        ]);
+        $tx = $this->find($transactionId);
+        $categoryId = $categoryId ?: null;
+        $tx->update(['category_id' => $categoryId, 'category_skipped' => false]);
+        $tx->refresh();
+
+        // Mitlernen: gleiche Gegenpartei + Richtung noch unkategorisiert? → anbieten.
+        $this->learnSuggestion = null;
+        $this->learnResult = null;
+        if ($categoryId && $tx->counterparty_name) {
+            $count = app(CategorizationService::class)->countUncategorizedForCounterparty($tx);
+            if ($count > 0) {
+                $category = BankTransactionCategory::forTeam($this->teamId())->find($categoryId);
+                $this->learnSuggestion = [
+                    'counterparty' => $tx->counterparty_name,
+                    'hash' => $tx->counterparty_name_hash,
+                    'direction' => $tx->direction,
+                    'category_id' => (int) $categoryId,
+                    'category_name' => $category?->name ?? '',
+                    'count' => $count,
+                ];
+            }
+        }
+    }
+
+    public function applyLearnToAll(): void
+    {
+        if (!$this->learnSuggestion) {
+            return;
+        }
+        $s = $this->learnSuggestion;
+        $n = app(CategorizationService::class)->applyToCounterparty($this->teamId(), $s['hash'], $s['category_id'], true, $s['direction'] ?? null);
+        $this->learnSuggestion = null;
+        $this->learnResult = "{$n} weitere Transaktion(en) von „{$s['counterparty']}\" zugeordnet.";
+    }
+
+    public function applyLearnAndRemember(): void
+    {
+        if (!$this->learnSuggestion) {
+            return;
+        }
+        $s = $this->learnSuggestion;
+        $service = app(CategorizationService::class);
+        $service->createCounterpartyRule($this->teamId(), $s['counterparty'], $s['category_id'], auth()->id(), $s['direction'] ?? null);
+        $n = $service->applyToCounterparty($this->teamId(), $s['hash'], $s['category_id'], true, $s['direction'] ?? null);
+        $this->learnSuggestion = null;
+        $this->learnResult = "Regel für „{$s['counterparty']}\" angelegt und {$n} Transaktion(en) zugeordnet.";
+    }
+
+    public function dismissLearn(): void
+    {
+        $this->learnSuggestion = null;
     }
 
     /** Bewusst offen lassen → raus aus dem Posteingang. */
