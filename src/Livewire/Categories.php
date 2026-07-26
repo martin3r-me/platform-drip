@@ -218,16 +218,27 @@ class Categories extends Component
         if ($this->selectedCategoryId) {
             $selected = BankTransactionCategory::forTeam($teamId)->find($this->selectedCategoryId);
             if ($selected) {
+                // Eine Elternkategorie umfasst ihre eigenen TX PLUS die der
+                // Unterkategorien — sonst wirkt der Parent leer, weil die TX auf
+                // den Kindern liegen.
+                $categoryIds = array_merge(
+                    [$selected->id],
+                    BankTransactionCategory::forTeam($teamId)
+                        ->where('parent_id', $selected->id)
+                        ->pluck('id')
+                        ->all()
+                );
+
                 $selectedCount = BankTransaction::where('team_id', $teamId)
-                    ->where('category_id', $selected->id)
+                    ->whereIn('category_id', $categoryIds)
                     ->counted()
                     ->count();
                 $disregardedCount = BankTransaction::where('team_id', $teamId)
-                    ->where('category_id', $selected->id)
+                    ->whereIn('category_id', $categoryIds)
                     ->disregarded()
                     ->count();
                 $transactions = BankTransaction::where('team_id', $teamId)
-                    ->where('category_id', $selected->id)
+                    ->whereIn('category_id', $categoryIds)
                     ->when(! $this->showDisregarded, fn ($q) => $q->counted())
                     ->with('bankAccount')
                     ->orderByDesc('booked_at')
