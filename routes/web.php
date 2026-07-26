@@ -11,6 +11,21 @@ Route::get('/rules', Platform\Drip\Livewire\Rules::class)->name('drip.rules');
 Route::get('/invoices', Platform\Drip\Livewire\Invoices::class)->name('drip.invoices');
 Route::get('/transactions/{transaction}', Platform\Drip\Livewire\TransactionDetail::class)->name('drip.transactions.show');
 
+// MOSS-Beleg (PDF/Bild) einer Ausgaben-Transaktion streamen.
+Route::get('/transactions/{transaction}/receipt', function (
+    Platform\Drip\Models\BankTransaction $transaction,
+    Platform\Drip\Services\MossReceiptService $receipts
+) {
+    abort_unless($transaction->team_id === auth()->user()->current_team_id, 403);
+
+    $file = $receipts->firstFileContent($transaction);
+    abort_if(!$file, 404, 'Kein Beleg gefunden.');
+
+    return response(base64_decode($file['data_base64']))
+        ->header('Content-Type', $file['mime'] ?? 'application/octet-stream')
+        ->header('Content-Disposition', 'inline; filename="' . addslashes($file['filename'] ?? 'beleg') . '"');
+})->name('drip.transactions.receipt');
+
 // GoCardless Callback
 Route::get('/banks/callback', function () {
     $reference = request('ref');

@@ -8,6 +8,7 @@ use Platform\Drip\Models\BankTransactionCategory;
 use Platform\Drip\Services\CategorizationService;
 use Platform\Drip\Services\GegenparteiService;
 use Platform\Drip\Services\KontierungService;
+use Platform\Drip\Services\MossReceiptService;
 use Illuminate\Support\Carbon;
 
 class TransactionDetail extends Component
@@ -201,7 +202,7 @@ class TransactionDetail extends Component
         $this->learnSuggestion = null;
     }
 
-    public function render(KontierungService $kontierung, GegenparteiService $gegenpartei)
+    public function render(KontierungService $kontierung, GegenparteiService $gegenpartei, MossReceiptService $mossReceipts)
     {
         $teamId = (int) auth()->user()->current_team_id;
 
@@ -215,11 +216,17 @@ class TransactionDetail extends Component
         // (manuelle Auswahl geht auch ohne IBAN, z. B. Kartenzahlung).
         $needsGegenparteiPicker = $this->gegenparteiAvailable && !$this->resolvedGegenpartei;
 
+        // MOSS-Beleg: Status aus dem gespeicherten Metadata (kein API-Call).
+        $isMoss = $mossReceipts->isMossTransaction($this->transaction);
+
         return view('drip::livewire.transaction-detail', [
             'categories' => $categories,
             'kontierungOptions' => $this->kontierungAvailable ? $kontierung->recipientOptions() : [],
             'kontierungSum' => $kontierungSum,
             'gegenparteiOptions' => $needsGegenparteiPicker ? $gegenpartei->entityOptions($teamId) : [],
+            'isMossReceipt' => $isMoss,
+            'mossReceiptStatus' => $isMoss ? $mossReceipts->receiptStatus($this->transaction) : null,
+            'mossHasReceipt' => $isMoss && $mossReceipts->hasReceipt($this->transaction),
         ])->layout('platform::layouts.app');
     }
 }

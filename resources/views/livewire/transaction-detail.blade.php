@@ -204,6 +204,31 @@
             </x-nx-section>
         @endif
 
+        {{-- Beleg (MOSS-Ausgabe): Status aus Metadata, Datei live über den Connector --}}
+        @if($isMossReceipt)
+            <x-nx-section title="Beleg" icon="heroicon-o-paper-clip">
+                <x-nx-card>
+                    <x-nx-property-row icon="heroicon-o-document" label="MOSS-Beleg">
+                        @if($mossHasReceipt)
+                            <div class="flex flex-wrap items-center gap-2">
+                                <x-nx-badge variant="success" dot>vorhanden</x-nx-badge>
+                                <x-nx-button variant="secondary" size="sm" :href="route('drip.transactions.receipt', $transaction->id)" target="_blank">
+                                    @svg('heroicon-o-arrow-top-right-on-square', 'w-4 h-4') Beleg öffnen
+                                </x-nx-button>
+                            </div>
+                        @else
+                            <div class="flex flex-wrap items-center gap-2">
+                                <x-nx-badge variant="warning">fehlt</x-nx-badge>
+                                @if($mossReceiptStatus)
+                                    <span class="text-[11px] text-[color:var(--nx-faint)]">{{ $mossReceiptStatus }}</span>
+                                @endif
+                            </div>
+                        @endif
+                    </x-nx-property-row>
+                </x-nx-card>
+            </x-nx-section>
+        @endif
+
         {{-- Verwendungszweck --}}
         @if($transaction->reference || $transaction->remittance_information || $transaction->remittance_information_structured || $transaction->remittance_information_unstructured)
             <x-nx-section title="Verwendungszweck" icon="heroicon-o-chat-bubble-bottom-center-text">
