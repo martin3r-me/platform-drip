@@ -25,7 +25,7 @@ class Rules extends Component
             'formName' => ['required', 'string', 'max:255'],
             'formCategoryId' => ['required', 'integer', 'exists:drip_bank_transaction_categories,id'],
             'formMatchers' => ['required', 'array', 'min:1'],
-            'formMatchers.*.field' => ['required', 'string', 'in:counterparty_name,reference,creditor_name,amount,counterparty_iban,remittance_information'],
+            'formMatchers.*.field' => ['required', 'string', 'in:counterparty_name,reference,creditor_name,amount,counterparty_iban,remittance_information,direction'],
             'formMatchers.*.op' => ['required', 'string', 'in:contains,starts_with,equals,gte,lte'],
             'formMatchers.*.value' => ['required', 'string', 'max:500'],
             'formPriority' => ['required', 'integer', 'min:0', 'max:1000'],

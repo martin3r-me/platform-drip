@@ -233,6 +233,7 @@ class CategorizationService
             'amount' => abs((float) $tx->amount),
             'counterparty_iban' => $tx->counterparty_iban,
             'remittance_information' => $tx->remittance_information,
+            'direction' => $tx->direction, // 'credit' (rein) | 'debit' (raus)
             default => null,
         };
     }

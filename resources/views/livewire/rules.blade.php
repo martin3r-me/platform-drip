@@ -117,13 +117,14 @@
                                 <div class="space-y-2">
                                     @foreach ($formMatchers as $index => $matcher)
                                         <div class="flex items-start gap-1.5 rounded-md border border-[color:var(--nx-line)] bg-[color:var(--nx-hover)] p-2" wire:key="matcher-{{ $index }}">
-                                            <x-nx-input-select size="sm" wire:model="formMatchers.{{ $index }}.field" :options="[
+                                            <x-nx-input-select size="sm" wire:model.live="formMatchers.{{ $index }}.field" :options="[
                                                 ['value' => 'counterparty_name', 'label' => 'Gegenpartei'],
                                                 ['value' => 'creditor_name', 'label' => 'Kreditor'],
                                                 ['value' => 'reference', 'label' => 'Referenz'],
                                                 ['value' => 'remittance_information', 'label' => 'Verwendungszweck'],
                                                 ['value' => 'counterparty_iban', 'label' => 'IBAN'],
                                                 ['value' => 'amount', 'label' => 'Betrag'],
+                                                ['value' => 'direction', 'label' => 'Richtung (rein/raus)'],
                                             ]" />
                                             <x-nx-input-select size="sm" wire:model="formMatchers.{{ $index }}.op" :options="[
                                                 ['value' => 'contains', 'label' => 'enthält'],
@@ -133,7 +134,14 @@
                                                 ['value' => 'lte', 'label' => '≤'],
                                             ]" />
                                             <div class="flex-1 min-w-0">
-                                                <x-nx-input-text size="sm" wire:model="formMatchers.{{ $index }}.value" placeholder="Wert..." />
+                                                @if(($matcher['field'] ?? '') === 'direction')
+                                                    <x-nx-input-select size="sm" wire:model="formMatchers.{{ $index }}.value" :options="[
+                                                        ['value' => 'credit', 'label' => 'Eingang (rein)'],
+                                                        ['value' => 'debit', 'label' => 'Ausgang (raus)'],
+                                                    ]" />
+                                                @else
+                                                    <x-nx-input-text size="sm" wire:model="formMatchers.{{ $index }}.value" placeholder="Wert..." />
+                                                @endif
                                             </div>
                                             <x-nx-button variant="ghost" icon wire:click="removeMatcher({{ $index }})">
                                                 @svg('heroicon-o-x-mark', 'w-3.5 h-3.5')
