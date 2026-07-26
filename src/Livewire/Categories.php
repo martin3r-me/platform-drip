@@ -154,6 +154,7 @@ class Categories extends Component
                 $this->learnSuggestion = [
                     'counterparty' => $transaction->counterparty_name,
                     'hash' => $transaction->counterparty_name_hash,
+                    'direction' => $transaction->direction,
                     'category_id' => (int) $categoryId,
                     'category_name' => $category?->name ?? '',
                     'count' => $count,
@@ -168,7 +169,7 @@ class Categories extends Component
             return;
         }
         $s = $this->learnSuggestion;
-        $n = app(CategorizationService::class)->applyToCounterparty($this->teamId(), $s['hash'], $s['category_id']);
+        $n = app(CategorizationService::class)->applyToCounterparty($this->teamId(), $s['hash'], $s['category_id'], true, $s['direction'] ?? null);
         $this->learnSuggestion = null;
         $this->learnResult = "{$n} weitere Transaktion(en) von „{$s['counterparty']}\" zugeordnet.";
     }
@@ -180,8 +181,8 @@ class Categories extends Component
         }
         $s = $this->learnSuggestion;
         $service = app(CategorizationService::class);
-        $service->createCounterpartyRule($this->teamId(), $s['counterparty'], $s['category_id'], auth()->id());
-        $n = $service->applyToCounterparty($this->teamId(), $s['hash'], $s['category_id']);
+        $service->createCounterpartyRule($this->teamId(), $s['counterparty'], $s['category_id'], auth()->id(), $s['direction'] ?? null);
+        $n = $service->applyToCounterparty($this->teamId(), $s['hash'], $s['category_id'], true, $s['direction'] ?? null);
         $this->learnSuggestion = null;
         $this->learnResult = "Regel für „{$s['counterparty']}\" angelegt und {$n} Transaktion(en) zugeordnet.";
     }

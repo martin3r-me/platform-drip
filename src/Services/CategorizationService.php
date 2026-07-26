@@ -149,6 +149,7 @@ class CategorizationService
 
         return BankTransaction::where('team_id', $tx->team_id)
             ->where('counterparty_name_hash', $hash)
+            ->where('direction', $tx->direction) // richtungsscharf: rein/raus getrennt lernen
             ->whereNull('category_id')
             ->where('id', '!=', $tx->id)
             ->count();
@@ -159,10 +160,14 @@ class CategorizationService
      * Standardmäßig nur unkategorisierte (überschreibt keine bestehende Zuordnung).
      * Gibt die Anzahl aktualisierter Transaktionen zurück.
      */
-    public function applyToCounterparty(int $teamId, string $counterpartyHash, int $categoryId, bool $uncategorizedOnly = true): int
+    public function applyToCounterparty(int $teamId, string $counterpartyHash, int $categoryId, bool $uncategorizedOnly = true, ?string $direction = null): int
     {
         $query = BankTransaction::where('team_id', $teamId)
             ->where('counterparty_name_hash', $counterpartyHash);
+
+        if ($direction) {
+            $query->where('direction', $direction);
+        }
 
         if ($uncategorizedOnly) {
             $query->whereNull('category_id');
@@ -176,9 +181,15 @@ class CategorizationService
      * (idempotenter, eindeutiger Name). Priorität hoch, damit gelernte
      * Exakt-Regeln vor generischen contains-Regeln greifen.
      */
-    public function createCounterpartyRule(int $teamId, string $counterpartyName, int $categoryId, ?int $userId = null): RecurringPattern
+    public function createCounterpartyRule(int $teamId, string $counterpartyName, int $categoryId, ?int $userId = null, ?string $direction = null): RecurringPattern
     {
-        $base = 'Auto: ' . Str::limit($counterpartyName, 240, '');
+        $dirHint = match ($direction) {
+            'credit' => ' (rein)',
+            'debit' => ' (raus)',
+            default => '',
+        };
+
+        $base = 'Auto: ' . Str::limit($counterpartyName, 230, '') . $dirHint;
         $name = $base;
         $i = 2;
         while (RecurringPattern::forTeam($teamId)->where('name', $name)->exists()) {
@@ -186,11 +197,18 @@ class CategorizationService
             $i++;
         }
 
+        // Matcher: Gegenpartei exakt — bei gelernter Richtung zusätzlich die
+        // Richtung, damit dieselbe Gegenpartei je rein/raus getrennt landen kann.
+        $matchers = [['field' => 'counterparty_name', 'op' => 'equals', 'value' => $counterpartyName]];
+        if ($direction) {
+            $matchers[] = ['field' => 'direction', 'op' => 'equals', 'value' => $direction];
+        }
+
         return RecurringPattern::create([
             'team_id' => $teamId,
             'user_id' => $userId,
             'name' => $name,
-            'matchers' => [['field' => 'counterparty_name', 'op' => 'equals', 'value' => $counterpartyName]],
+            'matchers' => $matchers,
             'defaults' => ['category_id' => $categoryId],
             'bank_transaction_category_id' => $categoryId,
             'priority' => 10,

@@ -179,6 +179,7 @@ class TransactionDetail extends Component
                 $this->learnSuggestion = [
                     'counterparty' => $this->transaction->counterparty_name,
                     'hash' => $this->transaction->counterparty_name_hash,
+                    'direction' => $this->transaction->direction,
                     'category_id' => (int) $categoryId,
                     'category_name' => $category?->name ?? '',
                     'count' => $count,
@@ -194,7 +195,7 @@ class TransactionDetail extends Component
         }
         $teamId = (int) auth()->user()->current_team_id;
         $s = $this->learnSuggestion;
-        app(CategorizationService::class)->applyToCounterparty($teamId, $s['hash'], $s['category_id']);
+        app(CategorizationService::class)->applyToCounterparty($teamId, $s['hash'], $s['category_id'], true, $s['direction'] ?? null);
         $this->learnSuggestion = null;
     }
 
@@ -206,8 +207,8 @@ class TransactionDetail extends Component
         $teamId = (int) auth()->user()->current_team_id;
         $s = $this->learnSuggestion;
         $service = app(CategorizationService::class);
-        $service->createCounterpartyRule($teamId, $s['counterparty'], $s['category_id'], auth()->id());
-        $service->applyToCounterparty($teamId, $s['hash'], $s['category_id']);
+        $service->createCounterpartyRule($teamId, $s['counterparty'], $s['category_id'], auth()->id(), $s['direction'] ?? null);
+        $service->applyToCounterparty($teamId, $s['hash'], $s['category_id'], true, $s['direction'] ?? null);
         $this->learnSuggestion = null;
     }
 
