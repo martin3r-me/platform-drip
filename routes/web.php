@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Platform\Drip\Services\GoCardlessService;
 
 Route::get('/', Platform\Drip\Livewire\Dashboard::class)->name('drip.dashboard');
+Route::get('/inbox', Platform\Drip\Livewire\Posteingang::class)->name('drip.inbox');
 Route::get('/banks', Platform\Drip\Livewire\Banks::class)->name('drip.banks');
 Route::get('/groups/{group}', Platform\Drip\Livewire\GroupTransactions::class)->name('drip.groups.show');
 Route::get('/categories', Platform\Drip\Livewire\Categories::class)->name('drip.categories');

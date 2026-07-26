@@ -21,7 +21,7 @@ class BankTransaction extends Model
     protected $fillable = [
         'uuid', 'team_id', 'user_id', 'bank_account_id', 'category_id', 'recurring_pattern_id',
         'transaction_id', 'booking_date', 'booking_date_time', 'value_date', 'value_date_time', 'booked_at',
-        'amount', 'currency', 'direction', 'status', 'is_disregarded', 'metadata',
+        'amount', 'currency', 'direction', 'status', 'is_disregarded', 'category_skipped', 'metadata',
         'remittance_information', 'remittance_information_structured', 'remittance_information_structured_array',
         'remittance_information_unstructured', 'remittance_information_unstructured_array',
         'debtor_name', 'creditor_name', 'debtor_account_iban', 'creditor_account_iban',
@@ -37,6 +37,7 @@ class BankTransaction extends Model
 
     protected $casts = [
         'is_disregarded' => 'boolean',
+        'category_skipped' => 'boolean',
         'booked_at' => 'date',
         'booking_date' => 'date',
         'booking_date_time' => 'datetime',
@@ -163,6 +164,20 @@ class BankTransaction extends Model
     public function scopeDisregarded($query)
     {
         return $query->where('is_disregarded', true);
+    }
+
+    /** Posteingang: gezählte TX ohne Kategorie, die noch nicht bewusst geparkt wurden. */
+    public function scopeNeedsCategory($query)
+    {
+        return $query->where('is_disregarded', false)
+            ->where('category_skipped', false)
+            ->whereNull('category_id');
+    }
+
+    /** Bewusst ohne Kategorie geparkt (gesichtet, aber keine Kategorie gewollt). */
+    public function scopeCategorySkipped($query)
+    {
+        return $query->where('is_disregarded', false)->where('category_skipped', true);
     }
 }
 

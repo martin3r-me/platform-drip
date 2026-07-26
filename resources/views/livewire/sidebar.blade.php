@@ -23,6 +23,12 @@
     @endif
 
     <x-ui-sidebar-list label="Einstellungen">
+        @if(Route::has('drip.inbox'))
+            <x-ui-sidebar-item :href="route('drip.inbox')" :active="request()->routeIs('drip.inbox')">
+                @svg('heroicon-o-inbox', 'w-4 h-4 shrink-0')
+                <span class="text-sm">Posteingang</span>
+            </x-ui-sidebar-item>
+        @endif
         <x-ui-sidebar-item :href="route('drip.categories')" :active="request()->routeIs('drip.categories')">
             @svg('heroicon-o-tag', 'w-4 h-4 shrink-0')
             <span class="text-sm">Kategorien</span>

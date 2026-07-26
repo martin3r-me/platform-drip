@@ -11,6 +11,11 @@
         <x-nx-button variant="ghost" class="w-full justify-start" :href="route('drip.banks')" wire:navigate>
             @svg('heroicon-o-building-library', 'w-4 h-4') Banken verwalten
         </x-nx-button>
+        @if(Route::has('drip.inbox'))
+            <x-nx-button variant="ghost" class="w-full justify-start" :href="route('drip.inbox')" wire:navigate>
+                @svg('heroicon-o-inbox', 'w-4 h-4') Posteingang
+            </x-nx-button>
+        @endif
         <x-nx-button variant="ghost" class="w-full justify-start" :href="route('drip.categories')" wire:navigate>
             @svg('heroicon-o-tag', 'w-4 h-4') Kategorien
         </x-nx-button>

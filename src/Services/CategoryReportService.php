@@ -95,12 +95,20 @@ class CategoryReportService
             BankTransaction::where('team_id', $teamId)->counted()->whereNotNull('category_id'),
             $range
         )->count();
+        // Bewusst geparkte TX sind gesichtet → zählen als entschieden.
+        $skipped = $this->applyPeriod(
+            BankTransaction::where('team_id', $teamId)->categorySkipped(),
+            $range
+        )->count();
+
+        $decided = $categorized + $skipped;
 
         return [
             'total' => $total,
             'categorized' => $categorized,
-            'uncategorized' => max(0, $total - $categorized),
-            'pct' => $total > 0 ? (int) round($categorized / $total * 100) : 0,
+            'skipped' => $skipped,
+            'uncategorized' => max(0, $total - $decided), // echter Triage-Backlog
+            'pct' => $total > 0 ? (int) round($decided / $total * 100) : 0,
         ];
     }
 

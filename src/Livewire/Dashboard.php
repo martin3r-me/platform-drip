@@ -528,7 +528,7 @@ class Dashboard extends Component
         $alerts = [];
 
         $uncategorized = BankTransaction::where('team_id', $teamId)
-            ->whereNull('category_id')
+            ->needsCategory()
             ->where(function ($q) {
                 $q->where(function ($inner) {
                     $inner->whereNotNull('booked_at')
