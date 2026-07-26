@@ -22,7 +22,7 @@ class RulesToolCrud implements ToolContract, ToolMetadataContract
 
     public function getDescription(): string
     {
-        return 'CRUD /drip/rules - Verwaltet Auto-Kategorisierungsregeln. action=list (default), action=create (name + category_id + matchers required), action=update (rule_id + Felder), action=delete (rule_id), action=test (rule_id — zeigt Match-Count), action=apply (rule_id — wendet Regel auf unkategorisierte TXs an), action=apply_all (alle aktiven Regeln nach Priorität). Optional bei create/update: priority (höher gewinnt), is_active. Matcher-Format: [{"field":"counterparty_name","op":"contains","value":"DKV"}]. Felder: counterparty_name, reference, creditor_name, amount, counterparty_iban, remittance_information. Ops: contains, starts_with, equals, gte, lte.';
+        return 'CRUD /drip/rules - Verwaltet Auto-Kategorisierungsregeln. action=list (default), action=create (name + category_id + matchers required), action=update (rule_id + Felder), action=delete (rule_id), action=test (rule_id — zeigt Match-Count), action=apply (rule_id — wendet Regel auf unkategorisierte TXs an), action=apply_all (alle aktiven Regeln nach Priorität). Optional bei create/update: priority (höher gewinnt), is_active. Matcher-Format: [{"field":"counterparty_name","op":"contains","value":"DKV"}]. Felder: counterparty_name, reference, creditor_name, amount, counterparty_iban, remittance_information, direction (Werte credit=rein | debit=raus). Ops: contains, starts_with, equals, gte, lte.';
     }
 
     public function getSchema(): array
