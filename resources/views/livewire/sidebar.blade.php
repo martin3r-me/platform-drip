@@ -34,7 +34,7 @@
         @if(Route::has('drip.invoices'))
             <x-ui-sidebar-item :href="route('drip.invoices')" :active="request()->routeIs('drip.invoices')">
                 @svg('heroicon-o-receipt-percent', 'w-4 h-4 shrink-0')
-                <span class="text-sm">Belege</span>
+                <span class="text-sm">Offene Belege</span>
             </x-ui-sidebar-item>
         @endif
         <x-ui-sidebar-item :href="route('drip.banks')" :active="request()->routeIs('drip.banks')">

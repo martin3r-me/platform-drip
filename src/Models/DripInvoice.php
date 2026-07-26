@@ -20,7 +20,7 @@ class DripInvoice extends Model
     protected $table = 'drip_invoices';
 
     protected $fillable = [
-        'uuid', 'team_id', 'provider', 'external_id', 'number', 'type',
+        'uuid', 'team_id', 'provider', 'external_id', 'number', 'type', 'direction',
         'external_status', 'is_draft',
         'customer_external_id', 'customer_name', 'customer_iban',
         'amount_gross_cents', 'amount_net_cents', 'paid_amount_cents', 'currency',
@@ -96,6 +96,11 @@ class DripInvoice extends Model
     public function scopeOpen(Builder $query): Builder
     {
         return $query->where('match_status', 'open');
+    }
+
+    public function scopeDirection(Builder $query, string $direction): Builder
+    {
+        return $query->where('direction', $direction);
     }
 
     public function scopeMatched(Builder $query): Builder

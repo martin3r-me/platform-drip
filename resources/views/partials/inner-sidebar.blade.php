@@ -19,7 +19,7 @@
         </x-nx-button>
         @if(Route::has('drip.invoices'))
             <x-nx-button variant="ghost" class="w-full justify-start" :href="route('drip.invoices')" wire:navigate>
-                @svg('heroicon-o-receipt-percent', 'w-4 h-4') Belege
+                @svg('heroicon-o-receipt-percent', 'w-4 h-4') Offene Belege
             </x-nx-button>
         @endif
     </div>

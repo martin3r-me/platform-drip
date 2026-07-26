@@ -107,6 +107,7 @@ class InvoiceSyncService
             [
                 'number' => $doc['number'] ?? null,
                 'type' => $type,
+                'direction' => 'outgoing',
                 'external_status' => $doc['status'] ?? null,
                 'is_draft' => (bool) ($doc['is_draft'] ?? false),
                 'customer_external_id' => $doc['customer_id'] ?? null,

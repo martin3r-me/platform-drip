@@ -2,19 +2,29 @@
 
 namespace Platform\Drip\Livewire;
 
-use Illuminate\Support\Carbon;
 use Livewire\Component;
 use Platform\Core\Models\Team;
 use Platform\Drip\Models\DripInvoice;
 use Platform\Drip\Services\InvoiceMatchService;
 use Platform\Drip\Services\InvoiceSyncService;
 
+/**
+ * „Offene Belege" — Belege, die noch keine Bank-Transaktion haben.
+ * Provider- und richtungsagnostisch: Ausgangsbelege (Forderungen) und
+ * Eingangsbelege (Verbindlichkeiten) in einer Sicht. MOSS-Karten fallen
+ * systematisch raus (die Karte IST die Transaktion).
+ */
 class Invoices extends Component
 {
-    /** all | open | matched */
-    public string $filter = 'all';
+    /** open (= ohne TX) | matched (= zugeordnet) | all */
+    public string $filter = 'open';
 
     public ?string $syncResult = null;
+
+    private const DIRECTIONS = [
+        'outgoing' => 'Ausgang · Forderungen',
+        'incoming' => 'Eingang · Verbindlichkeiten',
+    ];
 
     public function updatedFilter(): void
     {
@@ -32,7 +42,7 @@ class Invoices extends Component
         $sync = $syncService->syncForTeam($team);
         $match = $matchService->matchForTeam($team);
 
-        $this->syncResult = "{$sync['synced']} Rechnungen gespiegelt · {$match['matched']} neu abgeglichen.";
+        $this->syncResult = "{$sync['synced']} Belege gespiegelt · {$match['matched']} neu zugeordnet.";
     }
 
     public function render()
@@ -48,31 +58,27 @@ class Invoices extends Component
 
         $invoices = $query->orderByDesc('document_date')->orderByDesc('number')->get();
 
-        $groups = $invoices
-            ->groupBy(fn ($i) => $i->month_key ?? '0000-00')
-            ->map(fn ($rows, $key) => [
+        // Nach Richtung gruppieren (Ausgang / Eingang), leere Sektionen weglassen.
+        $byDirection = $invoices->groupBy(fn ($i) => $i->direction ?: 'outgoing');
+
+        $sections = collect(self::DIRECTIONS)
+            ->map(fn ($label, $key) => [
                 'key' => $key,
-                'label' => $key !== '0000-00'
-                    ? Carbon::createFromFormat('Y-m', $key)->translatedFormat('F Y')
-                    : 'ohne Datum',
-                'invoices' => $rows,
-                'total' => $rows->sum('amount_gross_cents') / 100,
-                'matched' => $rows->where('match_status', 'matched')->sum('amount_gross_cents') / 100,
-                'open' => $rows->where('match_status', 'open')->sum('amount_gross_cents') / 100,
+                'label' => $label,
+                'invoices' => ($byDirection[$key] ?? collect())->values(),
+                'sum' => ($byDirection[$key] ?? collect())->sum('amount_gross_cents') / 100,
             ])
-            ->sortByDesc('key')
+            ->filter(fn ($s) => $s['invoices']->isNotEmpty())
             ->values();
 
-        $total = $invoices->sum('amount_gross_cents') / 100;
-        $matchedCount = $invoices->where('match_status', 'matched')->count();
-        $openSum = $invoices->where('match_status', 'open')->sum('amount_gross_cents') / 100;
+        // Kopf-KPIs beziehen sich auf „offen" (die eigentliche Worklist).
+        $openInvoices = $invoices->where('match_status', 'open');
 
         return view('drip::livewire.invoices', [
-            'groups' => $groups,
+            'sections' => $sections,
             'invoiceCount' => $invoices->count(),
-            'total' => $total,
-            'matchedCount' => $matchedCount,
-            'openSum' => $openSum,
+            'openCount' => $openInvoices->count(),
+            'openSum' => $openInvoices->sum('amount_gross_cents') / 100,
         ])->layout('platform::layouts.app');
     }
 }
