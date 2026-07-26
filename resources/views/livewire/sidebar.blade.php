@@ -31,6 +31,12 @@
             @svg('heroicon-o-funnel', 'w-4 h-4 shrink-0')
             <span class="text-sm">Regeln</span>
         </x-ui-sidebar-item>
+        @if(Route::has('drip.invoices'))
+            <x-ui-sidebar-item :href="route('drip.invoices')" :active="request()->routeIs('drip.invoices')">
+                @svg('heroicon-o-receipt-percent', 'w-4 h-4 shrink-0')
+                <span class="text-sm">Belege</span>
+            </x-ui-sidebar-item>
+        @endif
         <x-ui-sidebar-item :href="route('drip.banks')" :active="request()->routeIs('drip.banks')">
             @svg('heroicon-o-building-library', 'w-4 h-4 shrink-0')
             <span class="text-sm">Banken</span>
