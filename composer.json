@@ -14,6 +14,11 @@
             "Platform\\Drip\\": "src/"
         }
     },
+    "autoload-dev": {
+        "psr-4": {
+            "Platform\\Drip\\Tests\\": "tests/"
+        }
+    },
     "extra": {
         "laravel": {
             "providers": [

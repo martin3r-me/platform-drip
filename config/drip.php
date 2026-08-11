@@ -19,6 +19,32 @@ return [
         'order' => 50,
     ],
     // Sidebar wird über die Modul-eigene Sidebar-Komponente gerendert
+
+    /**
+     * Abgleich Bank-Eingang ↔ Ausgangsrechnung.
+     *
+     * Hier steht bewusst KEIN Nummernkreis: welche Zahl eine Belegnummer ist,
+     * entscheidet der Abgleich gegen das echte Belegbuch (drip_invoices), nicht
+     * ein Muster wie „4100…". So überlebt die Erkennung einen Wechsel des
+     * Nummernkreises zum Jahreswechsel oder ein neues Rechnungstool.
+     */
+    'invoice_matching' => [
+        /**
+         * Kategorien, zu denen es systematisch keine Ausgangsrechnung gibt.
+         * Solche Eingänge werden als „belegfrei" markiert statt dauerhaft als
+         * Lücke in der Worklist zu stehen. Abgleich case-insensitiv gegen den
+         * Kategorienamen.
+         */
+        'no_invoice_categories' => [
+            'Steuern & Abgaben',
+            'Zinsen',
+            'Bankgebühren',
+            'Ausleihungen BROICH.CATERING',
+            'Zuschüsse',
+            'Privateinlage',
+        ],
+    ],
+
     'billables' => [
         [
             'model' => \Platform\Drip\Models\BankAccount::class,

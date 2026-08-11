@@ -42,7 +42,8 @@ class SyncInvoicesCommand extends Command
 
             if (!$this->option('no-match')) {
                 $match = $matchService->matchForTeam($team);
-                $this->info("   Abgeglichen: {$match['matched']} von {$match['checked']} offenen.");
+                $this->info("   Zuordnungen: {$match['allocations']} · vollständig bezahlt: {$match['matched']} von {$match['checked']}");
+                $this->info("   Eingänge ohne Beleg-Erwartung: {$match['no_invoice']}");
             }
         }
 

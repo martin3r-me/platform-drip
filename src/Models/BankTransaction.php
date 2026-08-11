@@ -16,12 +16,23 @@ class BankTransaction extends Model
 {
     use SoftDeletes, Encryptable;
 
+    /** Beleg-Status eines Eingangs (siehe Migration add_invoice_status_…). */
+    public const INVOICE_STATUS_OPEN = 'open';
+    public const INVOICE_STATUS_MATCHED = 'matched';
+    public const INVOICE_STATUS_PARTIAL = 'partial';
+    public const INVOICE_STATUS_NO_INVOICE = 'no_invoice';
+
+    /** Zugeordnete Cent im laufenden Match-Durchgang (siehe allocatedCents()). */
+    private int $allocationCache = 0;
+
+    private bool $allocationCacheWarm = false;
+
     protected $table = 'drip_bank_transactions';
 
     protected $fillable = [
         'uuid', 'team_id', 'user_id', 'bank_account_id', 'category_id', 'recurring_pattern_id',
         'transaction_id', 'booking_date', 'booking_date_time', 'value_date', 'value_date_time', 'booked_at',
-        'amount', 'currency', 'direction', 'status', 'is_disregarded', 'category_skipped', 'metadata',
+        'amount', 'currency', 'direction', 'status', 'is_disregarded', 'category_skipped', 'invoice_status', 'metadata',
         'remittance_information', 'remittance_information_structured', 'remittance_information_structured_array',
         'remittance_information_unstructured', 'remittance_information_unstructured_array',
         'debtor_name', 'creditor_name', 'debtor_account_iban', 'creditor_account_iban',
@@ -101,7 +112,8 @@ class BankTransaction extends Model
         // Live-Automatch: ein neuer Eingang wird sofort gegen die offenen
         // Ausgangsrechnungen geprüft (deckt alle Import-Wege ab: MOSS,
         // GoCardless, …). Rein lokal (kein easybill-Call), defensiv — ein
-        // Fehler darf den Import nie brechen.
+        // Fehler darf den Import nie brechen. Setzt nebenbei den invoice_status,
+        // also auch „no_invoice" für belegfreie Eingänge (Finanzamt, Zuschüsse).
         static::created(function (self $model) {
             if ($model->direction !== 'credit' || $model->is_disregarded) {
                 return;
@@ -178,6 +190,61 @@ class BankTransaction extends Model
     public function scopeCategorySkipped($query)
     {
         return $query->where('is_disregarded', false)->where('category_skipped', true);
+    }
+
+    // ── Beleg-Zuordnung ──
+
+    /**
+     * Belege, die dieser Eingang begleicht. n:m — eine Überweisung deckt oft
+     * mehrere Rechnungen ab (Sammelzahlung).
+     */
+    public function invoices(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            DripInvoice::class,
+            'drip_invoice_transaction',
+            'bank_transaction_id',
+            'drip_invoice_id'
+        )->withPivot(['team_id', 'amount_applied_cents', 'match_type', 'confidence', 'is_confirmed', 'confirmed_at'])
+         ->withTimestamps();
+    }
+
+    /** Bereits auf Belege verteilter Anteil dieses Eingangs, in Cent. */
+    public function allocatedCents(): int
+    {
+        if ($this->allocationCacheWarm === false) {
+            $this->allocationCacheWarm = true;
+            $rows = $this->relationLoaded('invoices') ? $this->invoices : $this->invoices()->get();
+            $this->allocationCache = (int) $rows->sum(fn ($i) => (int) $i->pivot->amount_applied_cents);
+        }
+
+        return $this->allocationCache;
+    }
+
+    /** Im laufenden Match-Durchgang zugeordneten Betrag mitschreiben. */
+    public function addAllocationCache(int $cents): void
+    {
+        $this->allocationCache = $this->allocatedCents() + $cents;
+    }
+
+    /** Noch nicht durch Belege gedeckter Anteil, in Cent. */
+    public function unallocatedCents(): int
+    {
+        return max(0, (int) round(abs((float) $this->amount) * 100) - $this->allocatedCents());
+    }
+
+    /** Eingänge, die noch auf einen Beleg warten — die eigentliche Worklist. */
+    public function scopeAwaitingInvoice($query)
+    {
+        return $query->where('direction', 'credit')
+            ->where('is_disregarded', false)
+            ->whereIn('invoice_status', [self::INVOICE_STATUS_OPEN, self::INVOICE_STATUS_PARTIAL]);
+    }
+
+    /** Bewusst belegfrei (Finanzamt, Zuschüsse, Ausleihungen, Kontoabschlüsse). */
+    public function scopeWithoutInvoiceExpected($query)
+    {
+        return $query->where('invoice_status', self::INVOICE_STATUS_NO_INVOICE);
     }
 }
 
