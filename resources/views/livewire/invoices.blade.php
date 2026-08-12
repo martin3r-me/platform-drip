@@ -30,9 +30,16 @@
                 @if($syncResult)
                     <span class="text-[11px] text-[color:var(--nx-faint)]">{{ $syncResult }}</span>
                 @endif
-                <x-nx-button variant="ghost" size="sm" wire:click="sync" wire:loading.attr="disabled">
-                    <span wire:loading.remove wire:target="sync">@svg('heroicon-o-arrow-path', 'w-4 h-4') Abgleichen</span>
-                    <span wire:loading wire:target="sync">Läuft…</span>
+                {{-- Primäraktion der Seite: eigene Fläche statt ghost, damit sie als
+                     Button lesbar ist. Die Spans müssen inline-flex sein — das SVG ist
+                     block-level und würde den Text sonst in die zweite Zeile drücken. --}}
+                <x-nx-button variant="primary" size="md" wire:click="sync" wire:loading.attr="disabled">
+                    <span class="inline-flex items-center gap-1.5" wire:loading.remove wire:target="sync">
+                        @svg('heroicon-o-arrow-path', 'w-4 h-4 shrink-0') Abgleichen
+                    </span>
+                    <span class="inline-flex items-center gap-1.5" wire:loading wire:target="sync">
+                        @svg('heroicon-o-arrow-path', 'w-4 h-4 shrink-0 animate-spin') Läuft…
+                    </span>
                 </x-nx-button>
             </div>
         </div>
@@ -185,10 +192,12 @@
                                                 @if($tx->invoice_status === \Platform\Drip\Models\BankTransaction::INVOICE_STATUS_PARTIAL)
                                                     <x-nx-badge variant="warning">teilweise</x-nx-badge>
                                                 @endif
-                                                <x-nx-button variant="ghost" size="sm"
+                                                <x-nx-button variant="secondary" size="sm"
                                                              wire:click="toggleNoInvoice({{ $tx->id }})"
                                                              title="Kein Beleg zu erwarten (Finanzamt, Zuschuss, Ausleihung …)">
-                                                    belegfrei
+                                                    <span class="inline-flex items-center gap-1.5">
+                                                        @svg('heroicon-o-check', 'w-4 h-4 shrink-0') belegfrei
+                                                    </span>
                                                 </x-nx-button>
                                                 <a href="{{ route('drip.transactions.show', $tx->id) }}" wire:navigate
                                                    class="text-[11px] text-[color:var(--nx-faint)] underline">öffnen</a>
