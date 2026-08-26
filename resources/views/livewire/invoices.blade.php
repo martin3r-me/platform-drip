@@ -122,22 +122,68 @@
                                             {{ number_format($inv->open_amount, 2, ',', '.') }} €
                                         </td>
                                         <td class="py-2 pr-3">
-                                            @forelse($inv->transactions as $tx)
-                                                <a href="{{ route('drip.transactions.show', $tx->id) }}"
-                                                   wire:navigate class="mr-1 inline-flex items-center gap-1"
-                                                   title="{{ $tx->booked_at?->format('d.m.Y') }} · {{ number_format($tx->pivot->amount_applied_cents / 100, 2, ',', '.') }} € · {{ $tx->pivot->match_type }}">
-                                                    <x-nx-badge :variant="$tx->pivot->confidence === 'high' ? 'success' : 'warning'" dot>
-                                                        {{ $tx->booked_at?->format('d.m.') }}
-                                                        @if($inv->transactions->count() > 1 || $inv->openCents() > 0)
-                                                            · {{ number_format($tx->pivot->amount_applied_cents / 100, 2, ',', '.') }} €
-                                                        @endif
-                                                    </x-nx-badge>
-                                                </a>
-                                            @empty
-                                                <x-nx-badge variant="warning">offen</x-nx-badge>
-                                            @endforelse
+                                            <div class="flex flex-wrap items-center gap-1">
+                                                @forelse($inv->transactions as $tx)
+                                                    <span class="inline-flex items-center">
+                                                        <a href="{{ route('drip.transactions.show', $tx->id) }}"
+                                                           wire:navigate class="inline-flex items-center gap-1"
+                                                           title="{{ $tx->booked_at?->format('d.m.Y') }} · {{ number_format($tx->pivot->amount_applied_cents / 100, 2, ',', '.') }} € · {{ $tx->pivot->is_confirmed ? 'manuell' : $tx->pivot->match_type }}">
+                                                            <x-nx-badge :variant="$tx->pivot->confidence === 'high' ? 'success' : 'warning'" dot>
+                                                                {{ $tx->booked_at?->format('d.m.') }}
+                                                                @if($inv->transactions->count() > 1 || $inv->openCents() > 0)
+                                                                    · {{ number_format($tx->pivot->amount_applied_cents / 100, 2, ',', '.') }} €
+                                                                @endif
+                                                                @if($tx->pivot->is_confirmed)
+                                                                    @svg('heroicon-o-check-badge', 'w-3 h-3')
+                                                                @endif
+                                                            </x-nx-badge>
+                                                        </a>
+                                                        <button type="button"
+                                                                wire:click="unassign({{ $inv->id }}, {{ $tx->id }})"
+                                                                class="ml-0.5 text-[color:var(--nx-faint)] hover:text-[color:var(--nx-danger)]"
+                                                                title="Zuordnung lösen">
+                                                            @svg('heroicon-o-x-mark', 'w-3.5 h-3.5')
+                                                        </button>
+                                                    </span>
+                                                @empty
+                                                    <x-nx-badge variant="warning">offen</x-nx-badge>
+                                                @endforelse
+
+                                                <button type="button"
+                                                        wire:click="startAssign({{ $inv->id }})"
+                                                        class="inline-flex items-center gap-0.5 text-[11px] text-[color:var(--nx-faint)] hover:text-[color:var(--nx-text)] underline"
+                                                        title="Transaktion manuell zuordnen">
+                                                    @svg('heroicon-o-plus', 'w-3.5 h-3.5') zuordnen
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
+
+                                    {{-- Manueller Zuordnungs-Picker: Kandidaten-TX der passenden Richtung --}}
+                                    @if($assigningInvoiceId === $inv->id)
+                                        <tr class="bg-[color:var(--nx-subtle)]">
+                                            <td colspan="7" class="px-3 py-3">
+                                                <div class="flex flex-wrap items-center gap-2">
+                                                    <span class="text-[11px] uppercase tracking-wide text-[color:var(--nx-faint)]">
+                                                        {{ $inv->direction === 'incoming' ? 'Abgang' : 'Eingang' }} zuordnen zu {{ $inv->number ?? '—' }}
+                                                    </span>
+                                                    @forelse($assignCandidates as $cand)
+                                                        <x-nx-button variant="secondary" size="sm"
+                                                                     wire:click="assign({{ $inv->id }}, {{ $cand->id }})"
+                                                                     title="{{ $cand->reference }}">
+                                                            {{ $cand->booked_at?->format('d.m.Y') }}
+                                                            · {{ number_format($cand->unallocatedCents() / 100, 2, ',', '.') }} €
+                                                            · {{ \Illuminate\Support\Str::limit($cand->counterparty_name ?? '—', 24) }}
+                                                        </x-nx-button>
+                                                    @empty
+                                                        <span class="text-[12px] text-[color:var(--nx-muted)]">Keine offene Transaktion dieser Richtung gefunden.</span>
+                                                    @endforelse
+                                                    <button type="button" wire:click="cancelAssign"
+                                                            class="text-[11px] text-[color:var(--nx-faint)] underline">abbrechen</button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    @endif
                                 @endforeach
                             </tbody>
                         </table>
@@ -195,6 +241,72 @@
                                                 <x-nx-button variant="secondary" size="sm"
                                                              wire:click="toggleNoInvoice({{ $tx->id }})"
                                                              title="Kein Beleg zu erwarten (Finanzamt, Zuschuss, Ausleihung …)">
+                                                    <span class="inline-flex items-center gap-1.5">
+                                                        @svg('heroicon-o-check', 'w-4 h-4 shrink-0') belegfrei
+                                                    </span>
+                                                </x-nx-button>
+                                                <a href="{{ route('drip.transactions.show', $tx->id) }}" wire:navigate
+                                                   class="text-[11px] text-[color:var(--nx-faint)] underline">öffnen</a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </x-nx-card>
+            @endif
+
+            {{-- Gegenrichtung Verbindlichkeiten: Geld raus, Eingangsbeleg fehlt.
+                 Gehälter, Steuern, Sozialversicherung u. Ä. haben systematisch
+                 keinen Lieferantenbeleg — hier als belegfrei abhakbar. --}}
+            @if($debitsAwaiting->isNotEmpty())
+                <x-nx-card class="overflow-hidden">
+                    <div class="mb-3 flex items-baseline justify-between gap-2">
+                        <h2 class="text-sm font-semibold text-[color:var(--nx-text)]">
+                            Zahlungen ohne Beleg
+                            <span class="ml-1 text-[11px] font-normal text-[color:var(--nx-faint)]">({{ $debitsAwaiting->count() }})</span>
+                        </h2>
+                        <span class="text-[11px] text-[color:var(--nx-faint)]">
+                            {{ number_format($debitsAwaitingSum, 2, ',', '.') }} € nicht zugeordnet
+                        </span>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="text-left text-[11px] uppercase tracking-wide text-[color:var(--nx-faint)]">
+                                    <th class="py-1 pr-3 font-medium">Datum</th>
+                                    <th class="py-1 pr-3 font-medium">Empfänger</th>
+                                    <th class="py-1 pr-3 font-medium">Verwendungszweck</th>
+                                    <th class="py-1 pr-3 text-right font-medium">Betrag</th>
+                                    <th class="py-1 pr-3 text-right font-medium">Offen</th>
+                                    <th class="py-1 pr-3 font-medium"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($debitsAwaiting as $tx)
+                                    <tr class="border-t border-[color:var(--nx-line)]">
+                                        <td class="py-2 pr-3 whitespace-nowrap text-[color:var(--nx-muted)]">
+                                            {{ $tx->booked_at?->format('d.m.Y') ?? '—' }}
+                                        </td>
+                                        <td class="py-2 pr-3">{{ $tx->counterparty_name ?? '—' }}</td>
+                                        <td class="py-2 pr-3 max-w-[22rem] truncate text-[12px] text-[color:var(--nx-muted)]"
+                                            title="{{ $tx->reference }}">{{ $tx->reference ?? '—' }}</td>
+                                        <td class="py-2 pr-3 text-right font-medium whitespace-nowrap">
+                                            {{ number_format(abs((float) $tx->amount), 2, ',', '.') }} €
+                                        </td>
+                                        <td class="py-2 pr-3 text-right whitespace-nowrap text-[color:var(--nx-danger)]">
+                                            {{ number_format($tx->unallocatedCents() / 100, 2, ',', '.') }} €
+                                        </td>
+                                        <td class="py-2 pr-3 whitespace-nowrap">
+                                            <div class="flex items-center gap-2">
+                                                @if($tx->invoice_status === \Platform\Drip\Models\BankTransaction::INVOICE_STATUS_PARTIAL)
+                                                    <x-nx-badge variant="warning">teilweise</x-nx-badge>
+                                                @endif
+                                                <x-nx-button variant="secondary" size="sm"
+                                                             wire:click="toggleNoInvoice({{ $tx->id }})"
+                                                             title="Kein Beleg zu erwarten (Gehalt, Steuer, Sozialversicherung …)">
                                                     <span class="inline-flex items-center gap-1.5">
                                                         @svg('heroicon-o-check', 'w-4 h-4 shrink-0') belegfrei
                                                     </span>

@@ -45,40 +45,47 @@ class InvoiceMatchService
     {
         $teamId = (int) $team->id;
 
-        $invoices = $this->openInvoices($teamId);
-        $credits = $this->candidateCredits($teamId);
+        $result = ['matched' => 0, 'checked' => 0, 'allocations' => 0, 'no_invoice' => 0];
 
-        $allocations = 0;
+        // Beide Richtungen mit derselben Mechanik:
+        //   Ausgangsrechnung (outgoing) ↔ Bank-Eingang (credit)
+        //   Eingangsbeleg     (incoming) ↔ Bank-Abgang  (debit)
+        foreach ([['outgoing', 'credit'], ['incoming', 'debit']] as [$invoiceDirection, $txDirection]) {
+            $invoices = $this->openInvoices($teamId, $invoiceDirection);
+            $transactions = $this->candidateTransactions($teamId, $txDirection);
 
-        // ── Durchgang 1: Nummern im Verwendungszweck (deckt Sammelzahlungen ab)
-        foreach ($credits as $tx) {
-            $allocations += $this->allocateByNumbers($tx, $invoices);
-        }
+            $allocations = 0;
 
-        // ── Durchgang 2: Betrags-/Namensheuristik für den Rest
-        foreach ($credits as $tx) {
-            if ($this->remainingCents($tx) <= 0) {
-                continue;
+            // ── Durchgang 1: Nummern im Verwendungszweck (deckt Sammelzahlungen ab)
+            foreach ($transactions as $tx) {
+                $allocations += $this->allocateByNumbers($tx, $invoices);
             }
-            $allocations += $this->allocateByHeuristic($tx, $invoices);
+
+            // ── Durchgang 2: Betrags-/Namensheuristik für den Rest
+            foreach ($transactions as $tx) {
+                if ($this->remainingCents($tx) <= 0) {
+                    continue;
+                }
+                $allocations += $this->allocateByHeuristic($tx, $invoices);
+            }
+
+            // ── Status nachziehen (Belege wie Transaktionen)
+            foreach ($invoices as $invoice) {
+                $this->refreshInvoiceStatus($invoice);
+            }
+
+            foreach ($transactions as $tx) {
+                if ($this->refreshTransactionStatus($tx) === BankTransaction::INVOICE_STATUS_NO_INVOICE) {
+                    $result['no_invoice']++;
+                }
+            }
+
+            $result['matched'] += $invoices->filter(fn ($i) => $i->isMatched())->count();
+            $result['checked'] += $invoices->count();
+            $result['allocations'] += $allocations;
         }
 
-        // ── Status nachziehen (Belege wie Transaktionen)
-        foreach ($invoices as $invoice) {
-            $this->refreshInvoiceStatus($invoice);
-        }
-
-        $noInvoice = 0;
-        foreach ($credits as $tx) {
-            $noInvoice += $this->refreshTransactionStatus($tx) === BankTransaction::INVOICE_STATUS_NO_INVOICE ? 1 : 0;
-        }
-
-        return [
-            'matched' => $invoices->filter(fn ($i) => $i->isMatched())->count(),
-            'checked' => $invoices->count(),
-            'allocations' => $allocations,
-            'no_invoice' => $noInvoice,
-        ];
+        return $result;
     }
 
     /**
@@ -88,11 +95,22 @@ class InvoiceMatchService
      */
     public function matchTransaction(BankTransaction $tx): Collection
     {
-        if ($tx->direction !== 'credit' || $tx->is_disregarded) {
+        if ($tx->is_disregarded) {
             return collect();
         }
 
-        $invoices = $this->openInvoices((int) $tx->team_id);
+        // Ein Eingang sucht Ausgangsrechnungen, ein Abgang Eingangsbelege.
+        $invoiceDirection = match ($tx->direction) {
+            'credit' => 'outgoing',
+            'debit' => 'incoming',
+            default => null,
+        };
+
+        if ($invoiceDirection === null) {
+            return collect();
+        }
+
+        $invoices = $this->openInvoices((int) $tx->team_id, $invoiceDirection);
 
         $this->allocateByNumbers($tx, $invoices);
         if ($this->remainingCents($tx) > 0) {
@@ -107,6 +125,72 @@ class InvoiceMatchService
         $this->refreshTransactionStatus($tx);
 
         return $touched->values();
+    }
+
+    // ────────────────────────────────────────────────────────────────────
+    // Manuelle Zuordnung (aus der UI)
+    // ────────────────────────────────────────────────────────────────────
+
+    /**
+     * Verknüpft einen Beleg bewusst mit einer Transaktion (manuelle Bestätigung).
+     * Überstimmt/ergänzt die Automatik: match_type='manual', als bestätigt markiert.
+     * Der zugeordnete Betrag ist der noch offene Belegteil, gedeckelt auf den noch
+     * freien Transaktionsanteil.
+     */
+    public function confirmMatch(DripInvoice $invoice, BankTransaction $tx, ?int $userId = null): void
+    {
+        // Caches warm ziehen, bevor die Pivot-Zeile geschrieben wird.
+        $invoice->allocatedCents();
+        $tx->allocatedCents();
+
+        $existing = (int) ($invoice->transactions()
+            ->where('bank_transaction_id', $tx->id)
+            ->value('amount_applied_cents') ?? 0);
+
+        $apply = min($this->invoiceOpenCents($invoice), $this->remainingCents($tx));
+        if ($apply <= 0 && $existing <= 0) {
+            // Beide rechnerisch gedeckt — die Verknüpfung trotzdem sichtbar machen.
+            $apply = $this->invoiceOpenCents($invoice) ?: abs((int) $invoice->amount_gross_cents);
+        }
+
+        $invoice->transactions()->syncWithoutDetaching([
+            $tx->id => [
+                'team_id' => $invoice->team_id,
+                'amount_applied_cents' => $existing + max(0, $apply),
+                'match_type' => 'manual',
+                'confidence' => 'high',
+                'is_confirmed' => true,
+                'confirmed_by' => $userId,
+                'confirmed_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
+
+        $invoice->addAllocationCache((int) $tx->id, max(0, $apply), 'manual');
+        $tx->addAllocationCache(max(0, $apply));
+
+        $this->refreshInvoiceStatus($invoice);
+        $this->refreshTransactionStatus($tx);
+    }
+
+    /**
+     * Hebt eine (manuelle wie automatische) Zuordnung wieder auf und zieht die
+     * Status beider Seiten frisch nach.
+     */
+    public function removeMatch(DripInvoice $invoice, BankTransaction $tx): void
+    {
+        $invoice->transactions()->detach($tx->id);
+
+        // Frisch laden — die In-Memory-Caches beider Modelle sind nach dem Detach stale.
+        $invoice = DripInvoice::with('transactions')->find($invoice->id);
+        $tx = BankTransaction::with('invoices')->find($tx->id);
+
+        if ($invoice) {
+            $this->refreshInvoiceStatus($invoice);
+        }
+        if ($tx) {
+            $this->refreshTransactionStatus($tx);
+        }
     }
 
     // ────────────────────────────────────────────────────────────────────
@@ -349,17 +433,18 @@ class InvoiceMatchService
      *
      * @return Collection<int,DripInvoice>
      */
-    private function openInvoices(int $teamId): Collection
+    private function openInvoices(int $teamId, string $direction = 'outgoing'): Collection
     {
         $invoices = DripInvoice::forTeam($teamId)
             ->invoices()
-            ->direction('outgoing')
+            ->direction($direction)
             ->where('amount_gross_cents', '>', 0)
             ->with('transactions')
             ->orderBy('document_date')
             ->get();
 
         $stornos = DripInvoice::forTeam($teamId)
+            ->direction($direction)
             ->whereIn('type', ['STORNO', 'CREDIT'])
             ->get();
 
@@ -403,11 +488,15 @@ class InvoiceMatchService
         });
     }
 
-    /** @return Collection<int,BankTransaction> */
-    private function candidateCredits(int $teamId): Collection
+    /**
+     * Abgleich-Kandidaten einer Richtung ('credit' = Eingang, 'debit' = Abgang).
+     *
+     * @return Collection<int,BankTransaction>
+     */
+    private function candidateTransactions(int $teamId, string $direction): Collection
     {
         return BankTransaction::where('team_id', $teamId)
-            ->where('direction', 'credit')
+            ->where('direction', $direction)
             ->counted()
             ->with(['invoices', 'category'])
             ->orderBy('booked_at')

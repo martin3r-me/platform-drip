@@ -109,13 +109,14 @@ class BankTransaction extends Model
             }
         });
 
-        // Live-Automatch: ein neuer Eingang wird sofort gegen die offenen
-        // Ausgangsrechnungen geprüft (deckt alle Import-Wege ab: MOSS,
-        // GoCardless, …). Rein lokal (kein easybill-Call), defensiv — ein
+        // Live-Automatch: eine neue Transaktion wird sofort gegen die offenen
+        // Belege der passenden Richtung geprüft — Eingang (credit) ↔ Ausgangs-
+        // rechnung, Abgang (debit) ↔ Eingangsbeleg. Deckt alle Import-Wege ab
+        // (MOSS, GoCardless, …). Rein lokal (kein easybill-Call), defensiv — ein
         // Fehler darf den Import nie brechen. Setzt nebenbei den invoice_status,
-        // also auch „no_invoice" für belegfreie Eingänge (Finanzamt, Zuschüsse).
+        // also auch „no_invoice" für belegfreie Buchungen (Finanzamt, Zuschüsse).
         static::created(function (self $model) {
-            if ($model->direction !== 'credit' || $model->is_disregarded) {
+            if (!in_array($model->direction, ['credit', 'debit'], true) || $model->is_disregarded) {
                 return;
             }
 
@@ -237,6 +238,17 @@ class BankTransaction extends Model
     public function scopeAwaitingInvoice($query)
     {
         return $query->where('direction', 'credit')
+            ->where('is_disregarded', false)
+            ->whereIn('invoice_status', [self::INVOICE_STATUS_OPEN, self::INVOICE_STATUS_PARTIAL]);
+    }
+
+    /**
+     * Gegenrichtung: Abgänge (Zahlungen), zu denen noch ein Eingangsbeleg fehlt.
+     * Pendant zu awaitingInvoice() für die Verbindlichkeitsseite.
+     */
+    public function scopeAwaitingReceipt($query)
+    {
+        return $query->where('direction', 'debit')
             ->where('is_disregarded', false)
             ->whereIn('invoice_status', [self::INVOICE_STATUS_OPEN, self::INVOICE_STATUS_PARTIAL]);
     }

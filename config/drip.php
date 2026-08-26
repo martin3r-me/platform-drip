@@ -30,8 +30,10 @@ return [
      */
     'invoice_matching' => [
         /**
-         * Kategorien, zu denen es systematisch keine Ausgangsrechnung gibt.
-         * Solche Eingänge werden als „belegfrei" markiert statt dauerhaft als
+         * Kategorien, zu denen es systematisch keinen Beleg gibt — in BEIDE
+         * Richtungen: Eingänge ohne Ausgangsrechnung (Finanzamt, Zuschüsse) wie
+         * Abgänge ohne Eingangsbeleg (Gehälter, Steuern, Sozialversicherung).
+         * Solche Buchungen werden als „belegfrei" markiert statt dauerhaft als
          * Lücke in der Worklist zu stehen. Abgleich case-insensitiv gegen den
          * Kategorienamen.
          */
@@ -42,6 +44,11 @@ return [
             'Ausleihungen BROICH.CATERING',
             'Zuschüsse',
             'Privateinlage',
+            // Abgangsseite: Zahlungen ohne Lieferantenbeleg
+            'Gehälter',
+            'Löhne',
+            'Personalkosten',
+            'Sozialversicherung',
         ],
     ],
 

@@ -21,7 +21,7 @@ class DripInvoice extends Model
     protected $table = 'drip_invoices';
 
     protected $fillable = [
-        'uuid', 'team_id', 'provider', 'external_id', 'number', 'type', 'direction',
+        'uuid', 'team_id', 'provider', 'external_id', 'external_ref', 'number', 'type', 'direction',
         'external_status', 'is_draft',
         'customer_external_id', 'customer_name', 'customer_iban',
         'amount_gross_cents', 'amount_net_cents', 'paid_amount_cents', 'currency',
@@ -185,6 +185,26 @@ class DripInvoice extends Model
     public function getMonthKeyAttribute(): ?string
     {
         return $this->document_date?->format('Y-m');
+    }
+
+    /**
+     * Gegenpartei-Alias: bei Eingangsbelegen ist die „customer_*"-Spalte der
+     * Lieferant. Diese Accessoren machen das im Code/Blade lesbar, ohne die
+     * richtungsagnostische Spalte umzubenennen.
+     */
+    public function getSupplierNameAttribute(): ?string
+    {
+        return $this->customer_name;
+    }
+
+    public function getSupplierIbanAttribute(): ?string
+    {
+        return $this->customer_iban;
+    }
+
+    public function isIncoming(): bool
+    {
+        return $this->direction === 'incoming';
     }
 
     public function isMatched(): bool

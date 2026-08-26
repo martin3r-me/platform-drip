@@ -27,6 +27,9 @@ class Invoices extends Component
     /** Gegenrichtung: Eingänge ohne Beleg ein-/ausblenden. */
     public bool $showUnmatchedCredits = true;
 
+    /** Beleg, für den gerade manuell eine Transaktion gesucht wird (Picker offen). */
+    public ?int $assigningInvoiceId = null;
+
     public ?string $syncResult = null;
 
     private const DIRECTIONS = [
@@ -51,6 +54,51 @@ class Invoices extends Component
         $match = $matchService->matchForTeam($team);
 
         $this->syncResult = "{$sync['synced']} Belege gespiegelt · {$match['allocations']} Zuordnungen · {$match['matched']} bezahlt.";
+    }
+
+    /** Manuellen Zuordnungs-Picker für einen Beleg öffnen bzw. schließen. */
+    public function startAssign(int $invoiceId): void
+    {
+        $this->assigningInvoiceId = $this->assigningInvoiceId === $invoiceId ? null : $invoiceId;
+    }
+
+    public function cancelAssign(): void
+    {
+        $this->assigningInvoiceId = null;
+    }
+
+    /** Einen Beleg manuell mit einer Transaktion verknüpfen (bestätigte Zuordnung). */
+    public function assign(int $invoiceId, int $transactionId, InvoiceMatchService $matchService): void
+    {
+        $teamId = $this->teamId();
+
+        $invoice = DripInvoice::forTeam($teamId)->with('transactions')->find($invoiceId);
+        $tx = BankTransaction::forTeam($teamId)->with('invoices')->find($transactionId);
+
+        if (!$invoice || !$tx) {
+            return;
+        }
+
+        $matchService->confirmMatch($invoice, $tx, (int) auth()->id());
+
+        $this->assigningInvoiceId = null;
+        $this->syncResult = "Beleg {$invoice->number} manuell zugeordnet.";
+    }
+
+    /** Eine bestehende Zuordnung wieder lösen. */
+    public function unassign(int $invoiceId, int $transactionId, InvoiceMatchService $matchService): void
+    {
+        $teamId = $this->teamId();
+
+        $invoice = DripInvoice::forTeam($teamId)->find($invoiceId);
+        $tx = BankTransaction::forTeam($teamId)->find($transactionId);
+
+        if (!$invoice || !$tx) {
+            return;
+        }
+
+        $matchService->removeMatch($invoice, $tx);
+        $this->syncResult = "Zuordnung gelöst.";
     }
 
     /**
@@ -108,6 +156,32 @@ class Invoices extends Component
             ? BankTransaction::forTeam($teamId)->awaitingInvoice()->with('invoices')->orderByDesc('booked_at')->get()
             : collect();
 
+        // Gegenrichtung: Abgänge (Zahlungen), zu denen ein Eingangsbeleg fehlt.
+        $debitsAwaiting = $this->showUnmatchedCredits
+            ? BankTransaction::forTeam($teamId)->awaitingReceipt()->with('invoices')->orderByDesc('booked_at')->get()
+            : collect();
+
+        // Kandidaten für den manuellen Picker: unabgeglichene TX der passenden
+        // Richtung (Eingang für Forderungen, Abgang für Verbindlichkeiten).
+        $assignCandidates = collect();
+        if ($this->assigningInvoiceId) {
+            $assignInvoice = $invoices->firstWhere('id', $this->assigningInvoiceId)
+                ?? DripInvoice::forTeam($teamId)->find($this->assigningInvoiceId);
+            if ($assignInvoice) {
+                $txDirection = $assignInvoice->direction === 'incoming' ? 'debit' : 'credit';
+                $assignCandidates = BankTransaction::forTeam($teamId)
+                    ->where('direction', $txDirection)
+                    ->counted()
+                    ->with('invoices')
+                    ->orderByDesc('booked_at')
+                    ->limit(200)
+                    ->get()
+                    ->filter(fn ($t) => $t->unallocatedCents() > 0)
+                    ->take(50)
+                    ->values();
+            }
+        }
+
         return view('drip::livewire.invoices', [
             'sections' => $sections,
             'invoiceCount' => $invoices->count(),
@@ -117,6 +191,9 @@ class Invoices extends Component
             'overdueSum' => $overdue->sum(fn ($i) => $i->openCents()) / 100,
             'creditsAwaiting' => $creditsAwaiting,
             'creditsAwaitingSum' => $creditsAwaiting->sum(fn ($t) => $t->unallocatedCents()) / 100,
+            'debitsAwaiting' => $debitsAwaiting,
+            'debitsAwaitingSum' => $debitsAwaiting->sum(fn ($t) => $t->unallocatedCents()) / 100,
+            'assignCandidates' => $assignCandidates,
         ])->layout('platform::layouts.app');
     }
 
