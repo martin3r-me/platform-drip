@@ -23,7 +23,7 @@ class CategoriesToolCrud implements ToolContract, ToolMetadataContract
 
     public function getDescription(): string
     {
-        return 'CRUD /drip/categories - Verwaltet Transaktionskategorien. action=list (default), action=create (name required, color/parent_id optional), action=update (category_id + Felder), action=delete (category_id), action=assign (category_id + counterparty_pattern für Bulk-Zuweisung per Teilstring-Match auf counterparty_name, oder transaction_ids für explizite IDs).';
+        return 'CRUD /drip/categories - Verwaltet Transaktionskategorien. action=list (default), action=create (name required, color/parent_id optional), action=update (category_id + Felder), action=delete (category_id), action=assign (category_id + counterparty_pattern für Bulk-Zuweisung per Teilstring-Match auf counterparty_name, oder transaction_ids für explizite IDs — ÜBERSCHREIBT auch bereits gesetzte Kategorien, im Gegensatz zu drip.rules.CRUD apply/apply_all, die nur unkategorisierte Transaktionen zuweisen).';
     }
 
     public function getSchema(): array
@@ -43,7 +43,7 @@ class CategoriesToolCrud implements ToolContract, ToolMetadataContract
                 'transaction_ids' => [
                     'type' => 'array',
                     'items' => ['type' => 'integer'],
-                    'description' => 'Explizite TX-IDs für assign.',
+                    'description' => 'Explizite TX-IDs für assign. Überschreibt auch eine bereits gesetzte category_id (kein whereNull-Filter, anders als bei rules.CRUD apply).',
                 ],
                 'reference_pattern' => [
                     'type' => 'string',

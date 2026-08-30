@@ -67,7 +67,7 @@ class ListBankTransactionsTool implements ToolContract, ToolMetadataContract
 
             $this->applyStandardFilters($query, $arguments, ['direction', 'status', 'currency', 'booked_at', 'bank_account_id', 'category_id']);
             $this->applyStandardSearch($query, $arguments, ['transaction_id']);
-            $this->applyStandardSort($query, $arguments, ['booked_at', 'created_at'], 'booked_at', 'desc');
+            $this->applyStandardSort($query, $arguments, ['id', 'booked_at', 'created_at'], 'booked_at', 'desc');
 
             $result = $this->applyStandardPaginationResult($query, $arguments);
 
