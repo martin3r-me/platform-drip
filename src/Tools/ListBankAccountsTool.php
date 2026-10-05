@@ -70,6 +70,7 @@ class ListBankAccountsTool implements ToolContract, ToolMetadataContract
                 'currency' => $a->currency,
                 'initial_balance' => $a->initial_balance,
                 'institution' => $a->institution?->name,
+                'group_id' => $a->group_id,
                 'group' => $a->group?->name,
                 'balances' => $a->balances->map(fn ($b) => [
                     'type' => $b->balance_type,
