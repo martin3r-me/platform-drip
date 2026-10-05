@@ -22,7 +22,7 @@ class ListBankTransactionsTool implements ToolContract, ToolMetadataContract
 
     public function getDescription(): string
     {
-        return 'GET /drip/bank_transactions - Listet Banktransaktionen. Parameter: team_id (optional), bank_account_id (optional), filters/search/sort/limit/offset.';
+        return 'GET /drip/bank_transactions - Listet Banktransaktionen. Parameter: team_id (optional), bank_account_id (optional), group_id (optional), filters/search/sort/limit/offset.';
     }
 
     public function getSchema(): array
@@ -38,6 +38,10 @@ class ListBankTransactionsTool implements ToolContract, ToolMetadataContract
                     'bank_account_id' => [
                         'type' => 'integer',
                         'description' => 'Optional: Filter auf ein Bankkonto.',
+                    ],
+                    'group_id' => [
+                        'type' => 'integer',
+                        'description' => 'Optional: Filter auf eine Kontogruppe (group_id aus drip.bank_accounts.GET).',
                     ],
                     'verbose' => [
                         'type' => 'boolean',
@@ -65,6 +69,11 @@ class ListBankTransactionsTool implements ToolContract, ToolMetadataContract
                 $query->where('bank_account_id', (int)$arguments['bank_account_id']);
             }
 
+            if (!empty($arguments['group_id'])) {
+                $groupId = (int)$arguments['group_id'];
+                $query->whereHas('bankAccount', fn ($q) => $q->where('group_id', $groupId));
+            }
+
             $this->applyStandardFilters($query, $arguments, ['direction', 'status', 'currency', 'booked_at', 'bank_account_id', 'category_id']);
             $this->applyStandardSearch($query, $arguments, ['transaction_id']);
             $this->applyStandardSort($query, $arguments, ['id', 'booked_at', 'created_at'], 'booked_at', 'desc');
@@ -80,6 +89,7 @@ class ListBankTransactionsTool implements ToolContract, ToolMetadataContract
                     'transaction_id' => $tx->transaction_id,
                     'bank_account' => $tx->bankAccount?->name,
                     'bank_account_id' => $tx->bank_account_id,
+                    'group_id' => $tx->bankAccount?->group_id,
                     'booked_at' => $tx->booked_at?->toDateString(),
                     'amount' => $tx->amount,
                     'currency' => $tx->currency,
